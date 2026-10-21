@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
@@ -8,8 +8,28 @@ import { promisify } from "node:util"
 
 const run = promisify(execFile)
 const repoRoot = path.resolve(fileURLToPath(import.meta.url), "..", "..")
+const cliEntry = path.join(repoRoot, "dist", "cli.js")
 
 let tmp: string
+
+/**
+ * El CLI se prueba como proceso real, así que necesita el build.
+ *
+ * `npm test` lo garantiza con el hook `pretest`. Este fallback cubre el caso
+ * de correr `npx vitest run` directo sobre un clone recién hecho, donde
+ * `dist/` todavía no existe.
+ */
+beforeAll(async () => {
+  try {
+    await fs.access(cliEntry)
+  } catch {
+    const tsc = path.join(repoRoot, "node_modules", "typescript", "bin", "tsc")
+    await run(process.execPath, [tsc, "-p", "tsconfig.build.json"], {
+      cwd: repoRoot,
+      timeout: 300_000,
+    })
+  }
+}, 300_000)
 
 beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), "oficina-cli-"))
@@ -19,11 +39,10 @@ afterEach(async () => {
   await fs.rm(tmp, { recursive: true, force: true })
 })
 
-/** Corre el CLI compilado (o el fuente vía tsx si no hay build). */
+/** Corre el CLI compilado. */
 async function cli(args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
-  const entry = path.join(repoRoot, "dist", "cli.js")
   try {
-    const { stdout, stderr } = await run(process.execPath, [entry, ...args], { cwd: repoRoot })
+    const { stdout, stderr } = await run(process.execPath, [cliEntry, ...args], { cwd: repoRoot })
     return { stdout, stderr, code: 0 }
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string; code?: number }
