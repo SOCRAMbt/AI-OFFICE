@@ -1,0 +1,64 @@
+{
+  "name": "oficina-opencode",
+  "version": "2.0.0",
+  "description": "Oficina de Agents — malla de coordinadores + peer mesh para OpenCode. Orquestación durable de subagentes con bus de mensajes en disco, roster de roles, leases, gates de calidad y escalamiento por invariantes.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    }
+  },
+  "bin": {
+    "oficina": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "agents",
+    "commands",
+    "docs",
+    "examples",
+    "DESIGN.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "agents",
+    "orchestration",
+    "multi-agent",
+    "durable-execution",
+    "workflow"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.15.11",
+    "zod": "4.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
+  }
+}

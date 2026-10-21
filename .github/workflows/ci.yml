@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: typecheck · test · build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm run test
+
+      - name: Coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm run coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Verificar que el paquete se puede empaquetar
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm pack --dry-run
+
+  smoke:
+    name: smoke del CLI
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: init + status + board
+        run: |
+          node dist/cli.js init "verificación de humo" --directory "$RUNNER_TEMP/demo"
+          node dist/cli.js status --directory "$RUNNER_TEMP/demo"
+          node dist/cli.js board --directory "$RUNNER_TEMP/demo"
+
+      - name: install en un target limpio
+        run: |
+          node dist/cli.js install --target "$RUNNER_TEMP/opencode" --json
+          test -f "$RUNNER_TEMP/opencode/plugins/oficina.js"
+          test -f "$RUNNER_TEMP/opencode/skills/oficina/SKILL.md"
+          test -d "$RUNNER_TEMP/opencode/agents"

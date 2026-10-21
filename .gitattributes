@@ -1,0 +1,21 @@
+# Normalización de fin de línea: LF en el repo, checkout nativo en cada SO.
+* text=auto eol=lf
+
+*.ts   text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+
+# Binarios
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
