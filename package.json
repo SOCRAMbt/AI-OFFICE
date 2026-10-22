@@ -36,12 +36,30 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
+    "opencode-agent",
     "agents",
     "orchestration",
     "multi-agent",
+    "agent-mesh",
+    "peer-to-peer",
     "durable-execution",
-    "workflow"
+    "workflow",
+    "state-machine",
+    "cli",
+    "ai"
   ],
+  "author": "Marcos <casselsmarcos1@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOCRAMbt/El-ltimoTPP.git"
+  },
+  "homepage": "https://github.com/SOCRAMbt/El-ltimoTPP#readme",
+  "bugs": {
+    "url": "https://github.com/SOCRAMbt/El-ltimoTPP/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",

@@ -5,16 +5,16 @@
 ### Una oficina de agentes para OpenCode donde el trabajo no se detiene cuando el modelo dice «terminé».
 
 [![npm](https://img.shields.io/npm/v/oficina-opencode?label=npm&color=cb3837)](https://www.npmjs.com/package/oficina-opencode)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/SOCRAMbt/El-ltimoTPP/tree/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
-[![tests](https://img.shields.io/badge/tests-201%20passing-22a06b.svg)](tests)
+[![tests](https://img.shields.io/badge/tests-213%20passing-22a06b.svg)](https://github.com/SOCRAMbt/El-ltimoTPP/tree/main/tests)
 [![coverage](https://img.shields.io/badge/coverage-87.3%25-7c3aed.svg)](https://vitest.dev)
-[![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](tsconfig.json)
+[![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](https://github.com/SOCRAMbt/El-ltimoTPP/blob/main/tsconfig.json)
 
 **4 hooks · 13 tools · 7 agentes · 6 gates · 6 invariantes duros · 306 roles de catálogo**
 
-> **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
-> **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+> **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](https://github.com/SOCRAMbt/El-ltimoTPP/blob/main/docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
+> **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](https://github.com/SOCRAMbt/El-ltimoTPP/blob/main/docs/ARCHITECTURE.md)
 
 [Documentación](#arquitectura) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
 
@@ -666,6 +666,6 @@ npm run build      # tsc → dist/
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE).
+MIT — ver [LICENSE](https://github.com/SOCRAMbt/El-ltimoTPP/tree/main/LICENSE).
 
 El diseño se apoya en los patrones de `durable-execution` y `workflow-engine-design`: estado durable antes de los efectos, leases con TTL, transiciones nombradas explícitamente y at-least-once con reconciliación por idempotency key.
