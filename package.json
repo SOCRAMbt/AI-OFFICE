@@ -1,6 +1,6 @@
 {
   "name": "oficina-opencode",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Oficina de Agents — malla de coordinadores + peer mesh para OpenCode. Orquestación durable de subagentes con bus de mensajes en disco, roster de roles, leases, gates de calidad y escalamiento por invariantes.",
   "license": "MIT",
   "type": "module",
@@ -75,7 +75,8 @@
     "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run docs:check",
     "docs:sync": "tsx scripts/sync-docs.ts",
     "docs:check": "tsx scripts/sync-docs.ts --check",
-    "bench:selection": "tsx benchmarks/selection/run.ts"
+    "bench:selection": "tsx benchmarks/selection/run.ts",
+    "diagnose": "tsx scripts/diagnose-run.ts"
   },
   "dependencies": {
     "@opencode/plugin": "^2.1.2",

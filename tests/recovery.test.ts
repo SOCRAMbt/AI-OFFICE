@@ -50,6 +50,41 @@ async function planOneCard(): Promise<OfficeState> {
   return office.loadState("Objetivo de prueba")
 }
 
+/**
+ * Registra un agente en el roster.
+ *
+ * ## Por qué hace falta
+ *
+ * Una card con `owner` apunta a un agente. Si ese agente no esta en el
+ * roster, la card esta "trabajando" con alguien que no existe: nadie la
+ * va a terminar y nadie lo va a notar.
+ *
+ * Los tests que declaraban un owner sin registrarlo describian, sin
+ * querer, una corrida rota. Ahora la reconciliacion lo detecta — y el
+ * fixture tiene que ser honesto.
+ */
+async function registerAgent(state: OfficeState, id = "e-trabajador"): Promise<void> {
+  const roster = await office.loadRoster(state.runId)
+  roster.agents[id] = {
+    id,
+    role: "frontend-developer",
+    displayName: "Frontend",
+    state: "working",
+    capabilities: ["react"],
+    fichaPath: "",
+    currentCard: "T-00",
+    lease: null,
+    idleSince: null,
+    canAccept: false,
+    helpGiven: 0,
+    helpReceived: 0,
+    helpedPeers: [],
+    lastHeartbeat: new Date().toISOString(),
+    source: { kind: "factory" },
+  }
+  await office.saveRoster(roster)
+}
+
 describe("Reconciliacion: entregas perdidas", () => {
   it("detecta una card en review sin handoff (el agente murio al entregar)", async () => {
     const state = await planOneCard()
@@ -222,11 +257,39 @@ describe("Reconciliacion: corrida sana", () => {
     state.cards["T-00"]!.state = "in_progress"
     state.cards["T-00"]!.owner = "e-trabajador"
     await office.saveState(state)
+    await registerAgent(state)
 
     const report = await reconcile(office, { autoRepair: false })
     expect(report.issues).toHaveLength(0)
     expect(report.healthy).toBe(true)
     expect(report.summary).toContain("consistente")
+  })
+})
+
+describe("Reconciliacion: el owner tiene que existir", () => {
+  it("detecta una card cuyo owner no esta en el roster", async () => {
+    const state = await planOneCard()
+    state.cards["T-00"]!.state = "in_progress"
+    state.cards["T-00"]!.owner = "e-fantasma"
+    await office.saveState(state)
+    // A proposito: NO se registra el agente en el roster.
+
+    const report = await reconcile(office, { autoRepair: false })
+    const issue = report.issues.find((i) => i.kind === "card-in-progress-without-owner")
+    expect(issue).toBeDefined()
+    expect(issue!.cardId).toBe("T-00")
+    expect(issue!.severity).toBe("critical")
+    // Critico significa que la corrida NO esta sana.
+    expect(report.healthy).toBe(false)
+  })
+
+  it("una card sin owner no dispara la alarma", async () => {
+    const state = await planOneCard()
+    state.cards["T-00"]!.state = "todo"
+    await office.saveState(state)
+
+    const report = await reconcile(office, { autoRepair: false })
+    expect(report.issues.find((i) => i.kind === "card-in-progress-without-owner")).toBeUndefined()
   })
 })
 

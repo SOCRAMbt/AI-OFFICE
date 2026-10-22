@@ -182,9 +182,10 @@ que dice "esto está roto".
 ## Cómo se verifica todo esto
 
 ```bash
-npm test              # 385 tests: adversariales, de carrera y de recuperación
+npm test              # 410 tests: adversariales, de carrera y de recuperación
 npm run typecheck     # strict + noUncheckedIndexedAccess
 npm run coverage      # cobertura por línea
 npm run docs:check    # la documentación coincide con el código
 npm run bench:selection  # el matcher le gana a las alternativas simples
+npm run diagnose <dir>   # radiografia de una corrida: cards, roles, gates, evidencia
 ```

@@ -324,6 +324,29 @@ export async function reconcile(
     }
   }
 
+  // ── El owner de una card tiene que existir en el roster ──
+  //
+  // Si el roster se perdio (una limpieza, un borrado manual, un crash) y
+  // el estado sigue diciendo que la card tiene owner, la card esta
+  // "trabajando" con un agente que no existe: nadie la va a terminar y
+  // nadie lo va a notar.
+  for (const cardId of state.order) {
+    const card = state.cards[cardId]
+    if (!card?.owner) continue
+    if (roster.agents[card.owner]) continue
+    issues.push({
+      kind: "card-in-progress-without-owner",
+      severity: "critical",
+      cardId,
+      agentId: card.owner,
+      detail:
+        `La card declara a \`${card.owner}\` como owner, pero ese agente no esta en el roster. ` +
+        `Nadie la va a terminar: el agente que la tenia dejo de existir.`,
+      repair: "Liberar la card para que otro agente la reclame.",
+      repaired: false,
+    })
+  }
+
   const criticas = issues.filter((i) => i.severity === "critical" && !i.repaired)
   const report: RecoveryReport = {
     runId: state.runId,

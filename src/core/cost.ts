@@ -723,7 +723,11 @@ export function renderCostReport(ledger: CostLedger, limits: CostLimits): string
   lines.push("")
   lines.push("| Métrica | Valor |")
   lines.push("|---|---|")
-  lines.push(`| USD | ${formatUsd(ledger.total.usd)} |`)
+  lines.push(`| USD | ${formatUsd(ledger.total.usd)}${
+    // Un modelo gratis reporta 0. Sin esta nota, un ledger con 40 llamadas
+    // y 0 dolares parece un bug de contabilidad.
+    ledger.total.usd === 0 && ledger.total.calls > 0 ? " (modelo sin costo por token)" : ""
+  } |`)
   lines.push(`| Tokens | ${formatInt(totalTokens(tokens))} |`)
   lines.push(`| └ entrada | ${formatInt(tokens.input)} |`)
   lines.push(`| └ salida | ${formatInt(tokens.output)} |`)
