@@ -120,7 +120,7 @@ async function main() {
   console.log(`Hechos calculados:`)
   console.log(`  tools:   ${facts.tools}`)
   console.log(`  hooks:   ${facts.hooks}`)
-  console.log(`  plugin:  @opencode-ai/plugin@${facts.pluginApi.version}`)
+  console.log(`  plugin:  @opencode/plugin@${facts.pluginApi.version}`)
   if (facts.catalog) {
     console.log(`  catalogo: ${facts.catalog.agents} agentes en ${facts.catalog.divisions} divisiones`)
   } else {

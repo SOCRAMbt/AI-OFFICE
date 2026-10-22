@@ -350,14 +350,26 @@ async function main(): Promise<number> {
       }
 
       // Entry point del plugin
+      //
+      // Para OpenCode v2 el entry tiene que resolver el paquete en runtime:
+      // el loader de v2 no resuelve bare specifiers desde
+      // ~/.config/opencode/plugins/. El archivo `plugin-entry.js` hace esa
+      // busqueda y lo importa por ruta absoluta.
       const pluginDir = path.join(target, "plugins")
       await fs.mkdir(pluginDir, { recursive: true })
       const pluginEntry = path.join(pluginDir, "oficina.js")
-      await fs.writeFile(
-        pluginEntry,
-        'export { OficinaPlugin, default } from "oficina-opencode"\n',
-        "utf8",
-      )
+      const entrySrc = path.join(packageRoot, "dist", "pluginEntry.js")
+      if (existsSync(entrySrc)) {
+        await fs.copyFile(entrySrc, pluginEntry)
+      } else {
+        // Fallback: el paquete se instalo sin compilar. Se escribe un
+        // import directo, que es lo que funciona en v1.
+        await fs.writeFile(
+          pluginEntry,
+          'export { default } from "oficina-opencode"\n',
+          "utf8",
+        )
+      }
       installed.push(pluginEntry)
 
       emit(json, { ok: true, target, installed, skipped })

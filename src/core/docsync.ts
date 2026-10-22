@@ -101,7 +101,13 @@ export interface ComputeFactsOptions {
   catalogSnapshot?: CatalogFacts | null
 }
 
-/** Lee la version del API de plugin instalada. */
+/**
+ * Lee la version del API de plugin instalada.
+ *
+ * Hay dos paquetes y los dos importan: `@opencode/plugin` (v2, el que usa el
+ * entry por defecto) y `@opencode-ai/plugin` (v1, el entry legacy). Se
+ * reporta el v2 porque es el que define la compatibilidad real.
+ */
 async function readPluginApiVersion(projectRoot: string): Promise<{ version: string; range: string }> {
   const fallback = { version: "desconocida", range: "desconocida" }
   try {
@@ -109,8 +115,13 @@ async function readPluginApiVersion(projectRoot: string): Promise<{ version: str
     const raw = await fs.readFile(pkgPath, "utf8")
     const pkg = JSON.parse(raw) as {
       dependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
     }
-    const range = pkg.dependencies?.["@opencode-ai/plugin"] ?? "desconocida"
+    const range =
+      pkg.dependencies?.["@opencode/plugin"] ??
+      pkg.peerDependencies?.["@opencode-ai/plugin"] ??
+      pkg.dependencies?.["@opencode-ai/plugin"]
+    if (!range) return fallback
     return { version: range.replace(/^[\^~>=<\s]*/, ""), range }
   } catch {
     return fallback
@@ -188,7 +199,7 @@ export function renderFactsBlock(facts: ProjectFacts): string {
   rows.push(`| **Paquete** | \`${facts.packageName}\` v${facts.version} |`)
   rows.push(`| **Tools** | ${facts.tools} |`)
   rows.push(`| **Hooks** | ${facts.hooks} |`)
-  rows.push(`| **API de plugin** | \`@opencode-ai/plugin@${facts.pluginApi.version}\` |`)
+  rows.push(`| **API de plugin** | \`@opencode/plugin@${facts.pluginApi.version}\` |`)
   rows.push(`| **Node** | ${facts.runtime.node} |`)
   if (facts.catalog) {
     rows.push(

@@ -1,18 +1,22 @@
 {
   "name": "oficina-opencode",
-  "version": "2.1.1",
+  "version": "3.0.0",
   "description": "Oficina de Agents — malla de coordinadores + peer mesh para OpenCode. Orquestación durable de subagentes con bus de mensajes en disco, roster de roles, leases, gates de calidad y escalamiento por invariantes.",
   "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/v2.js",
+  "types": "./dist/v2.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/v2.d.ts",
+      "import": "./dist/v2.js"
+    },
+    "./v1": {
+      "types": "./dist/v1.d.ts",
+      "import": "./dist/v1.js"
     },
     "./cli": {
       "types": "./dist/cli.d.ts",
@@ -74,14 +78,24 @@
     "bench:selection": "tsx benchmarks/selection/run.ts"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.15.11",
+    "@opencode/plugin": "^2.1.2",
     "zod": "4.1.8"
   },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.15.11"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@opencode/client": "^2.1.2",
+    "@opencode/plugin": "^2.1.2",
     "@types/node": "^24.12.2",
+    "@vitest/coverage-v8": "^3.2.4",
     "tsx": "^4.20.3",
     "typescript": "^5.8.2",
-    "vitest": "^3.2.4",
-    "@vitest/coverage-v8": "^3.2.4"
+    "vitest": "^3.2.4"
   }
 }

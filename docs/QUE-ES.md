@@ -3,10 +3,10 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v2.1.1 |
+| **Paquete** | `oficina-opencode` v3.0.0 |
 | **Tools** | 16 |
 | **Hooks** | 7 |
-| **API de plugin** | `@opencode-ai/plugin@1.15.11` |
+| **API de plugin** | `@opencode/plugin@2.1.2` |
 | **Node** | >=20 |
 | **Catálogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |

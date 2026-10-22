@@ -3,7 +3,7 @@ import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
 import type { PluginInput } from "@opencode-ai/plugin"
-import { OficinaPlugin } from "../src/index.js"
+import { OficinaPlugin } from "../src/v1.js"
 
 let tmp: string
 
@@ -42,7 +42,7 @@ function mockHost() {
   return { input, sent, logs }
 }
 
-describe("Plugin OFICINA", () => {
+describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
   it("se inicializa y registra las 16 tools", async () => {
     const { input } = mockHost()
     const hooks = await OficinaPlugin(input)

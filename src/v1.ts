@@ -27,8 +27,9 @@
  */
 
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
+import { tool as v1Tool, type ToolDefinition } from "@opencode-ai/plugin"
 import { Office } from "./core/office.js"
-import { buildTools } from "./tools/index.js"
+import { buildTools, type OficinaTool } from "./tools/index.js"
 import { createSessionIdleHook } from "./hooks/sessionIdle.js"
 import { createScopeGuardHook, resolveScopeCard } from "./hooks/scopeGuard.js"
 import { createSystemTransformHook } from "./hooks/systemTransform.js"
@@ -38,6 +39,25 @@ import { checkScope } from "./core/sandbox.js"
 import { logger } from "./core/log.js"
 
 const log = logger("oficina")
+
+/**
+ * Traduce las tools del motor (forma neutra) a la forma de OpenCode v1.
+ *
+ * El motor no conoce la API de ningun host: define `{ description, args,
+ * execute }` y cada entry la traduce. Acá va la traduccion a v1, que usa el
+ * helper `tool()` del plugin.
+ */
+function toV1Tools(defs: Record<string, OficinaTool>): Record<string, ToolDefinition> {
+  const out: Record<string, ToolDefinition> = {}
+  for (const [name, def] of Object.entries(defs)) {
+    out[name] = v1Tool({
+      description: def.description,
+      args: def.args as never,
+      execute: def.execute as never,
+    }) as ToolDefinition
+  }
+  return out
+}
 
 export interface OficinaOptions {
   /** Directorio del proyecto. Si se omite, se usa el del host. */
@@ -85,7 +105,7 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
     })
   }
 
-  const tools = buildTools(office)
+  const tools = toV1Tools(buildTools(office))
 
   /* ──────────────────────────────────────────────────────────────────────────
    * Resolucion del padre de una sesion

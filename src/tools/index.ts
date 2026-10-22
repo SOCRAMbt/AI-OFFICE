@@ -10,7 +10,7 @@
  * determinista donde tiene que serlo y creativo donde tiene que serlo.
  */
 
-import { tool, type ToolDefinition } from "@opencode-ai/plugin"
+import { z } from "zod"
 import type { Card, CardType, MessageKind, MessagePriority } from "../core/types.js"
 import { CHANNELS } from "../core/bus.js"
 import { Office, renderFicha } from "../core/office.js"
@@ -19,14 +19,75 @@ import { dispatchOffice } from "../core/dispatch.js"
 import { snapshotMesa, renderMesa } from "../core/mesa.js"
 
 /**
- * Se usa el zod del propio plugin (`tool.schema`) en vez de importar zod.
+ * La forma neutra de una tool.
  *
- * Motivo: `@opencode-ai/plugin` tipa sus tools contra su propia instancia de
- * zod. Si el paquete instala una copia distinta, los tipos son
- * incompatibles aunque el runtime funcione. Usar `tool.schema` garantiza
- * alineación de tipos y de versión.
+ * ## Por qué el motor no depende de ninguna API de plugins
+ *
+ * OpenCode v1 y v2 tienen APIs de plugins **incompatibles**: v1 usa
+ * `{ description, args: zodSchema, execute }` y v2 usa
+ * `{ name, description, input: JSONSchema, execute }`. Si el motor usara
+ * cualquiera de las dos, la otra version se rompia.
+ *
+ * Asi que el motor define la forma intermedia y cada entry la traduce:
+ * `v1.ts` la envuelve con el helper del plugin v1, `v2.ts` la convierte a
+ * JSON Schema con `z.toJSONSchema`.
+ *
+ * El parametro de tipo `TArgs` no es decorativo: es lo que hace que
+ * `args.objective` siga siendo `string` dentro del `execute` en vez de
+ * `unknown`. Sin el, el motor entero pierde el tipado de sus argumentos.
  */
-const z = tool.schema
+export interface OficinaTool<TArgs extends z.ZodTypeAny = z.ZodTypeAny> {
+  description: string
+  /** Schema zod de los argumentos. */
+  args?: TArgs
+  execute(args: z.infer<TArgs>, ctx: ToolContext): Promise<OficinaToolResult>
+}
+
+/** Lo que recibe la tool: dónde corre y en qué sesión. */
+export interface ToolContext {
+  /** Directorio del proyecto. */
+  directory: string
+  /** Sesión que invocó la tool. */
+  sessionID: string
+  /** Agente que invocó la tool, si el host lo informa. */
+  agent?: string
+  /** Id del mensaje, si el host lo informa. */
+  messageID?: string
+}
+
+/** Lo que devuelve la tool. */
+export interface OficinaToolResult {
+  title: string
+  output: string
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Helper local: construye una tool en la forma neutra.
+ *
+ * Es la identidad a proposito. Antes usaba el `tool()` del plugin v1, que
+ * ataba el motor a esa API.
+ *
+ * ## Por que construye el `z.object`
+ *
+ * El helper de v1 recibia los argumentos como **forma plana**
+ * (`{ objective: z.string() }`) y armaba el `z.object` por dentro. El motor
+ * esta escrito asi, y es la forma mas comoda de declarar una tool. Este
+ * helper mantiene esa ergonomia y guarda el objeto construido, que es lo que
+ * despues traduce cada entry (v1 lo pasa tal cual, v2 lo convierte a JSON
+ * Schema).
+ */
+function tool<TShape extends z.ZodRawShape>(input: {
+  description: string
+  args: TShape
+  execute(args: z.infer<z.ZodObject<TShape>>, ctx: ToolContext): Promise<OficinaToolResult>
+}): OficinaTool<z.ZodObject<TShape>> {
+  return {
+    description: input.description,
+    args: z.object(input.args),
+    execute: input.execute,
+  }
+}
 
 const cardTypeSchema = z.enum([
   "exploration",
@@ -47,7 +108,7 @@ const cardTypeSchema = z.enum([
  * no puede nombrar el tipo de los schemas (que viene del zod anidado del
  * plugin) y el build falla con TS2742.
  */
-export function buildTools(office: Office): Record<string, ToolDefinition> {
+export function buildTools(office: Office): Record<string, OficinaTool> {
   const officeOf = (ctx: { directory: string }) => {
     // El directorio del contexto tiene prioridad sobre el cwd del plugin:
     // es el proyecto real en el que se está trabajando.
