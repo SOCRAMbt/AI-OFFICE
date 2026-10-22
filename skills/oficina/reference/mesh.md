@@ -45,13 +45,22 @@ escalate_to: coordinator-flow
 
 ### Resolución: catálogo primero, factory después
 
-El catálogo de agency-agents tiene **306 agentes en 25 divisiones**. La especialidad real de cada uno está en el **cuerpo**, no en el `description` del frontmatter:
+El catálogo de agency-agents tiene **258 agentes resolubles en 18 divisiones** (la cifra vive en `docs/catalog-facts.json`, con su commit de origen, y el CI verifica que no se desactualice). La especialidad real de cada uno está en el **cuerpo** y en la `description` y el `vibe` del frontmatter:
 
 - **Core Mission** → los subtítulos son la especialidad declarada
 - **Technical Deliverables** → lo que sabe producir
 - **Advanced Capabilities** → lo que maneja mejor
+- **description + vibe** → líneas curadas a mano: la señal más limpia
 
-El matcher pondera: nombre del rol (40%) · misión literal (35%) · misión conceptual (20%) · cuerpo (5%) · división (0%).
+El matcher pondera por señal: **identidad** (slug + nombre + `description` + `vibe`) 35% · **misión literal** 28% · **misión conceptual** 18% · **división** 10% · **cuerpo** 5%.
+
+Además aplica tres correcciones que la bolsa de tokens no hace:
+
+- **Sinónimos por capability** — `"e2e"` es `"end-to-end"`, pero `"e2e"` **no** es `"playwright"`. La taxonomía agrupa por concepto; los sinónimos no.
+- **Lematización** — `"testing"` ~ `"test"`, `"validation"` ~ `"validate"`. El Commander pide capabilities en sus palabras y los agentes usan las suyas.
+- **Focus de misión** — qué fracción de las misiones declaradas del agente es del dominio. Es lo que distingue a un especialista de un generalista que menciona la tool de pasada.
+
+**Medido**: el matcher completo acierta el primer rol en el **71%** de 21 tareas de referencia, contra el **48%** de la versión anterior (`npm run bench:selection`). Se probó además una ponderación por IDF y **no se quedó**: bajaba el hit@1 a 67%.
 
 ```
 1. CATALOG MATCH (preferido)

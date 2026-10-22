@@ -1,6 +1,6 @@
 ﻿---
 name: oficina
-description: Oficina de Agents que trabaja un objetivo de principio a fin sin instrucciones repetidas. Con el plugin instalado, la oficina es una máquina de estados con hooks de enforcement: el Director descompone, delega a especialistas con ficha normalizada, coordina por un bus de mensajes en disco, permite pedir ayuda y delegar entre pares, y un hook de auto-continuación sigue trabajando cuando el modelo dice "terminé". Sin el plugin, el mismo protocolo funciona con el flujo de artefactos en markdown. Úsala cuando el usuario da un objetivo, feature, bug o refactor y quiere que un equipo de agentes lo ejecute completo, se auto-verifique y entregue evidencia, en vez de que el assistant lo haga todo lineal.
+description: Oficina de Agents que trabaja un objetivo de principio a fin sin instrucciones repetidas. Con el plugin instalado, la oficina es una máquina de estados con hooks de enforcement: el Director descompone, el dispatch crea los subagentes buscándolos en el catálogo real de agency-agents, coordina por un bus de mensajes en disco, permite pedir ayuda y delegar entre pares, y un hook de auto-continuación sigue trabajando cuando el modelo dice "terminé". Una card no se cierra sin gates en verde Y sin evidencia para cada criterio de aceptación. Sin el plugin, el mismo protocolo funciona con el flujo de artefactos en markdown. Úsala cuando el usuario da un objetivo, feature, bug o refactor y quiere que un equipo de agentes lo ejecute completo, se auto-verifique y entregue evidencia, en vez de que el assistant lo haga todo lineal.
 ---
 
 # OFICINA — Oficina de Agents
@@ -12,10 +12,13 @@ Un objetivo entra por la puerta. La oficina lo ejecuta, se auto-verifica, y entr
 | | **Con plugin** (motor duro) | **Sin plugin** (fallback) |
 |---|---|---|
 | Estado | Máquina de estados en TypeScript | `state.json` markdown + JSON |
-| Gates | Comandos reales, exit codes interpretados por código | El modelo corre los comandos y pega la salida |
-| Enforcement | Guard de scope: no se puede editar fuera del scope | Disciplina del prompt |
+| Equipo | `oficina_dispatch` crea los subagentes | El modelo los crea a mano |
+| Gates | 7 comandos reales, exit codes interpretados por código | El modelo corre los comandos y pega la salida |
+| Enforcement | 3 capas: guard, `permission.ask`, tripwire | Disciplina del prompt |
+| Cierre | Gates **+ evidencia** de cada requisito | Solo gates |
 | Loop | Hook `session.idle` → la oficina sigue sola | El modelo decide si sigue |
 | Invariantes | `assertInvariants` en código | Regla dura en el prompt |
+| Costo | Ledger de tokens y USD en tiempo real | No se mide |
 | Comunicación | Bus de mensajes con TTL/ack/idempotencia | Artefactos en disco, unidireccional |
 
 **Preferí el plugin.** Si las tools `oficina_*` están disponibles, usá el motor duro: los invariantes dejan de ser sugerencias.
@@ -29,13 +32,15 @@ El protocolo de este documento sirve para los dos. Las secciones marcadas **[plu
 | Falla | Cómo la resuelve OFICINA |
 |---|---|
 | El usuario tiene que dar todas las instrucciones | El **Comandante** descompone solo. El usuario da un objetivo y basta. |
-| El agent "no cumple" lo que dice | Cada card tiene **acceptance criteria** explícitos y un **gate** que se ejecuta, no se opina. |
-| Los subagentes se desaprovechan | Tabla de **enrutado determinista** + resolución desde el catálogo real de agency-agents. |
+| El agent "no cumple" lo que se dice | Cada card tiene **acceptance criteria** explícitos y un **gate** que se ejecuta, no se opina. |
+| Los subagentes se desaprovechan | **Dispatch** que resuelve el rol desde el catálogo real de agency-agents y panel con complementos. |
 | Hay que repetir el contexto | **Ledger de contexto** en disco (`.oficina/context.md`) + handoff por artefactos. |
-| Los agents no se coordinan ni se ayudan | **Bus de mensajes**: pueden pedir ayuda, delegar y contestar. |
+| Los agents no se coordinan ni se ayudan | **Bus de mensajes** + **mesa** compartida: cada uno sabe quién trabaja en qué. |
 | Son monotonos | **Revisor distinto del autor** + rotación de owner y de dimensión. |
 | Nadie los orquesta | **3 coordinadores** con dominios particionados y arbitraje explícito. |
 | La IA dice "terminé" sin terminar | **[plugin]** Hook de auto-continuación: el estado decide, no la confianza. |
+| Compila pero no cumple | **Grafo de evidencia**: cada criterio de aceptación necesita respaldo o la card no se cierra. |
+| Se gasta una fortuna sin avisar | **Ledger de costo** con presupuestos y **freno de emergencia**. |
 
 ---
 
@@ -49,6 +54,115 @@ CAPA 0 — ROSTER/FICHAS   resolución de roles + matching de capabilities
 ```
 
 Detalle completo en `reference/mesh.md`.
+
+---
+
+## El flujo completo: de un objetivo a un equipo
+
+Este es el flujo. Seguílo en orden.
+
+```
+   EL USUARIO DA UN OBJETIVO
+            |
+            v
+  +--------------------------------+
+  | 1. PLAN      (Comandante)     |  → cards con scope, acceptance, gate, deps
+  |    oficina_plan               |
+  +--------------------------------+
+            |
+            v
+  +--------------------------------+
+  | 2. DISPATCH  (Integrador)     |  → RESUELVE LOS ROLES y ARRANCA LOS AGENTES
+  |    oficina_dispatch            |    busca en agency-agents, materializa
+  |                               |    .opencode/agents/, spawna en paralelo
+  +--------------------------------+
+            |
+            v
+  +--------------------------------+
+  | 3. MESA      (todos)          |  → quién trabaja en qué, quién está libre,
+  |    oficina_mesa (view)         |    qué ayuda espera respuesta
+  +--------------------------------+
+            |
+            v
+  +--------------------------------+
+  | 4. TRABAJO   (Owner)          |  → oficina_assign + handoff.md + evidence.md
+  +--------------------------------+
+            |
+            v
+  +--------------------------------+
+  | 5. AUTO-REVIEW  (Crítico)     |  → revisor ≠ owner
+  |    oficina_review              |
+  +--------------------------------+
+            | APROBADO
+            v
+  +--------------------------------+
+  | 6. GATES + EVIDENCIA          |  → oficina_gate corre los 7 gates
+  |    oficina_gate                |    + verifica el grafo de requisitos
+  +--------------------------------+
+            | PASA
+            v
+  +--------------------------------+
+  | 7. DONE                       |  → la card queda done, el agente se libera
+  +--------------------------------+
+            |
+            v
+      el agente queda LIBRE y ofrece ayuda
+      → puede reclamar la siguiente card
+```
+
+**[plugin] El paso 2 es el que hace que esto sea una oficina y no un chatbot.** `oficina_dispatch` es lo único que arma el equipo: resuelve el rol de cada card, materializa el agente con su briefing de 10 secciones, y lo arranca con `session.prompt`.
+
+---
+
+## Las 16 tools
+
+| Tool | Qué hace |
+|---|---|
+| `oficina_plan` | Guarda el plan de cards. El modelo propone; el motor valida y rutea owner/reviewer |
+| **`oficina_dispatch`** | **Arma el equipo**: resuelve los roles, materializa los agentes y los arranca en paralelo |
+| **`oficina_mesa`** | **La mesa**: quién trabaja en qué, quién está libre, qué ayuda espera respuesta, qué cards no tienen owner |
+| `oficina_board` | Estado: cards, owners, agentes libres, agentes sin heartbeat, presupuesto |
+| `oficina_assign` | Toma trabajo — la próxima card, o claim proactivo de una puntual |
+| `oficina_submit` | Entrega handoff + evidencia real → pasa a `REVIEW` |
+| `oficina_review` | Registra el veredicto. El motor **rechaza** que el owner se auto-revise |
+| `oficina_gate` | Corre los 7 gates. Exit codes reales, no opinión |
+| **`oficina_evidence`** | **El grafo de requisitos**: qué evidencia falta para poder cerrar |
+| **`oficina_cost`** | **Tokens y USD** por card, agente y fase, con los presupuestos |
+| **`oficina_stop`** | **Freno de emergencia**: detiene o reanuda la corrida |
+| `oficina_bus` | Bus: `send` · `receive` · `ack` · `help` |
+| `oficina_spawn` | Pide desplegar un agente. El Integrador aprueba o rechaza |
+| `oficina_escalate` | Escala al usuario con 2-3 opciones concretas y recomendación |
+| `oficina_ficha` | Resuelve un rol a ficha y **despliega** el agente con su briefing |
+| `oficina_brief` | Muestra el briefing y el **panel de roles** sin desplegar: decisión del Comandante |
+
+---
+
+## El dispatch: cómo se arma el equipo
+
+**[plugin]** `oficina_dispatch` hace, por cada card sin owner:
+
+1. **Busca el rol** en el catálogo de agency-agents con el matcher.
+2. **Calcula el panel**: primario + complementos (los que cubren lo que el primario NO cubre).
+3. **Materializa el agente** en `.opencode/agents/oficina-<slug>.md` con su briefing de 10 secciones y su prompt de especialidad. Queda versionado con el repo.
+4. **Lo arranca** en paralelo con `session.prompt` (parte `subtask`).
+
+El resultado es que **los subagentes heredan el scope de su card** y trabajan con el contexto completo desde el primer token.
+
+**Si algo no matchea bien**, no fuerces: `oficina_brief` muestra las alternativas sin desplegar, y `oficina_ficha` despliega un rol puntual.
+
+---
+
+## La mesa: cómo se coordinan
+
+**[plugin]** `oficina_mesa` es la vista compartida. Sin ella, el peer mesh es un bus al que nadie mira.
+
+- **view** — quién trabaja en qué, quién está libre, qué cards no tienen owner, qué ayuda espera respuesta, qué preguntas están abiertas.
+- **read** — tus mensajes.
+- **respond** — contestar un pedido de ayuda.
+- **offer** — ofrecer ayuda.
+- **claim** — reclamar una card libre.
+
+**Consultá la mesa antes de**: reclamar trabajo, pedir ayuda (para saber a quién), y cuando te asignen una card.
 
 ---
 
@@ -66,56 +180,6 @@ Un solo coordinador es cuello de botella y punto único de falla. Tres, con domi
 **Arbitraje**: scope → Comandante. Patrón/contrato → Arquitecto. Flujo/lease/gate → Integrador. Si cruza dos dominios: el Arquitecto decide lo técnico con visto bueno del Comandante; si el Integrador detecta deadlock, reparte y avisa.
 
 **Al usuario solo se escala** si el coordinador no puede decidir (criterio de producto), si el conflicto cruza dominios sin resolución, o si se agotó el presupuesto.
-
----
-
-## El ciclo de la oficina
-
-```
-OBJETIVO
-   |
-   v
- +---------------------------+
- | 1. PLAN (Comandante)     |  Descompone -> cards con owner, acceptance, gate, scope
- +---------------------------+
-   |
-   v
- +---------------------------+
- | 2. STANDUP               |  Elige la card mas prioritaria con deps satisfechas
- +---------------------------+
-   |
-   v
- +---------------------------+
- | 3. TRABAJO (Owner)       |  Ejecuta + escribe handoff.md + evidence.md
- +---------------------------+
-   |
-   v
- +---------------------------+
- | 4. AUTO-REVIEW           |  Critico != owner. APROBADO o RECHAZADO con razon
- +---------------------------+
-   | RECHAZADO ----------------+
-   | APROBADO                 |
-   v                           |
- +---------------------------+ |
- | 5. GATES                 | |
- |  Verificador (tecnico)   | |
- |  Guardian (seguridad)     | |
- +---------------------------+ |
-   |                           |
-   | FALLA ---------------------+
-   | PASA
-   v
- +-----------+         +---------------+
- | 6. DONE   |         | 7. REWORK     |
- +-----------+         |  1er: reintenta|
-                       |  2do: replan  |
-                       |  3ro: ESCALA  |
-                       +---------------+
-```
-
-**[plugin]** Con el plugin, el paso 3 es un `oficina_assign` y el paso 5 un `oficina_gate` que corre los comandos de verdad.
-
-Cada 3 cards completadas → **checkpoint** al usuario. Al final → **informe de entrega**.
 
 ---
 
@@ -141,7 +205,11 @@ Cada 3 cards completadas → **checkpoint** al usuario. Al final → **informe d
 
 **[plugin]** `oficina_brief` muestra el panel sin desplegar; `oficina_ficha` además despliega el agente con su briefing.
 
-**1. Catálogo primero.** El repo de agency-agents tiene **306 agentes en 25 divisiones**. La especialidad real de cada uno está en el **cuerpo** (Core Mission, Technical Deliverables, Advanced Capabilities), no en el `description`. El matcher pondera el nombre del rol (40%), la misión literal (35%) y la misión conceptual (20%).
+**1. Catálogo primero.** El repo de agency-agents tiene **258 agentes resolubles en 18 divisiones** (la cifra vive en `docs/catalog-facts.json`, con su commit de origen, y el CI verifica que no se desactualice). La especialidad real de cada uno está en el **cuerpo** (Core Mission, Technical Deliverables, Advanced Capabilities) y en la `description` y el `vibe` del frontmatter, no solo en el nombre.
+
+El matcher pondera por señal: **identidad** (slug + nombre + `description` + `vibe`) 35%, **misión literal** 28%, **misión conceptual** 18%, **división** 10%, **cuerpo** 5%. Además usa **sinónimos por capability** (`"e2e"` es `"end-to-end"`, pero `"e2e"` NO es `"playwright"`), **lematización** (`"testing"` ~ `"test"`) y **focus de misión** (qué fracción de las misiones del agente es del dominio: distingue a un especialista de un generalista que menciona la tool de pasada).
+
+**Medido, no supuesto:** el matcher completo acierta el primer rol en el **71%** de 21 tareas de referencia, contra el **48%** de la versión anterior. El benchmark es `npm run bench:selection`.
 
 **2. Factory si la cobertura es < 60%.** El rol fabricado emite la **misma estructura de 10 secciones** que el catálogo, con las capabilities, el scope, el objetivo de la corrida y los modos de fallo del rol. Un rol fabricado con contexto es usable; uno genérico no.
 
@@ -151,7 +219,7 @@ Cada 3 cards completadas → **checkpoint** al usuario. Al final → **informe d
 - **complementos** — los que cubren lo que el primario NO cubre. Son sus pares en el bus.
 - **sin cubrir** — lo que nadie cubre. Señal de que la card debería partirse en dos.
 
-**Nunca fuerces un mal match.** Si nadie cubre una capacidad, se fabrica el rol o se pide ayuda. Un rol medio-tono en el equipo arruina más de lo que aporta.
+**Nunca fuerces un mal match.** Si nadie cubre una capacidad, se fabrica el rol o se pide ayuda. Un rol medio-tonto en el equipo arruina más de lo que aporta.
 
 **Sin plugin**: la tabla de `reference/roles.md`.
 
@@ -175,6 +243,19 @@ Cada 3 cards completadas → **checkpoint** al usuario. Al final → **informe d
 La sección *"lo que ya sabés"* se alimenta del **ledger** (`.oficina/context.md`): decisiones, restricciones, piezas construidas y trampas. Es lo que evita repetir lo ya decidido.
 
 Detalle completo en `reference/mesh.md`.
+
+---
+
+## El scope: una restricción, no una instrucción
+
+**[plugin]** Cuando un agente intenta escribir fuera del scope de su card, la operación **se rechaza**. No es una sugerencia.
+
+- La ruta se **resuelve** (absoluta → normalizada → symlinks resueltos) y recién ahí se decide.
+- `..`, paths absolutos y symlinks que apuntan afuera están cerrados.
+- Los archivos sensibles (`.env`, `.npmrc`, `.git/**`, claves) **nunca** son escribibles.
+- Los **subagentes heredan el scope**: delegar no es un escalón para salirse.
+
+Si el archivo es necesario: pedí por el bus que se amplíe el scope. No lo toques por tu cuenta.
 
 ---
 
@@ -212,24 +293,65 @@ El modo 3 es lo que convierte la oficina de "N tareas en paralelo" a "N agentes 
 
 ---
 
-## Reglas de ejecución
+## Verificar el resultado, no solo el proceso
 
-1. **Nunca marques DONE sin los gates en verde.** Una card sin `gates.md` en PASS no está DONE, está mintiendo.
-2. **Nunca revises tu propio trabajo.**
-3. **Un subagente, una card, un artefacto.** Los subagentes son stateless: la delegación lleva todo el contexto.
-4. **Los artefactos son la memoria.** Si no está en `.oficina/`, no existe.
-5. **Escalá cuando el caso lo pida**, no antes. 3 rechazos de la misma card = escalación con opciones concretas.
-6. **Presupuesto**: 20 cards, 40 invocaciones, 20 spawns por corrida. Si se agota, informe parcial honesto y preguntá.
+**[plugin]** Siete gates. Los seis técnicos dicen que **el código está sano**; el séptimo dice que **el objetivo está cumplido**:
+
+| # | Fase | Qué comprueba |
+|---|---|---|
+| 1 | Build | Compila |
+| 2 | Type check | Tipos |
+| 3 | Lint | Estilo |
+| 4 | Tests | Comportamiento |
+| 5 | Secretos | No hay credenciales en el árbol |
+| 6 | Diff | Qué cambió |
+| 7 | **Requisitos** | **Cada criterio de aceptación tiene evidencia** |
+
+**Reglas de honestidad** — no negociables:
+
+- Nunca `PASS` en una fase que no se corrió → `NOT RUN` y eso hace fallar el gate
+- Nunca output inventado
+- `N/A` siempre con motivo explícito
+- Una fase aplicable en `FAIL` = gate `FAIL`. No se promedia
+- El escaneo de secretos corre **en código**, no shelling out a `grep` (que no existe en Windows), y **redacta** el valor: un log de gate que imprime la credencial completa la acaba de filtrar
+
+### El grafo de evidencia
+
+**[plugin]** `oficina_evidence` muestra, por card, qué criterio de aceptación tiene evidencia y cuál no.
+
+Cada criterio de aceptación es un **requisito**. Cada evidencia —un artefacto, un test, un gate, una inspección, una auditoría— se vincula a un requisito con un **nivel**:
+
+| Nivel | Qué es |
+|---|---|
+| 1 | Estático (un gate) |
+| 2 | Comportamiento (un artefacto, un test) |
+| 3 | Validación de requisitos (inspección) |
+| 4 | Auditoría independiente (revisor ≠ owner) |
+
+**Una card NO se cierra sin evidencia suficiente de cada requisito obligatorio.** Los gates en verde no alcanzan: un proyecto puede compilar, pasar todos sus tests y tener la autenticación mal porque ningún test contemplaba ese escenario.
+
+Cuando entregues, registrá la evidencia: `oficina_evidence` con `action: "add"`, diciendo QUÉ evidencia respalda QUÉ criterio.
 
 ---
 
-## Umbral de calidad
+## El costo y el freno
 
-De `verification-loop`: build → type check → lint → tests → security grep → diff review.
+**[plugin]** `oficina_cost` muestra tokens y USD por card, agente y fase, con los presupuestos y cuánto falta para cada límite. El costo real lo reporta el motor; no se estima.
 
-Si el proyecto no tiene tooling para alguna fase, se marca `N/A` explícito — nunca se saltea en silencio.
+Si la corrida se está descontrolando: `oficina_stop` con `action: "halt"`. La oficina deja de avanzar — no reanuda, no despacha, no gasta. Se reanuda con `action: "resume"`.
 
-**[plugin]** El escaneo de secretos corre en código y **redacta** el valor: un log de gate que imprime la credencial completa la acaba de filtrar.
+---
+
+## Reglas de ejecución
+
+1. **Nunca marques DONE sin los gates en verde.** Una card sin `gates.md` en PASS no está DONE, está mintiendo.
+2. **Nunca marques DONE sin evidencia** de cada requisito obligatorio.
+3. **Nunca revises tu propio trabajo.**
+4. **Un subagente, una card, un artefacto.** Los subagentes son stateless: la delegación lleva todo el contexto.
+5. **Los artefactos son la memoria.** Si no está en `.oficina/`, no existe.
+6. **No toques fuera del scope.** Si hace falta, pedí la ampliación por el bus.
+7. **Escalá cuando el caso lo pida**, no antes. 3 rechazos de la misma card = escalación con opciones concretas.
+8. **Presupuesto**: 20 cards, 40 invocaciones, 20 spawns por corrida. Si se agota, informe parcial honesto y preguntá.
 
 ---
 
