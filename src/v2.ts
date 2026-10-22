@@ -193,7 +193,14 @@ export default Plugin.define({
       const input = (event.input ?? {}) as Record<string, unknown>
 
       // Lecturas: nunca se tocan.
-      if (!FILE_WRITE_TOOLS.has(tool) && !SHELL_TOOLS.has(tool)) return
+      if (!FILE_WRITE_TOOLS.has(tool) && !SHELL_TOOLS.has(tool)) {
+        // Igual se arma el tripwire: una tool de lectura puede escribir
+        // (un `grep` con redireccion, por ejemplo) y no hay que confiar en
+        // el nombre de la tool.
+        const scopeLectura = await scopeOf(event.sessionID)
+        if (scopeLectura) await tripwire.arm(String(event.id), scopeLectura.policy.mayTouch)
+        return
+      }
 
       const scope = await scopeOf(event.sessionID)
       if (!scope) return
@@ -206,6 +213,10 @@ export default Plugin.define({
           log.warn("scope violado (archivo)", { card: scope.card.id, path: rawPath, kind: bad.kind })
           if (enforce) throw new Error(mensaje)
         }
+        // El tripwire se arma una sola vez, con el mismo hook: registrar
+        // `execute.before` dos veces hacia que la segunda pise a la primera
+        // (y el guard dejaba de bloquear).
+        await tripwire.arm(String(event.id), scope.policy.mayTouch)
         return
       }
 
@@ -230,8 +241,9 @@ export default Plugin.define({
             target: candidate.target,
             kind: bad.kind,
           })
-          if (enforce && options.enforceScope !== false) throw new Error(mensaje)
+          if (enforce) throw new Error(mensaje)
         }
+        await tripwire.arm(String(event.id), scope.policy.mayTouch)
       }
     })
 
@@ -245,7 +257,7 @@ export default Plugin.define({
         const bad = await violation(event.sessionID, resource)
         if (!bad) continue
         event.effect = "deny"
-        event.message = `[OFICINA] ${bad.reason} (card ${scope.card.id})`
+        event.message = `[OFICINA] Scope violado: ${bad.reason} (card ${scope.card.id})`
         log.warn("permiso denegado por scope", {
           card: scope.card.id,
           resource,
@@ -261,12 +273,6 @@ export default Plugin.define({
      * Fotografia el arbol antes de una tool y compara despues. Lo que cambio
      * fuera del scope se reporta por el bus: detecta, no revierte.
      * ──────────────────────────────────────────────────────────────────────── */
-
-    await ctx.tool.hook("execute.before", async (event) => {
-      const scope = await scopeOf(event.sessionID)
-      if (!scope) return
-      await tripwire.arm(String(event.id), scope.policy.mayTouch)
-    })
 
     await ctx.tool.hook("execute.after", async (event) => {
       const scope = await scopeOf(event.sessionID)
