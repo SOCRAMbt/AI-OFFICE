@@ -20,7 +20,7 @@
     }
   },
   "bin": {
-    "oficina": "./dist/cli.js"
+    "oficina": "dist/cli.js"
   },
   "files": [
     "dist",
