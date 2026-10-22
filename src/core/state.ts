@@ -90,6 +90,13 @@ export interface InvariantContext {
   limits: Limits
   /** Veredicto de los gates de la card, si se corrieron. */
   gatesPassed?: boolean
+  /**
+   * Veredicto de la verificación por requisitos.
+   *
+   * `undefined` significa "no se evaluó" (por ejemplo, en un flujo que no
+   * toca el cierre). `false` significa "se evaluó y le faltan requisitos".
+   */
+  evidenceComplete?: boolean
 }
 
 /**
@@ -100,7 +107,7 @@ export interface InvariantContext {
  * y "el modelo no puede romperlo".
  */
 export function assertInvariants(ctx: InvariantContext): void {
-  const { card, state, limits, gatesPassed } = ctx
+  const { card, state, limits, gatesPassed, evidenceComplete } = ctx
 
   if (card) {
     // Invariante duro: el revisor nunca es el owner.
@@ -117,6 +124,22 @@ export function assertInvariants(ctx: InvariantContext): void {
         throw new InvariantViolationError(
           "gate-required-before-done",
           `${card.id}: marcada DONE sin gates en PASS`,
+        )
+      }
+    }
+
+    // Invariante duro: sin evidencia de los requisitos obligatorios no hay
+    // DONE.
+    //
+    // Los gates dicen que el codigo esta sano. No dicen que el objetivo del
+    // usuario este cumplido. Un proyecto puede compilar, pasar todos sus
+    // tests y tener la autenticacion mal porque ningun test contemplaba ese
+    // escenario. Por eso los dos veredictos son obligatorios.
+    if (limits.evidenceRequiredBeforeDone && card.state === "done") {
+      if (evidenceComplete !== true) {
+        throw new InvariantViolationError(
+          "evidence-required-before-done",
+          `${card.id}: marcada DONE sin evidencia de todos los requisitos obligatorios`,
         )
       }
     }
@@ -236,6 +259,7 @@ export function migrateState(raw: unknown, limits: Limits = DEFAULT_LIMITS): Off
     createdAt: (input.createdAt as string) ?? (input.created as string) ?? new Date().toISOString(),
     updatedAt: (input.updatedAt as string) ?? (input.updated as string) ?? new Date().toISOString(),
     status: ((input.status as RunStatus) ?? "planning") as RunStatus,
+    halt: (input.halt as OfficeState["halt"]) ?? null,
     cards,
     order,
     budget: {
@@ -287,6 +311,7 @@ export function createRun(objective: string, runId: string, limits: Limits = DEF
     iteration: 0,
     pendingGates: [],
     sessions: {},
+    halt: null,
   }
 }
 

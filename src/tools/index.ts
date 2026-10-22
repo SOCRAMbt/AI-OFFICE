@@ -941,6 +941,188 @@ export function buildTools(office: Office): Record<string, ToolDefinition> {
         }
       },
     }),
+
+    /**
+     * El grafo de requisitos a evidencia.
+     */
+    oficina_evidence: tool({
+      description:
+        "La evidencia de una card: cada criterio de aceptación enlazado a lo que lo respalda. " +
+        "Usá `view` para ver qué falta y `add` para registrar evidencia (un artefacto, un test, " +
+        "un gate o una inspección). Una card NO se puede cerrar sin evidencia de todos sus " +
+        "requisitos obligatorios: los gates dicen que el código está sano, la evidencia dice que " +
+        "el objetivo está cumplido.",
+      args: {
+        action: z.enum(["view", "add"]).default("view").describe("view = grafo · add = registrar evidencia"),
+        cardId: z.string().describe("Card."),
+        agentId: z.string().describe("Tu id de agente."),
+        requirement: z.string().optional().describe("Criterio de aceptación (texto exacto). Si falta, se usa el índice."),
+        requirementIndex: z.number().int().min(0).optional().describe("Índice del criterio de aceptación."),
+        kind: z
+          .enum(["artifact", "test", "gate", "inspection", "external"])
+          .default("artifact")
+          .describe("Tipo de evidencia."),
+        ref: z.string().optional().describe("Ruta del artefacto, nombre del test, id del gate o referencia."),
+        note: z.string().optional().describe("Qué demuestra esta evidencia."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+        const state = await off.loadState()
+        const card = state.cards[args.cardId]
+        if (!card) return { title: "Card inexistente", output: `No existe la card ${args.cardId}.` }
+
+        if (args.action === "view") {
+          const graph = await off.evidence.graph(card)
+          const { renderEvidenceGraph } = await import("../core/evidence.js")
+          return {
+            title: `Evidencia: ${graph.requirements.length} requisitos, ${graph.missingMandatory.length} sin cubrir`,
+            output: renderEvidenceGraph(graph),
+            metadata: {
+              complete: graph.complete,
+              missing: graph.missingMandatory.length,
+              minLevel: graph.minLevel,
+            },
+          }
+        }
+
+        if (!args.ref) {
+          return { title: "Falta ref", output: "Indicá el `ref`: la ruta del artefacto, el test o el gate." }
+        }
+
+        const { evidenceFromArtifact, evidenceFromInspection, evidenceFromExternal, evidenceFromTest } =
+          await import("../core/evidence.js")
+
+        const requirementText =
+          args.requirement ?? card.acceptance[args.requirementIndex ?? 0] ?? ""
+        const options = {
+          recordedBy: args.agentId,
+          requirementIndex: args.requirementIndex ?? card.acceptance.indexOf(requirementText),
+          note: args.note,
+          owner: card.owner ?? undefined,
+          reviewer: card.reviewer ?? undefined,
+        }
+
+        const node =
+          args.kind === "test"
+            ? evidenceFromTest(args.ref, card.id, requirementText, options)
+            : args.kind === "inspection"
+              ? evidenceFromInspection(args.ref, card.id, requirementText, options)
+              : args.kind === "external"
+                ? evidenceFromExternal(args.ref, card.id, requirementText, options)
+                : evidenceFromArtifact(args.ref, card.id, requirementText, options)
+
+        await off.evidence.add(card.id, node)
+        const graph = await off.evidence.graph(card)
+        const { renderEvidenceGraph } = await import("../core/evidence.js")
+        return {
+          title: `Evidencia registrada (${graph.complete ? "card completa" : "faltan requisitos"})`,
+          output: renderEvidenceGraph(graph),
+          metadata: { complete: graph.complete, missing: graph.missingMandatory.length },
+        }
+      },
+    }),
+
+    /**
+     * El costo de la corrida.
+     */
+    oficina_cost: tool({
+      description:
+        "El costo real de la corrida: tokens y USD por card, por agente y por fase de trabajo, " +
+        "con los presupuestos y cuánto falta para cada límite. También mide trabajo redundante " +
+        "(releer el mismo contexto, repetir el mismo comando). Usá `estimate` antes de arrancar " +
+        "una corrida grande.",
+      args: {
+        action: z.enum(["report", "estimate", "redundancy"]).default("report"),
+        cards: z.number().int().min(1).max(100).default(10).describe("Para estimate: cards estimadas."),
+        agentsPerCard: z.number().int().min(1).max(10).default(2).describe("Para estimate: agentes por card."),
+        callsPerAgent: z.number().int().min(1).max(100).default(10).describe("Para estimate: llamadas por agente."),
+        usdPerCall: z.number().min(0).default(0.02).describe("Para estimate: USD por llamada."),
+      },
+      async execute(args, ctx) {
+        const { checkBudget, estimateRun, renderCostReport, DEFAULT_COST_LIMITS } = await import(
+          "../core/cost.js"
+        )
+        const state = await officeOf(ctx).loadState()
+        const ledger = await officeOf(ctx).cost.load(state.runId)
+
+        if (args.action === "estimate") {
+          const est = estimateRun(args.cards, args.agentsPerCard, args.callsPerAgent, args.usdPerCall)
+          return {
+            title: `Estimación: ~$${est.usd.toFixed(2)}`,
+            output:
+              `**Estimación previa**\n\n` +
+              `- Cards: ${args.cards}\n` +
+              `- Agentes por card: ${args.agentsPerCard}\n` +
+              `- Llamadas por agente: ${args.callsPerAgent}\n` +
+              `- USD por llamada: $${args.usdPerCall}\n\n` +
+              `**Costo estimado: ~$${est.usd.toFixed(2)}** · ~${est.tokens.toLocaleString("es-AR")} tokens\n\n` +
+              `_${est.note}_`,
+            metadata: { usd: est.usd, tokens: est.tokens },
+          }
+        }
+
+        if (args.action === "redundancy") {
+          const { detectRedundantWork } = await import("../core/cost.js")
+          const report = detectRedundantWork([])
+          return {
+            title: "Trabajo redundante",
+            output: report.summary,
+            metadata: { wasted: report.wastedFraction },
+          }
+        }
+
+        const decision = checkBudget(ledger, DEFAULT_COST_LIMITS)
+        return {
+          title: `Costo: $${ledger.total.usd.toFixed(4)} · ${ledger.total.calls} llamadas`,
+          output:
+            renderCostReport(ledger, DEFAULT_COST_LIMITS) +
+            `\n\n**Veredicto de presupuesto:** ${decision.allowed ? "dentro de los límites" : `EXCEDIDO (${decision.breached})`}\n` +
+            `${decision.reason}`,
+          metadata: { usd: ledger.total.usd, allowed: decision.allowed, breached: decision.breached },
+        }
+      },
+    }),
+
+    /**
+     * El freno de emergencia.
+     */
+    oficina_stop: tool({
+      description:
+        "Frena la corrida. Con `halt` la oficina deja de avanzar: no se reanuda sola, no se " +
+        "despacha y no se gastan mas tokens. Con `resume` vuelve. Usalo si la corrida se esta " +
+        "descontrolando, si el costo se dispara o si querés revisar antes de seguir.",
+      args: {
+        action: z.enum(["halt", "resume"]).default("halt"),
+        reason: z.string().optional().describe("Por que frenas (para halt)."),
+        agentId: z.string().optional().describe("Quien frena."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+        const state = await off.loadState()
+
+        if (args.action === "resume") {
+          await off.resume(state)
+          return {
+            title: "Corrida reanudada",
+            output: "La corrida vuelve a avanzar. El freno de emergencia quedó desactivado.",
+            metadata: { halted: false },
+          }
+        }
+
+        const reason = args.reason ?? "freno manual"
+        await off.halt(state, reason, args.agentId ?? "usuario")
+        return {
+          title: "Corrida detenida",
+          output:
+            `**La oficina está detenida.**\n\nMotivo: ${reason}\n\n` +
+            `No se van a despachar agentes ni a reanudar sesiones. ` +
+            `Cuando quieras seguir: \`oficina_stop\` con action="resume".`,
+          metadata: { halted: true, reason },
+        }
+      },
+    }),
   }
 }
 

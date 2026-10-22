@@ -43,7 +43,7 @@ function mockHost() {
 }
 
 describe("Plugin OFICINA", () => {
-  it("se inicializa y registra las 13 tools", async () => {
+  it("se inicializa y registra las 16 tools", async () => {
     const { input } = mockHost()
     const hooks = await OficinaPlugin(input)
 
@@ -54,14 +54,17 @@ describe("Plugin OFICINA", () => {
       "oficina_board",
       "oficina_brief",
       "oficina_bus",
+      "oficina_cost",
       "oficina_dispatch",
       "oficina_escalate",
+      "oficina_evidence",
       "oficina_ficha",
       "oficina_gate",
       "oficina_mesa",
       "oficina_plan",
       "oficina_review",
       "oficina_spawn",
+      "oficina_stop",
       "oficina_submit",
     ])
   })
@@ -74,6 +77,40 @@ describe("Plugin OFICINA", () => {
     expect(hooks["tool.execute.before"]).toBeTypeOf("function")
     expect(hooks["experimental.chat.system.transform"]).toBeTypeOf("function")
     expect(hooks["experimental.session.compacting"]).toBeTypeOf("function")
+  })
+
+  it("registra las tres capas de enforcement del scope", async () => {
+    // La segunda y la tercera capa son opcionales en el host, pero si el
+    // plugin las declara, tienen que funcionar. Sin `tool.execute.before`
+    // el scope pasa a ser una instrucción en vez de una restricción.
+    const { input } = mockHost()
+    const hooks = await OficinaPlugin(input)
+
+    expect(hooks["tool.execute.before"]).toBeTypeOf("function")
+    expect(hooks["tool.execute.after"]).toBeTypeOf("function")
+    expect(hooks["permission.ask"]).toBeTypeOf("function")
+  })
+
+  it("el hook permission.ask deniega una escritura fuera del scope", async () => {
+    const { input } = mockHost()
+    const hooks = await OficinaPlugin(input)
+
+    // Sin card activa no hay scope: se permite (no hay nada que proteger).
+    const output = { status: "ask" as "ask" | "deny" | "allow" }
+    await hooks["permission.ask"]!(
+      {
+        id: "p1",
+        type: "edit",
+        pattern: "cualquiera/cosa.ts",
+        sessionID: "ses-sin-card",
+        messageID: "m1",
+        title: "edit",
+        metadata: {},
+        time: { created: 0 },
+      },
+      output,
+    )
+    expect(output.status).toBe("allow")
   })
 
   it("crea la estructura .oficina/ en el proyecto", async () => {

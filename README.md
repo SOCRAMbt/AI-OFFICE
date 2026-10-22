@@ -11,7 +11,21 @@
 [![coverage](https://img.shields.io/badge/coverage-87.3%25-7c3aed.svg)](https://vitest.dev)
 [![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/tsconfig.json)
 
-**4 hooks · 13 tools · 7 agentes · 6 gates · 6 invariantes duros · 306 roles de catálogo**
+**Una malla de coordinadores + peer mesh sobre un roster de roles.**
+
+<!-- BEGIN GENERATED: facts -->
+| | |
+|---|---|
+| **Paquete** | `oficina-opencode` v2.0.1 |
+| **Tools** | 16 |
+| **Hooks** | 7 |
+| **API de plugin** | `@opencode-ai/plugin@1.15.11` |
+| **Node** | >=20 |
+| **Catálogo** | 258 agentes resolubles en 18 divisiones |
+| **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
+| **Límites** | 20 cards · 40 llamadas · 20 spawns · 10 agentes |
+| **Cobertura mínima** | 60% |
+<!-- END GENERATED: facts -->
 
 > **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
 > **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/ARCHITECTURE.md)

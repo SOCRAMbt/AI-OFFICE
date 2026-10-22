@@ -434,8 +434,20 @@ export async function runSecurityGate(
   return results
 }
 
-/** Consolida los resultados en un veredicto. */
-export function consolidate(cardId: string, technical: GatePhaseResult[], security: GatePhaseResult[]): GateResult {
+/**
+ * Consolida los resultados en un veredicto.
+ *
+ * `requirements` es la tercera dimension: los otros cinco fases dicen "el
+ * codigo esta sano", esta dice "el objetivo esta cumplido". Si falta
+ * evidencia de un requisito obligatorio, el veredicto global es FAIL aunque
+ * build, typecheck, lint, test y seguridad esten en verde.
+ */
+export function consolidate(
+  cardId: string,
+  technical: GatePhaseResult[],
+  security: GatePhaseResult[],
+  requirements: GatePhaseResult[] = [],
+): GateResult {
   const worst = (results: GatePhaseResult[]): GateOutcome => {
     if (results.some((r) => r.outcome === "fail")) return "fail"
     if (results.some((r) => r.outcome === "not_run")) return "not_run"
@@ -446,14 +458,24 @@ export function consolidate(cardId: string, technical: GatePhaseResult[], securi
 
   const technicalOutcome = worst(technical)
   const securityOutcome = worst(security)
+  const requirementsOutcome = worst(requirements)
+
+  // Un `na` no promedia a `fail`: si la dimension de requisitos no se
+  // evaluo (no aplica a esta card), no invalida lo que si paso. Lo que si
+  // la invalida es que FALTE evidencia, y de eso se encarga el invariante
+  // `evidence-required-before-done`, que es fail-closed: si la evidencia
+  // no se evaluo, no se cierra.
+  const requirementsOk = requirementsOutcome === "pass" || requirementsOutcome === "na"
 
   return {
     cardId,
     technical,
     security,
+    requirements,
     technicalOutcome,
     securityOutcome,
-    passed: technicalOutcome === "pass" && securityOutcome === "pass",
+    requirementsOutcome,
+    passed: technicalOutcome === "pass" && securityOutcome === "pass" && requirementsOk,
     ranAt: nowIso(),
   }
 }

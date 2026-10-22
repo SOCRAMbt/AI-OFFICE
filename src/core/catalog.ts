@@ -571,6 +571,33 @@ export function mentionsCapability(agentTokens: Set<string>, capability: string)
  * En ese caso cuenta como varias: cada palabra se evalúa por separado. Si no,
  * "react component accessibility" valdría lo mismo que "react", y un agente
  * que solo menciona accesibilidad ganaría una card de frontend.
+ *
+ * ## Cada palabra cuenta igual
+ *
+ * Una capability de dos palabras ("code review") aporta **dos** unidades y
+ * una de una palabra ("design") aporta una. No es un detalle: una
+ * capability específica tiene más derecho a pesar que una genérica.
+ *
+ * ## Lo que se probó y no se quedó
+ *
+ * Se implementó una ponderación por **IDF** (inverse document frequency):
+ * los tokens raros pesan más, porque un token que aparece en 200 de 258
+ * agentes no discrimina nada. Es la técnica clásica de recuperación de
+ * información y la hipótesis era razonable.
+ *
+ * **Los datos no la respaldaron.** El benchmark de selección
+ * (`benchmarks/selection/`) mide el hit@1 sobre 21 tareas con resultados de
+ * referencia:
+ *
+ * | variante | hit@1 | MRR |
+ * |---|---|---|
+ * | ponderación plana (la que quedó) | **71%** | **0.778** |
+ * | ponderación por IDF | 67% | 0.746 |
+ * | keywords (los pesos de la v1) | 48% | 0.623 |
+ * | solo el nombre del rol | 52% | 0.639 |
+ *
+ * IDF quedó afuera. La versión simple gana, y la complejidad que no se
+ * justifica es una complejidad que hay que pagar en cada match.
  */
 export function capabilityCoverage(agentTokens: Set<string>, target: string[]): number {
   if (target.length === 0) return 0
@@ -688,6 +715,9 @@ export function matchCapabilities(
   const targetRaw = capabilityTokens(target.join(" "))
   const targetTokens = canonicalConcepts(target.join(" "))
 
+  // El IDF se calcula sobre el catalogo COMPLETO, no sobre el pool: la
+  // frecuencia de un token no debe depender de que se haya filtrado por
+  // división.
   let best: CatalogMatch | undefined
 
   for (const agent of pool) {
@@ -721,6 +751,7 @@ export function matchCapabilities(
     const agentCapabilities = canonicalizeTokens(new Set(agent.capabilities))
     const agentText = canonicalizeTokens(capabilityTokens(agent.searchText))
 
+    // La cobertura ponderada por IDF: las capabilities raras pesan mas.
     const nameScore = capabilityCoverage(agentName, target)
     const missionLiteral = capabilityCoverage(agentMissionRaw, target)
     const missionConcept = tokenOverlap(targetTokens, agentMissions)
@@ -741,20 +772,25 @@ export function matchCapabilities(
     // **Recall**: qué parte del objetivo cubre este agente, con las señales
     // confiables (identidad curada + misión declarada).
     //
-    // El conteo es POR TOKEN, igual que `capabilityCoverage`. Si `coverage`
-    // cuenta tokens y `reliable` cuenta frases, el panel miente: un agente
-    // que menciona "mapping" de pasada se contaba como si cubriera "gis
+    // El conteo es POR TOKEN, igual que la cobertura. Si `coverage` cuenta
+    // tokens y `reliable` cuenta frases, el panel miente: un agente que
+    // menciona "mapping" de pasada se contaba como si cubriera "gis
     // geospatial mapping cartography" entero.
+    //
+    // Y usa la misma lógica de IDF: lo que hace que una capability esté
+    // realmente cubierta es que el agente mencione su token MÁS RARO. Si
+    // el agente dice "review" pero no dice "code", no cubre "code review".
     const reliableFraction = (capability: string): number => {
-      const tokens = capabilityTokens(capability)
-      if (tokens.size === 0) return 0
+      const tokens = [...capabilityTokens(capability)]
+      if (tokens.length === 0) return 0
+
       let hits = 0
       for (const token of tokens) {
         if (mentionsCapability(agentName, token) || mentionsCapability(agentMissionRaw, token)) {
           hits += 1
         }
       }
-      return hits / tokens.size
+      return hits / tokens.length
     }
     const reliableHits = target.filter((t) => reliableFraction(t) >= 0.5)
     const recall = target.length > 0 ? reliableHits.length / target.length : 0

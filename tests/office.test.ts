@@ -134,14 +134,59 @@ describe("Ciclo completo de la oficina", () => {
     expect(reviewed.ok).toBe(true)
     expect(reviewed.action).toBe("run_gates")
 
-    // 4. Gates.
+    // 4. Evidencia: cada criterio de aceptación necesita respaldo.
+    //
+    // Los gates dicen que el código está sano. La evidencia dice que el
+    // objetivo está cumplido. Son dos veredictos distintos y hacen falta
+    // los dos para cerrar.
+    const { evidenceFromArtifact } = await import("../src/core/evidence.js")
+    const cardConCriterios = state2.cards["T-00"]!
+    await office.evidence.add(
+      "T-00",
+      evidenceFromArtifact(".oficina/artifacts/T-00/evidence.md", "T-00", cardConCriterios.acceptance[0]!, {
+        recordedBy: ownerFicha.id,
+        requirementIndex: 0,
+      }),
+    )
+
+    // 5. Gates.
     const gates = await office.runGates(state2, "T-00")
     expect(gates.passed).toBe(true)
+    expect(gates.requirementsOutcome).toBe("pass")
 
-    // 5. Cerrar.
+    // 6. Cerrar.
     const closed = await office.closeCard(state2, "T-00", gates)
     expect(closed.ok).toBe(true)
     expect(state2.cards["T-00"]!.state).toBe("done")
+  })
+
+  it("NO cierra una card sin evidencia de los requisitos", async () => {
+    const office = await makeOffice()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
+    ])
+    const card = state.cards["T-00"]!
+    card.owner = "e-a"
+    card.reviewer = "e-b"
+    await office.saveState(state)
+
+    const gates = {
+      cardId: "T-00",
+      technical: [],
+      security: [],
+      requirements: [],
+      technicalOutcome: "pass" as const,
+      securityOutcome: "pass" as const,
+      requirementsOutcome: "pass" as const,
+      passed: true,
+      ranAt: new Date().toISOString(),
+    }
+
+    const closed = await office.closeCard(state, "T-00", gates)
+    expect(closed.ok).toBe(false)
+    expect(closed.reason).toMatch(/evidence-required-before-done/)
+    expect(state.cards["T-00"]!.state).not.toBe("done")
   })
 
   it("NO cierra una card sin gates en PASS", async () => {
@@ -161,8 +206,10 @@ describe("Ciclo completo de la oficina", () => {
         { phase: "build" as const, command: "npm run build", outcome: "fail" as const, exitCode: 1, output: "boom", detail: "exit 1" },
       ],
       security: [],
+      requirements: [],
       technicalOutcome: "fail" as const,
       securityOutcome: "na" as const,
+      requirementsOutcome: "na" as const,
       passed: false,
       ranAt: new Date().toISOString(),
     }

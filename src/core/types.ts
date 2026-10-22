@@ -48,6 +48,14 @@ export interface Limits {
   minCatalogCoverage: number
   /** Invariante duro: sin gates en PASS no hay DONE. */
   gateRequiredBeforeDone: boolean
+  /**
+   * Invariante duro: sin evidencia de los requisitos obligatorios no hay
+   * DONE.
+   *
+   * Los gates verifican que el codigo este sano. Esto verifica que el
+   * objetivo este cumplido. Son preguntas distintas y hacen falta las dos.
+   */
+  evidenceRequiredBeforeDone: boolean
   /** Invariante duro: el revisor nunca es el owner. */
   reviewerNeqOwner: boolean
 }
@@ -66,6 +74,7 @@ export const DEFAULT_LIMITS: Limits = {
   maxAgentCalls: 40,
   minCatalogCoverage: 0.6,
   gateRequiredBeforeDone: true,
+  evidenceRequiredBeforeDone: true,
   reviewerNeqOwner: true,
 }
 
@@ -294,6 +303,15 @@ export type GatePhase =
   | "test"
   | "secrecy"
   | "diff"
+  /**
+   * Verificacion por requisitos.
+   *
+   * Los otros cinco fases dicen "el codigo esta sano". Esta dice "el
+   * objetivo del usuario esta cumplido". Son cosas distintas: un proyecto
+   * puede compilar, pasar todos sus tests y tener la autenticacion mal
+   * porque ningun test contemplaba ese escenario.
+   */
+  | "verify"
 
 export type GateOutcome = "pass" | "fail" | "na" | "not_run"
 
@@ -313,8 +331,11 @@ export interface GateResult {
   cardId: string
   technical: GatePhaseResult[]
   security: GatePhaseResult[]
+  /** Verificacion por requisitos: cada criterio de aceptación con evidencia. */
+  requirements: GatePhaseResult[]
   technicalOutcome: GateOutcome
   securityOutcome: GateOutcome
+  requirementsOutcome: GateOutcome
   passed: boolean
   ranAt: string
 }
@@ -339,6 +360,18 @@ export interface OfficeState {
   createdAt: string
   updatedAt: string
   status: RunStatus
+  /**
+   * Freno de emergencia.
+   *
+   * Cuando se activa, la oficina deja de avanzar: el hook de auto-continuacion
+   * no reanuda, el dispatcher no despacha y las tools de trabajo se niegan.
+   * Es el freno que impide que una corrida se queme sola en tokens.
+   */
+  halt: {
+    reason: string
+    at: string
+    by: string
+  } | null
   /** Cards del plan, indexadas por id. */
   cards: Record<string, Card>
   /** Orden de ejecución. */

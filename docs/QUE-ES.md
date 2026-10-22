@@ -1,5 +1,20 @@
 # ¿Qué es AI-OFFICE?
 
+<!-- BEGIN GENERATED: facts -->
+| | |
+|---|---|
+| **Paquete** | `oficina-opencode` v2.0.1 |
+| **Tools** | 16 |
+| **Hooks** | 7 |
+| **API de plugin** | `@opencode-ai/plugin@1.15.11` |
+| **Node** | >=20 |
+| **Catálogo** | 258 agentes resolubles en 18 divisiones |
+| **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
+| **Límites** | 20 cards · 40 llamadas · 20 spawns · 10 agentes |
+| **Cobertura mínima** | 60% |
+<!-- END GENERATED: facts -->
+
+
 > Una oficina de agentes de IA para OpenCode. Le das un objetivo, y el equipo lo trabaja, lo revisa, lo verifica y no para hasta terminarlo.
 
 Este documento explica el sistema sin jerga. Si querés saber **cómo está construido por dentro**, está [`docs/ARCHITECTURE.md`](ARCHITECTURE.md). Si querés **usarlo**, está el [README](../README.md).

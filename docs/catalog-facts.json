@@ -1,0 +1,27 @@
+{
+  "agents": 258,
+  "divisions": 18,
+  "divisionList": [
+    "academic",
+    "design",
+    "engineering",
+    "finance",
+    "game-development",
+    "gis",
+    "healthcare",
+    "marketing",
+    "paid-media",
+    "product",
+    "project-management",
+    "research",
+    "sales",
+    "spatial-computing",
+    "specialized",
+    "strategy",
+    "support",
+    "testing"
+  ],
+  "source": "C:\\Users\\Marcos\\agency-agents",
+  "generatedAt": "2026-10-22T02:57:59.378Z",
+  "sourceCommit": "4e3ac3c"
+}

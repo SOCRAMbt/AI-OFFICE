@@ -1,0 +1,139 @@
+{
+  "$nota": "Benchmark de seleccion de roles. Cada tarea tiene un conjunto de roles aceptables (cualquiera cuenta). Las expectativas sonROLOS REALES del catalogo de agency-agents, no inventados: si el matcher falla, es informacion, no un bug del test.",
+  "tasks": [
+    {
+      "id": "data-pipeline",
+      "objetivo": "Construir un pipeline de datos que ingiere eventos y agrega por hora",
+      "capabilities": ["data", "pipeline", "etl", "streaming", "analytics"],
+      "esperados": ["engineering-data-engineer"]
+    },
+    {
+      "id": "postgres-partitioning",
+      "objetivo": "Migrar Postgres a un esquema con partitioning y índices",
+      "capabilities": ["postgres", "database", "migration", "schema", "partitioning"],
+      "esperados": ["engineering-gaussdb-expert", "engineering-database-optimizer"]
+    },
+    {
+      "id": "react-form",
+      "objetivo": "Formulario de login en React con validación y estilos",
+      "capabilities": ["react", "css", "form", "validation", "frontend"],
+      "esperados": ["engineering-uswds-developer", "engineering-frontend-developer"]
+    },
+    {
+      "id": "cicd",
+      "objetivo": "CI/CD con Docker y despliegue en Kubernetes",
+      "capabilities": ["cicd", "docker", "kubernetes", "deployment", "devops"],
+      "esperados": ["engineering-devops-automator"]
+    },
+    {
+      "id": "gis",
+      "objetivo": "Agente de GIS y cartografía para un mapa interactivo",
+      "capabilities": ["gis", "geospatial", "cartography", "mapping"],
+      "esperados": ["gis-web-gis-developer", "gis-bim-specialist", "gis-analyst", "gis-cartography-designer"]
+    },
+    {
+      "id": "e2e",
+      "objetivo": "Tests end-to-end con Playwright para un flujo de checkout",
+      "capabilities": ["playwright", "e2e", "testing", "checkout", "browser"],
+      "esperados": ["testing-test-automation-engineer"]
+    },
+    {
+      "id": "api-security",
+      "objetivo": "Revisar la seguridad de un endpoint de API e inyecciones SQL",
+      "capabilities": ["api", "security", "sql", "injection", "review"],
+      "esperados": ["testing-api-tester", "engineering-privacy-engineer"]
+    },
+    {
+      "id": "a11y",
+      "objetivo": "Auditar accesibilidad WCAG y navegación por teclado",
+      "capabilities": ["accessibility", "aria", "wcag", "audit"],
+      "esperados": ["testing-accessibility-auditor", "engineering-section-508-specialist"]
+    },
+    {
+      "id": "ux",
+      "objetivo": "Diseñar la UX de un flujo de checkout y sus pantallas",
+      "capabilities": ["ux", "design", "flow", "wireframe", "usability"],
+      "esperados": ["design-ux-architect", "design-ui-designer"]
+    },
+    {
+      "id": "seo",
+      "objetivo": "Estrategia de SEO técnico y Core Web Vitals",
+      "capabilities": ["seo", "search", "ranking", "visibility", "web"],
+      "esperados": ["marketing-seo-specialist", "marketing-agentic-search-optimizer"]
+    },
+    {
+      "id": "linkedin",
+      "objetivo": "Contenido para LinkedIn y estrategia de red social B2B",
+      "capabilities": ["content", "linkedin", "social", "copywriting", "b2b"],
+      "esperados": [
+        "marketing-linkedin-content-creator",
+        "marketing-content-creator",
+        "marketing-social-media-strategist"
+      ]
+    },
+    {
+      "id": "fpa",
+      "objetivo": "Modelo financiero y análisis de profitability",
+      "capabilities": ["finance", "financial", "fpa", "profitability", "model"],
+      "esperados": ["finance-fpa-analyst", "finance-financial-analyst"]
+    },
+    {
+      "id": "sprint",
+      "objetivo": "Priorizar el backlog del sprint con el equipo",
+      "capabilities": ["product", "backlog", "sprint", "prioritization", "planning"],
+      "esperados": ["product-sprint-prioritizer", "product-manager"]
+    },
+    {
+      "id": "docs",
+      "objetivo": "Documentación técnica de la API con ejemplos y referencia",
+      "capabilities": ["documentation", "api", "reference", "technical writing", "openapi"],
+      "esperados": ["engineering-technical-writer", "engineering-universal-document-compiler"]
+    },
+    {
+      "id": "code-review",
+      "objetivo": "Revisión de código y diseño de la arquitectura del módulo",
+      "capabilities": ["code review", "architecture", "design", "quality"],
+      "esperados": [
+        "engineering-code-reviewer",
+        "engineering-software-architect",
+        "engineering-codebase-onboarding-engineer"
+      ]
+    },
+    {
+      "id": "perf",
+      "objetivo": "Medir y optimizar el rendimiento de la web",
+      "capabilities": ["performance", "profiling", "latency", "benchmark", "optimization"],
+      "esperados": ["testing-performance-benchmarker", "engineering-finops-engineer"]
+    },
+    {
+      "id": "rag",
+      "objetivo": "Pipeline de RAG con embeddings y recuperación semántica",
+      "capabilities": ["rag", "embeddings", "vector", "retrieval", "llm"],
+      "esperados": ["engineering-rag-pipeline-engineer", "engineering-search-relevance-engineer"]
+    },
+    {
+      "id": "sre",
+      "objetivo": "Observabilidad, guardias de producción y gestión de incidentes",
+      "capabilities": ["sre", "observability", "incident", "on-call", "reliability"],
+      "esperados": ["engineering-sre", "engineering-incident-response-commander"]
+    },
+    {
+      "id": "email",
+      "objetivo": "Email transaccional y entregabilidad",
+      "capabilities": ["email", "deliverability", "transactional", "smtp"],
+      "esperados": ["engineering-email-intelligence-engineer"]
+    },
+    {
+      "id": "support",
+      "objetivo": "Respuestas de soporte a clientes y bandeja de entrada",
+      "capabilities": ["support", "customer", "ticket", "response", "helpdesk"],
+      "esperados": ["support-support-responder", "support-analytics-reporter"]
+    },
+    {
+      "id": "privacy",
+      "objetivo": "Privacidad, GDPR y cumplimiento de datos",
+      "capabilities": ["privacy", "gdpr", "compliance", "data protection"],
+      "esperados": ["engineering-privacy-engineer", "data-privacy-officer"]
+    }
+  ]
+}

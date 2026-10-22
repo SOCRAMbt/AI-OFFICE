@@ -15,6 +15,7 @@ import type {
   CatalogAgent,
   CatalogMatch,
   Ficha,
+  GatePhaseResult,
   GateResult,
   Limits,
   OfficeState,
@@ -38,6 +39,7 @@ import { decideRetry, recordRejection, recordApproval, consumeAgentCall } from "
 import { detectTooling, runTechnicalGates, runSecurityGate, consolidate, type CommandRunner, type Tooling } from "./gates.js"
 import { ensureDir, exists, nowIso, readJson, shortId, writeJsonAtomic, writeAtomic } from "./fsx.js"
 import { cardDir, resolvePaths, type ResolvedPaths } from "./paths.js"
+import { createStores, EvidenceStore, CostStore } from "./stores.js"
 import { logger } from "./log.js"
 
 const log = logger("oficina")
@@ -90,6 +92,16 @@ export class Office {
   readonly leases: LeaseStore
   readonly candidates = new CandidateRegistry()
 
+  /**
+   * Grafo de requisitos a evidencia.
+   *
+   * Vive aparte del estado: es un documento que crece con cada aporte y no
+   * tiene sentido reescribirlo entero cada vez que cambia una card.
+   */
+  evidence!: EvidenceStore
+  /** Ledger de costo de la corrida. */
+  cost!: CostStore
+
   private catalogCache: CatalogAgent[] | null = null
   private toolingCache: Tooling | null = null
 
@@ -141,6 +153,11 @@ export class Office {
     await ensureDir(this.paths.leasesDir)
     await ensureDir(this.paths.artifactsDir)
     await ensureDir(this.paths.fichasDir)
+
+    // Los stores se arman despues de resolver los paths definitivos.
+    const stores = createStores(this.paths.officeDir, { runId: "pending" } as OfficeState)
+    this.evidence = stores.evidence
+    this.cost = stores.cost
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -319,6 +336,26 @@ export class Office {
   ): Promise<boolean> {
     const client = this.options.client
     if (!client) return false
+
+    // El presupuesto de spawns se consume ACA. Antes el contador
+    // `spawnsUsed` nunca se incrementaba en ningun lado, asi que el
+    // invariante `max-spawns-total` no podia dispararse nunca: era una
+    // regla de papel.
+    const state = await this.loadState()
+    if (state.halt) {
+      log.warn("spawn rechazado: la corrida esta detenida", { reason: state.halt.reason })
+      return false
+    }
+    if (state.budget.spawnsUsed >= state.budget.maxSpawnsTotal) {
+      log.warn("spawn rechazado: presupuesto de spawns agotado", {
+        used: state.budget.spawnsUsed,
+        max: state.budget.maxSpawnsTotal,
+      })
+      return false
+    }
+    state.budget.spawnsUsed += 1
+    await this.saveState(state)
+
     try {
       await client.session.prompt({
         path: { id: sessionID },
@@ -338,6 +375,76 @@ export class Office {
       log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
       return false
     }
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────────
+   * Freno de emergencia
+   * ──────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Detiene la corrida.
+   *
+   * El freno tiene que existir por una razon concreta: una malla de agentes
+   * que se auto-continua puede quedarse quemando tokens y tokens hasta
+   * que se agota el presupuesto, sin que nadie lo note. Un freno explicito
+   * convierte eso en una decision de una persona.
+   *
+   * Con el freno puesto: el hook de auto-continuacion no reanuda, el
+   * dispatcher no despacha, y la compilacion automatica del motor se
+   * desactiva.
+   */
+  async halt(state: OfficeState, reason: string, by = "usuario"): Promise<OfficeState> {
+    state.halt = { reason, at: nowIso(this.options.clock), by }
+    state.status = "paused"
+    await this.saveState(state)
+    log.warn("corrida detenida", { reason, by })
+    return state
+  }
+
+  /** Reanuda una corrida detenida. */
+  async resume(state: OfficeState): Promise<OfficeState> {
+    if (!state.halt) return state
+    state.halt = null
+    if (state.status === "paused") transitionRun(state, "running")
+    await this.saveState(state)
+    log.info("corrida reanudada")
+    return state
+  }
+
+  /** ¿La corrida esta detenida? */
+  isHalted(state: OfficeState): boolean {
+    return state.halt !== null
+  }
+
+  /**
+   * Registra el uso de un agente (tokens y costo).
+   *
+   * Lo llama el hook de eventos, que ve cada mensaje del modelo. El costo
+   * real viene del motor: no lo estimamos.
+   */
+  async recordUsage(input: {
+    agentId: string
+    role?: string
+    cardId: string | null
+    phase: "implementation" | "review" | "repair" | "exploration" | "verification"
+    model: string
+    provider: string
+    cost: number
+    tokens: { input: number; output: number; reasoning: number; cache?: { read: number; write: number } }
+    latencyMs: number
+  }): Promise<void> {
+    const state = await this.loadState()
+    await this.cost.record(state.runId, {
+      agentId: input.agentId,
+      role: input.role ?? "agente",
+      cardId: input.cardId,
+      phase: input.phase,
+      model: input.model,
+      provider: input.provider,
+      cost: input.cost,
+      tokens: input.tokens,
+      latencyMs: input.latencyMs,
+    }, this.options.clock)
   }
 
   /**
@@ -465,7 +572,22 @@ export class Office {
     }
 
     state.budget.cardsUsed = assigned.length
-    state.status = "running"
+    // El limite de cards se valida ACA, no al cerrar. Antes se seteaba el
+    // contador sin comparar: un plan de 50 cards pasaba con maxCards = 20 y
+    // el invariante `max-cards` solo se evaluaba en closeCard, cuando ya
+    // era tarde.
+    if (state.budget.cardsUsed > this.limits.maxCards) {
+      throw new Error(
+        `[OFICINA] El plan tiene ${state.budget.cardsUsed} cards y el máximo es ${this.limits.maxCards}. ` +
+          `Partí el objetivo en corridas más chicas o subí el límite.`,
+      )
+    }
+    // El status de corrida pasa por la tabla de transiciones, no por
+    // mutación directa: `planning -> running` es una transición válida, pero
+    // saltarse la tabla hace que el invariante no sirva para nada.
+    if (state.status === "planning") {
+      transitionRun(state, "running")
+    }
     await this.saveState(state)
     await this.saveRoster(roster)
     return state
@@ -477,6 +599,9 @@ export class Office {
     agentId: string,
     sessionId?: string,
   ): Promise<{ card: Card | null; reason: string }> {
+    if (state.halt) {
+      return { card: null, reason: `la corrida está detenida: ${state.halt.reason}` }
+    }
     const next = selectNextCard(state)
     if (!next.card) return { card: null, reason: next.reason }
 
@@ -530,6 +655,9 @@ export class Office {
     cardId: string,
     sessionId?: string,
   ): Promise<{ ok: boolean; reason: string }> {
+    if (state.halt) {
+      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}` }
+    }
     const card = state.cards[cardId]
     if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
 
@@ -570,6 +698,9 @@ export class Office {
     agentId: string,
     payload: { handoff: string; evidence?: string },
   ): Promise<{ ok: boolean; reason: string }> {
+    if (state.halt) {
+      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}` }
+    }
     const card = state.cards[cardId]
     if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
     if (card.owner !== agentId) {
@@ -609,6 +740,9 @@ export class Office {
     verdict: "approved" | "rejected",
     payload: { review: string; reason?: string },
   ): Promise<{ ok: boolean; reason: string; action: string }> {
+    if (state.halt) {
+      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}`, action: "none" }
+    }
     const card = state.cards[cardId]
     if (!card) return { ok: false, reason: `no existe la card ${cardId}`, action: "none" }
 
@@ -644,7 +778,20 @@ export class Office {
     return { ok: true, reason: decision.instruction || decision.reason, action: decision.action }
   }
 
-  /** Corre los gates de una card. */
+  /**
+   * Corre los gates de una card.
+   *
+   * ## Tres dimensiones, no una
+   *
+   * - **Tecnicas** (build, typecheck, lint, test, diff): el codigo esta sano.
+   * - **Seguridad** (secretos): no hay credenciales en el arbol.
+   * - **Requisitos** (verify): el objetivo del usuario esta cumplido, con
+   *   evidencia enlazada a cada criterio de aceptacion.
+   *
+   * La tercera es la que falta en casi todos los sistemas de CI: un
+   * proyecto puede pasar las dos primeras y tener la autenticacion mal
+   * porque ningun test contemplaba ese escenario.
+   */
   async runGates(state: OfficeState, cardId: string): Promise<GateResult> {
     const card = state.cards[cardId]
     if (!card) throw new Error(`no existe la card ${cardId}`)
@@ -657,7 +804,8 @@ export class Office {
 
     const technical = await runTechnicalGates(this.paths.projectRoot, this.toolingCache, runner, scope)
     const security = await runSecurityGate(this.paths.projectRoot, scope, runner)
-    const result = consolidate(cardId, technical, security)
+    const requirements = await this.runRequirementGate(card)
+    const result = consolidate(cardId, technical, security, requirements)
 
     const dir = cardDir(this.paths, cardId)
     await ensureDir(dir)
@@ -667,17 +815,59 @@ export class Office {
     return result
   }
 
+  /**
+   * Gate de requisitos: cada criterio de aceptacion con su evidencia.
+   *
+   * Devuelve UNA fase (la peor de todas) con el detalle de lo que falta.
+   */
+  private async runRequirementGate(card: Card): Promise<GatePhaseResult[]> {
+    const graph = await this.evidence.graph(card)
+    const veredicto = await this.evidence.canClose(card)
+
+    const detail = graph.missingMandatory.length > 0
+      ? `Falta evidencia de ${graph.missingMandatory.length} requisito(s) obligatorio(s):\n` +
+        graph.missingMandatory.map((r) => `  - ${r}`).join("\n")
+      : graph.complete
+        ? `${graph.requirements.length} requisito(s) con evidencia suficiente (nivel ${graph.minLevel}).`
+        : "La card no tiene criterios de aceptación: no hay nada que verificar."
+
+    return [
+      {
+        phase: "verify",
+        command: null,
+        outcome: veredicto.ok ? "pass" : "fail",
+        exitCode: veredicto.ok ? 0 : 1,
+        output: veredicto.reason,
+        detail,
+        reason: veredicto.ok ? undefined : veredicto.reason,
+      },
+    ]
+  }
+
   /** Cierra una card si los gates pasaron. Aplica los invariantes. */
   async closeCard(state: OfficeState, cardId: string, gates: GateResult): Promise<{ ok: boolean; reason: string }> {
     const card = state.cards[cardId]
     if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
 
+    // La evidencia se evalua aparte de los gates: los gates dicen que el
+    // codigo esta sano, la evidencia dice que el objetivo esta cumplido.
+    const evidencia = await this.evidence.canClose(card)
+
     try {
+      // Los invariantes se evalúan contra la card **como quedaría** si el
+      // cierre tuviera exito, no como está ahora.
+      //
+      // Esto no es un detalle: `gate-required-before-done` y
+      // `evidence-required-before-done` solo tienen sentido si la card está
+      // en `done`. Validarlas contra el estado previo (`review`) las
+      // Hacía vacuas: la card se cerraba y el invariante nunca había
+      //Saltado nunca.
       assertInvariants({
-        card,
+        card: { ...card, state: "done" },
         state,
         limits: this.limits,
         gatesPassed: gates.passed,
+        evidenceComplete: evidencia.ok,
       })
     } catch (err) {
       return { ok: false, reason: String((err as Error).message) }
@@ -686,7 +876,9 @@ export class Office {
     if (!gates.passed) {
       return {
         ok: false,
-        reason: `gate no aprobado (técnico: ${gates.technicalOutcome}, seguridad: ${gates.securityOutcome})`,
+        reason:
+          `gate no aprobado (técnico: ${gates.technicalOutcome}, seguridad: ${gates.securityOutcome}, ` +
+          `requisitos: ${gates.requirementsOutcome})`,
       }
     }
 

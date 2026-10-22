@@ -125,7 +125,22 @@ export async function withLock<T>(
       acquired = true
       break
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === "EEXIST") {
+        // Alguien mas tiene el lock. Normal.
+      } else if (code === "EPERM") {
+        // ── Trampa de Windows ──
+        //
+        // Cuando el dueno anterior esta borrando el lock, un `mkdir`
+        // concurrente no da EEXIST: da EPERM, porque el path existe pero
+        // esta en un estado invalido. Es una carrera transitoria, no un
+        // error de permisos: se reintenta.
+        //
+        // Sin este caso, en Windows dos emisores concurrentes del bus se
+        // rompian con EPERM en vez de serializarse.
+      } else {
+        throw err
+      }
 
       // ¿El lock esta vencido?
       try {
@@ -139,7 +154,7 @@ export async function withLock<T>(
         continue
       }
 
-      // Espera con jitter: evita que losProcesses se alineen en la carrera.
+      // Espera con jitter: evita que los procesos se alineen en la carrera.
       await sleep(15 + Math.floor(Math.random() * 35))
     }
   }
@@ -151,7 +166,11 @@ export async function withLock<T>(
   try {
     return await fn()
   } finally {
-    await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
+    // `rmdir` en vez de `rm -r`: el lock esta siempre vacio, y una sola
+    // llamada al sistema deja menos ventana para la carrera de Windows.
+    await fs.rmdir(lockPath).catch(async () => {
+      await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
+    })
   }
 }
 

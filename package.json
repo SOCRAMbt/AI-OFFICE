@@ -68,7 +68,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "npm run build && vitest run --coverage",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run docs:check",
+    "docs:sync": "tsx scripts/sync-docs.ts",
+    "docs:check": "tsx scripts/sync-docs.ts --check",
+    "bench:selection": "tsx benchmarks/selection/run.ts"
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.15.11",

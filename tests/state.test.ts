@@ -80,11 +80,45 @@ describe("Invariantes duros", () => {
     ).toThrow(InvariantViolationError)
   })
 
-  it("acepta DONE con gates en PASS", () => {
+  it("acepta DONE con gates en PASS y evidencia completa", () => {
     const state = makeState([makeCard({ state: "done" })])
     expect(() =>
-      assertInvariants({ card: state.cards["T-00"], state, limits: DEFAULT_LIMITS, gatesPassed: true }),
+      assertInvariants({
+        card: state.cards["T-00"],
+        state,
+        limits: DEFAULT_LIMITS,
+        gatesPassed: true,
+        evidenceComplete: true,
+      }),
     ).not.toThrow()
+  })
+
+  it("rechaza DONE sin evidencia de requisitos (fail-closed)", () => {
+    // `evidenceComplete` ausente significa "no se evaluo". No se puede
+    // asumir que este bien: un invariante de cierre tiene que fallar
+    // cuando no hay veredicto, no cuando hay veredicto negativo.
+    const state = makeState([makeCard({ state: "done" })])
+    expect(() =>
+      assertInvariants({
+        card: state.cards["T-00"],
+        state,
+        limits: DEFAULT_LIMITS,
+        gatesPassed: true,
+      }),
+    ).toThrow(/evidence-required-before-done/)
+  })
+
+  it("rechaza DONE con evidencia incompleta", () => {
+    const state = makeState([makeCard({ state: "done" })])
+    expect(() =>
+      assertInvariants({
+        card: state.cards["T-00"],
+        state,
+        limits: DEFAULT_LIMITS,
+        gatesPassed: true,
+        evidenceComplete: false,
+      }),
+    ).toThrow(/evidence-required-before-done/)
   })
 
   it("rechaza que el revisor sea el owner", () => {
