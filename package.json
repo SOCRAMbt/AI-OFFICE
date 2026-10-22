@@ -1,6 +1,6 @@
 {
   "name": "oficina-opencode",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Oficina de Agents — malla de coordinadores + peer mesh para OpenCode. Orquestación durable de subagentes con bus de mensajes en disco, roster de roles, leases, gates de calidad y escalamiento por invariantes.",
   "license": "MIT",
   "type": "module",
@@ -79,6 +79,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.12.2",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.2",
     "vitest": "^3.2.4",
     "@vitest/coverage-v8": "^3.2.4"

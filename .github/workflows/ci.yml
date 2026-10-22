@@ -63,6 +63,14 @@ jobs:
       - name: Verificar que la documentacion coincide con el codigo
         run: npm run docs:check
 
+      # El benchmark de seleccion mide si el matcher le gana a las
+      # alternativas simples. Si deja de ganar, el CI lo dice: la
+      # complejidad del matcher tiene que justificarse con numeros.
+      - name: Benchmark de seleccion de agentes
+        run: |
+          git clone --depth 1 https://github.com/SOCRAMbt/agency-agents.git "$RUNNER_TEMP/agency-agents" || true
+          AGENCY_ROOT="$RUNNER_TEMP/agency-agents" npx tsx benchmarks/selection/run.ts
+
       # Y se sube el diff, para que el PR muestre que cambió.
       - name: Mostrar el diff de la documentacion
         if: failure()

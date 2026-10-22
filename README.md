@@ -16,7 +16,7 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v2.0.1 |
+| **Paquete** | `oficina-opencode` v2.1.0 |
 | **Tools** | 16 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode-ai/plugin@1.15.11` |
@@ -30,7 +30,7 @@
 > **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
 > **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/ARCHITECTURE.md)
 
-[Documentación](#arquitectura) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
+[Documentación](#arquitectura) · [Garantías](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md) · [Compatibilidad](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/COMPATIBILITY.md) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
 
 </div>
 
@@ -154,6 +154,24 @@ Resolución real contra el catálogo:
 | Seguridad de un endpoint API | `testing-api-tester` | 42% |
 
 Reproducible: `npx tsx scripts/demo-roles.ts`
+
+### El benchmark: ¿la complejidad se justifica?
+
+Un matching textual puede elegir bien al rol y aun así no ser el mejor para la tarea. La pregunta no es *"¿funciona?"* sino **"¿vale la pena?"**. El benchmark compara tres estrategias sobre 21 tareas con resultados de referencia:
+
+| Estrategia | hit@1 | hit@3 | MRR |
+|---|---|---|---|
+| **El matcher de la oficina** | **71%** | 86% | **0.778** |
+| Keywords (los pesos de la v1) | 48% | 81% | 0.623 |
+| Solo el nombre del rol | 52% | 76% | 0.639 |
+
+El matcher completo le gana por **23 puntos** de hit@1 a la versión anterior. La complejidad se justifica, y ahora está dicho con números en vez de con adjetivos.
+
+También se probó una ponderación por **IDF** (los tokens raros pesan más) y **no se quedó**: bajaba el hit@1 a 67%. El código lo documenta y el benchmark lo demuestra. La complejidad que no se justifica hay que sacarla, no dejarla dormida en el repo.
+
+```bash
+npm run bench:selection
+```
 
 ### El panel: primario + complementos
 
@@ -280,6 +298,67 @@ El que recibe un pedido de ayuda **hace su propio triage** — no acepta por cor
 
 ---
 
+## El scope es una restricción, no una instrucción
+
+La versión anterior del guard comparaba strings: `"...".match(/^src\//)`. Eso se eludía por tres vías, y las tres eran reales.
+
+```
+// El bug: la ruta se comparaba sin resolver.
+const relative = path.relative(projectRoot, absolute)
+if (!matchesScope(relative, mayTouch)) throw ...
+```
+
+| Escape | Antes | Ahora |
+|---|---|---|
+| Symlink a fuera del proyecto | `src/link.ts` matcheaba `src/**` | Se resuelve el symlink y **se revalida** la contención |
+| `..` con `mayTouch: ["**"]` | `**` matcheaba cualquier string | `**` significa *el proyecto*, nunca el filesystem |
+| Path absoluto | `relative` empezaba en `..` y con `**` pasaba | La contención se verifica antes de cualquier glob |
+
+Ahora la ruta se **resuelve** (absoluta → normalizada → symlinks resueltos → `realpath`) y recién ahí se decide, con `fail-closed`.
+
+Además:
+
+- **Todas las tools que escriben**, no solo `edit`/`write`. Los patches multi-archivo se chequean **todos**, no solo el primero.
+- **Los comandos de shell** se analizan antes de ejecutarse: redirecciones, `cp`, `mv`, `rm`, `sed -i`, `dd`, `curl -o`, `git checkout`, interpreters embebidos.
+- **Los subagentes heredan el scope** por la cadena de padres de sesión. Delegar no es un escalón para salirse.
+- **Los archivos sensibles** (`.env`, `.npmrc`, `.git/**`, claves privadas) nunca son escribibles, pase lo que pase el scope de la card.
+- **El tripwire** fotografía el árbol antes de un comando y compara después: detecta lo que el guard no pudo ver.
+
+> Lo que **no** se promete está en [`docs/GARANTIAS.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md). Un shell con interpreter embebido puede escribir afuera; el tripwire lo detecta después, pero no lo revierte. Preferimos decirlo a vender un aislamiento que no existe.
+
+---
+
+## Una caída no destruye la corrida
+
+La oficina escribe en disco, en varios archivos, sin transacción. Un proceso que muere en el momento equivocado deja el estado incoherente. `reconcile()` compara **estado vs artefactos vs filesystem**:
+
+| Situación | Qué hace |
+|---|---|
+| Card en `review` sin `handoff.md` | El agente murió entregando. Se avisa. |
+| Card en `done` sin `gates.md` | Se cerró sin gate. **Crítico.** |
+| Card en progreso sin owner | Nadie la va a terminar. **Crítico.** |
+| Lease de una card que no existe | Se libera. |
+| Lease de una card terminada | Se libera. |
+| Agente `working` sobre una card `done` | Se libera el agente. |
+| Card bloqueada por dependencia irresoluble | Se reporta. |
+
+Lo que **no** hace: completar cards ni inventar evidencia. Un sistema que se auto-repara inventando pruebas es peor que uno que dice *"esto está roto"*.
+
+---
+
+## El costo se controla, no solo la cantidad de agentes
+
+Limitar el número de agentes **no** es controlar el costo: un agente que relee el mismo contexto veinte veces cuesta diez veces lo que uno que lo hace bien.
+
+- El costo real viene del motor (`AssistantMessage.cost`), no se estima.
+- Se contabiliza por **card**, por **agente** y por **fase** (implementación, review, reparación).
+- Presupuestos por corrida, por card y por fase.
+- Estimación previa a una corrida grande.
+- Detección de **trabajo redundante**: releer el mismo path, repetir el mismo comando.
+- **Freno de emergencia**: `oficina_stop` detiene la corrida; el auto-continuación y el despacho se niegan mientras esté detenida.
+
+---
+
 ## Capa 1 — El briefing: qué sabe cada agente antes de arrancar
 
 Un subagente arranca con el contexto vacío. Si el Commander le pasa un prompt suelta (*"implementá el login"*), el agente tiene que adivinar: qué sabe del proyecto, qué espera de él, qué puede tocar, a quién preguntarle si se traba, y qué tiene que entregar. Adivinar es la fuente de todo el trabajo que se repite y de los agentes que se salen del scope.
@@ -377,7 +456,7 @@ No acepta por cortesía. Seis preguntas, en orden:
 
 ---
 
-## Los 4 hooks
+## Los 7 hooks
 
 Acá es donde el protocolo deja de ser una intención.
 
@@ -387,14 +466,18 @@ Acá es donde el protocolo deja de ser una intención.
 | `tool.execute.before` | Bloquea escrituras fuera del scope de la card | «No toques eso» pasa de instrucción a restricción |
 | `experimental.chat.system.transform` | Inyecta el estado de la oficina en cada llamada | El agente no repregunta lo que ya sabe ni repite trabajo |
 | `experimental.session.compacting` | Reinyecta el estado **leído del disco** al compactar | Sin esto, la oficina se olvida a mitad de camino |
+| `tool.execute.after` | Tripwire: fotografía el árbol antes de un comando y compara después | Detecta lo que el guard no pudo ver |
+| `permission.ask` | Segunda capa de enforcement, a nivel del framework | Deniega en el motor, no solo en el hook propio |
+| `event` → `message.updated` | Contabilidad de costo con el número real del motor | El costo no se estima: el motor ya lo sabe |
+| `experimental.compaction.autocontinue` | Freno de emergencia sobre la auto-continuación | Sin esto, una corrida se quema sola en tokens |
 
 El hook de auto-continuación tiene guardas duras: solo reanuda si queda trabajo real, tope de 25 auto-reanudaciones por sesión, cooldown de 1,5 s entre reanudaciones, y nunca reanuda una corrida `paused`, `blocked` o `delivered`.
 
 ---
 
-## Los 6 gates
+## Los 7 gates
 
-De la skill `verification-loop`. Se ejecutan de verdad; el motor interpreta los exit codes.
+Se ejecutan de verdad; el motor interpreta los exit codes.
 
 | # | Fase | Node | Python | Go | Rust |
 |---|---|---|---|---|---|
@@ -404,6 +487,33 @@ De la skill `verification-loop`. Se ejecutan de verdad; el motor interpreta los 
 | 4 | Tests | `npm run test` | `pytest` | `go test` | `cargo test` |
 | 5 | Secretos | escaneo en código | ← | ← | ← |
 | 6 | Diff review | `git diff --stat` | ← | ← | ← |
+| 7 | Requisitos | cada criterio de aceptación con su evidencia | ← | ← | ← |
+
+### La pirámide de verificación
+
+Los seis gates técnicos dicen que **el código está sano**. Dicen nada de si el **objetivo del usuario está cumplido**: un proyecto puede compilar, pasar todos sus tests y tener la autenticación mal porque ningún test contemplaba ese escenario.
+
+| Nivel | Qué comprueba |
+|---|---|
+| 1 — Estático | Tipos, lint, secretos, dependencias |
+| 2 — Comportamiento | Unitarias, integración, regresión, casos límite |
+| 3 — Requisitos | Cada criterio de aceptación enlazado a su evidencia |
+| 4 — Auditoría | Revisión independiente, riesgos, coherencia de la evidencia |
+
+El gate 7 es el que cierra el círculo: **una card no se cierra si falta evidencia de un requisito obligatorio**, aunque los otros seis estén en verde.
+
+### El grafo requisito → evidencia
+
+Cada criterio de aceptación es un requisito. Cada evidencia —un artefacto, un test, un gate, una inspección, una auditoría— se vincula a un requisito con un nivel. El grafo responde *qué falta para poder cerrar*:
+
+```
+T-00 · Implementar login
+  [✓] endpoint de login                     nivel 2   artefacto
+  [ ] sin errores de validación            nivel 0   — FALTA
+  [!] cubierto por revisión independiente   nivel 4   auditoría
+```
+
+Un artefacto llega a nivel 2; un test, a 2; un gate, a 1 (o 2 si es la fase `test`); una inspección, a 3; una auditoría —con revisor distinto del owner—, a 4. Una auto-revisión con cara de auditoría se **rechaza**: es peor que no tener auditoría.
 
 **Reglas de honestidad** — no negociables:
 
@@ -419,9 +529,12 @@ De la skill `verification-loop`. Se ejecutan de verdad; el motor interpreta los 
 
 Los implementa el código. Un prompt puede pedirle al modelo que sea cuidadoso; el motor no puede romperlos.
 
+> **Ocho invariantes duros**, y se evalúan **donde corresponde**: el de cierre en el cierre, el de presupuesto al gastar, el de ayuda al enrutar. Evaluar un invariante de `DONE` con la card todavía en `review` lo deja vacío — y así estaba antes: el invariante `gate_required_before_done` no disparaba nunca. Ahora se valida contra el estado al que la card llegaría.
+
 | Invariante | Valor |
 |---|---|
 | `gate_required_before_done` | `true` — sin gates en `PASS` no hay `DONE` |
+| `evidence_required_before_done` | `true` — sin evidencia de los requisitos obligatorios no hay `DONE`. *Fail-closed*: si la evidencia no se evaluó, no se cierra |
 | `reviewer_neq_owner` | `true` — no hay auto-aprobación |
 | `max_concurrent_agents` | 10 base · 14 hard cap |
 | `max_spawn_depth` | 2 niveles bajo el coordinador |
@@ -453,9 +566,9 @@ Las preguntas de un especialista al coordinador **van por el bus**, no interrump
 
 ---
 
-## Los 13 tools
+## Los 16 tools
 
-Trece, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
+Dieciséis, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
 
 | Tool | Qué hace |
 |---|---|
@@ -472,6 +585,9 @@ Trece, no treinta. Cada tool que se suma es ruido en el contexto de todos los ag
 | `oficina_escalate` | Escala al usuario con 2-3 opciones concretas y recomendación |
 | `oficina_ficha` | Resuelve un rol a ficha y **despliega** el agente con su briefing |
 | `oficina_brief` | Muestra el briefing y el **panel de roles** sin desplegar: decisión del Comandante |
+| `oficina_evidence` | El grafo de requisitos a evidencia: qué falta para poder cerrar |
+| `oficina_cost` | Tokens y USD por card, agente y fase, con los presupuestos |
+| `oficina_stop` | Freno de emergencia: detiene o reanuda la corrida |
 
 ---
 
@@ -615,7 +731,7 @@ El formato de artefactos es compatible con OFICINA v1 (la skill). El plugin **mi
 
 ## Código
 
-24 archivos TypeScript · 14 módulos en `core/` · 1 toolset · 4 hooks.
+31 archivos TypeScript · 18 módulos en `core/` · 1 toolset · 7 hooks.
 
 ```
 src/
@@ -631,13 +747,22 @@ src/
 │   ├── factory.ts        # generación de roles con briefing de 10 secciones
 │   ├── briefing.ts       # el contrato de información del agente
 │   ├── router.ts         # enrutado + rotación anti-monotonía
-│   ├── gates.ts          # runner de los 6 gates + escaneo de secretos
+│   ├── gates.ts          # runner de los 7 gates + escaneo de secretos
+│   ├── sandbox.ts        # resolucion real de rutas + scope + sensibles
+│   ├── atomic.ts         # primitivas atomicas: O_EXCL, locks, seq
+│   ├── evidence.ts       # grafo requisito -> evidencia
+│   ├── cost.ts           # ledger de tokens y USD
+│   ├── recovery.ts       # reconciliacion estado vs artefactos
+│   ├── tripwire.ts       # deteccion de escrituras coladas
+│   ├── stores.ts         # persistencia de evidencia y costo
+│   ├── docsync.ts        # fuente unica de verdad de las cifras
 │   ├── retry.ts          # política de 3 golpes
 │   ├── office.ts         # la fachada que amarra todo
 │   ├── paths.ts          # resolución de project root
 │   ├── fsx.ts            # IO atómico
+│   ├── ids.ts            # ids seguros para usar como nombre de archivo
 │   └── log.ts            # logging estructurado
-├── tools/index.ts        # las 11 tools
+├── tools/index.ts        # las 16 tools
 └── hooks/
     ├── sessionIdle.ts    # auto-continuación
     ├── scopeGuard.ts     # enforcement de scope
@@ -654,8 +779,10 @@ Una sola, y es peer del host: `@opencode-ai/plugin`. Zod entra por `tool.schema`
 ## Testing
 
 ```bash
-npm test           # 213 tests, 14 archivos
-npm run coverage   # 90.2% stmts · 82.8% branches
+npm test           # 385 tests, 21 archivos
+npm run coverage   # cobertura por línea
+npm run docs:check # la documentación coincide con el código
+npm run bench:selection  # el matcher le gana a las alternativas simples
 npm run typecheck  # tsc --noEmit, strict
 npm run build      # tsc → dist/
 ```
@@ -664,14 +791,21 @@ npm run build      # tsc → dist/
 |---|---|
 | `bus.test.ts` | Append-only, ack, TTL, idempotencia, broadcast, prioridad, atomicidad |
 | `state.test.ts` | Transiciones, invariantes duros, selección de card, ciclo de corrida |
-| `gates.test.ts` | Detección de tooling, las 6 fases, N/A con motivo, consolidación, redacción |
+| `gates.test.ts` | Detección de tooling, las 7 fases, N/A con motivo, consolidación, redacción |
 | `router.test.ts` | Enrutado, rotación, reviewer ≠ owner, política de 3 golpes, presupuesto |
 | `leases.test.ts` | Adquisición, heartbeat, expiración, double-claim, reasignación |
 | `catalog.test.ts` | Frontmatter, secciones, extracción, matching ponderado, panel, factory |
-| `catalogReal.test.ts` | El catálogo real de 306 agentes: estructuras, matching, división |
+| `catalogReal.test.ts` | El catálogo real de agency-agents: estructuras, matching, división |
 | `briefing.test.ts` | Orden, mínimo, las 10 secciones, los 4 artefactos, INCOMPLETO |
 | `office.test.ts` | Ciclo completo end-to-end, invariantes, artefactos en disco |
 | `scopeGuard.test.ts` | Globs, extracción de path, enforcement de scope |
+| `sandbox.test.ts` | **Adversarial**: symlinks, traversal, absolutos, sensibles, shell |
+| `concurrency.test.ts` | Doble claim simultáneo, seq único, idempotencia atómica |
+| `recovery.test.ts` | Entregas perdidas, invariantes vulnerados, huérfanos, reinicio |
+| `evidence.test.ts` | El grafo requisito → evidencia y los 4 niveles |
+| `cost.test.ts` | Ledger, presupuestos por fase, trabajo redundante |
+| `tripwire.test.ts` | Detección de escrituras coladas por shell |
+| `docsync.test.ts` | La documentación coincide con el código |
 | `plugin.test.ts` | El plugin contra un host mockeado: tools, hooks, auto-resume |
 | `migration.test.ts` | Migración v1 → v2 sin pérdida de datos |
 | `cli.test.ts` | init, status, board, install, audit, reset, idempotencia |
@@ -683,3 +817,5 @@ npm run build      # tsc → dist/
 MIT — ver [LICENSE](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/LICENSE).
 
 El diseño se apoya en los patrones de `durable-execution` y `workflow-engine-design`: estado durable antes de los efectos, leases con TTL, transiciones nombradas explícitamente y at-least-once con reconciliación por idempotency key.
+
+Lo que **no** se promete está escrito en [`docs/GARANTIAS.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md): un plugin de aplicación no es un sandbox, y un README que vende más de lo que el código hace es peor que uno modesto.
