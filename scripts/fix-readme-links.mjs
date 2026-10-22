@@ -7,7 +7,7 @@
 import fs from "node:fs"
 import path from "node:path"
 
-const REPO = "https://github.com/SOCRAMbt/El-ltimoTPP"
+const REPO = "https://github.com/SOCRAMbt/AI-OFFICE"
 const BRANCH = "main"
 const file = "C:/Users/Marcos/oficina-plugin/README.md"
 let content = fs.readFileSync(file, "utf8")
