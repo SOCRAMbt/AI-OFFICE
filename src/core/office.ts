@@ -47,9 +47,39 @@ export interface OfficeOptions {
   limits?: Limits
   /** Raíz del repo agency-agents para el catálogo. */
   agencyRoot?: string
+  /**
+   * Catálogo de roles ya escaneado.
+   *
+   * Punto de inyección: en producción se autodetecta; en los tests se pasa
+   * un catálogo controlado para no depender del repo externo.
+   */
+  catalog?: CatalogAgent[]
   /** Runner de comandos para los gates. Inyectable para tests. */
   runner?: CommandRunner
   clock?: () => number
+  /**
+   * Cliente del SDK de OpenCode.
+   *
+   * Se usa para **desviar subagentes**: `session.prompt` con una parte
+   * `subtask` crea un subagente real. Sin cliente, la oficina funciona igual
+   * (los agentes se materializan y el LLM los invoca con la tool `task`),
+   * pero no puede arrancarlos sola.
+   */
+  client?: {
+    session: {
+      prompt: (input: {
+        path: { id: string }
+        body: {
+          parts: Array<{
+            type: "subtask"
+            prompt: string
+            description: string
+            agent: string
+          }>
+        }
+      }) => Promise<unknown>
+    }
+  }
 }
 
 export class Office {
@@ -154,6 +184,10 @@ export class Office {
   /** Catálogo de agency-agents (cacheado). */
   async catalog(): Promise<CatalogAgent[]> {
     if (this.catalogCache) return this.catalogCache
+    if (this.options.catalog) {
+      this.catalogCache = this.options.catalog
+      return this.catalogCache
+    }
     const root = this.options.agencyRoot ?? this.defaultAgencyRoot()
     if (!root) {
       this.catalogCache = []
@@ -262,6 +296,48 @@ export class Office {
     })
     this.candidates.record(ficha.role, nowIso(this.options.clock))
     return { ficha, source: "factory", coverage: match?.coverage ?? 0, match, alternatives, panel }
+  }
+
+  /**
+   * Arranca un subagente.
+   *
+   * Usa `session.prompt` con una parte `subtask`: es la vía que OpenCode
+   * provee para crear un subagente real, con su prompt de sistema y su
+   * contexto propio.
+   *
+   * El `agent` que se pasa es `"general"`, y el specialty viaja completo en el
+   * prompt. La razón es práctica: OpenCode arma la lista de agentes al
+   * arrancar la sesión, así que un `.opencode/agents/oficina-<slug>.md`
+   * recién creado puede no estar registrable todavía. Con el prompt embebido
+   * el agente funciona siempre.
+   */
+  async spawnAgent(
+    sessionID: string,
+    agentName: string,
+    prompt: string,
+    description: string,
+  ): Promise<boolean> {
+    const client = this.options.client
+    if (!client) return false
+    try {
+      await client.session.prompt({
+        path: { id: sessionID },
+        body: {
+          parts: [
+            {
+              type: "subtask",
+              prompt,
+              description: description || `Oficina: ${agentName}`,
+              agent: "general",
+            },
+          ],
+        },
+      })
+      return true
+    } catch (err) {
+      log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
+      return false
+    }
   }
 
   /**

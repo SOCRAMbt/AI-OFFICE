@@ -15,6 +15,8 @@ import type { Card, CardType, MessageKind, MessagePriority } from "../core/types
 import { CHANNELS } from "../core/bus.js"
 import { Office, renderFicha } from "../core/office.js"
 import { renderBriefing } from "../core/briefing.js"
+import { dispatchOffice } from "../core/dispatch.js"
+import { snapshotMesa, renderMesa } from "../core/mesa.js"
 
 /**
  * Se usa el zod del propio plugin (`tool.schema`) en vez de importar zod.
@@ -738,6 +740,204 @@ export function buildTools(office: Office): Record<string, ToolDefinition> {
             `**Origen:** ${result.source} · **cobertura:** ${(result.coverage * 100).toFixed(0)}%`,
           ].join("\n"),
           metadata: { agentId: entry.id, source: result.source, coverage: result.coverage },
+        }
+      },
+    }),
+
+    /**
+     * Despacha el equipo: crea los subagentes y les da el briefing.
+     */
+    oficina_dispatch: tool({
+      description:
+        "Despacha el equipo de la corrida. Para cada card sin owner: resuelve el rol desde el catálogo de agency-agents " +
+        "(o lo fabrica si no hay match), materializa el agente con su briefing de 10 secciones, y devuelve el prompt " +
+        "de arranque de cada uno. Los complementos del panel quedan disponibles como pares para pedir ayuda. " +
+        "Usá esto UNA vez, después de `oficina_plan`: es el momento en que el equipo se forma.",
+      args: {
+        maxAgents: z.number().int().min(1).max(14).default(10).describe("Máximo de agentes a materializar."),
+        maxComplements: z.number().int().min(0).max(3).default(2).describe("Complementos por card."),
+        spawn: z
+          .boolean()
+          .default(true)
+          .describe("Si es true, arranca los subagentes en paralelo automáticamente."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+        const state = await off.loadState()
+        const catalog = await off.catalog()
+        const roster = await off.loadRoster(state.runId)
+
+        const result = await dispatchOffice(off, state, {
+          projectRoot: off.paths.projectRoot,
+          catalog,
+          objective: state.objective,
+          maxAgents: Math.min(args.maxAgents, off.limits.maxConcurrentAgents),
+          maxComplements: args.maxComplements,
+          minCoverage: off.limits.minCatalogCoverage,
+          existing: Object.values(roster.agents),
+        })
+
+        // Arranque en paralelo de los agentes con card propia.
+        const spawned: string[] = []
+        if (args.spawn) {
+          for (const agent of result.dispatched) {
+            if (agent.isPeer) continue
+            const ok = await off.spawnAgent(ctx.sessionID, agent.agentName, agent.prompt, agent.cardId ?? "")
+            if (ok) spawned.push(`${agent.agentName} (${agent.role})`)
+          }
+        }
+
+        const lines: string[] = [
+          `**Equipo despachado:** ${result.dispatched.length} agentes (${result.dispatched.filter((a) => !a.isPeer).length} con card, ${result.dispatched.filter((a) => a.isPeer).length} como pares libres)`,
+          "",
+          "| Agente | Rol | Card | Origen | Aporta |",
+          "|--------|-----|------|--------|---------|",
+          ...result.dispatched.map(
+            (a) =>
+              `| \`${a.agentName}\` | ${a.displayName} | ${a.cardId ?? "— (par libre)"} | ${a.source} | ${a.contributes.join(", ") || "—"} |`,
+          ),
+        ]
+
+        if (spawned.length > 0) {
+          lines.push("", `**Arrancados en paralelo:** ${spawned.join(", ")}`)
+        }
+        if (result.uncovered.length > 0) {
+          lines.push(
+            "",
+            `**Capabilities que nadie cubre:** ${result.uncovered.join(", ")}`,
+            "",
+            "Opciones: partir la card en dos (una por dominio), fabricar el rol con `oficina_spawn`, o aceptar la deuda.",
+          )
+        }
+        if (result.unassigned.length > 0) {
+          lines.push("", `**Cards sin owner:** ${result.unassigned.join(", ")}`)
+        }
+        for (const note of result.notes) lines.push(`- ${note}`)
+
+        lines.push(
+          "",
+          "**Agentes materializados en** `.opencode/agents/` — versionados con el repo y disponibles la próxima sesión.",
+        )
+
+        return {
+          title: `Equipo despachado: ${result.dispatched.length} agentes`,
+          output: lines.join("\n"),
+          metadata: {
+            dispatched: result.dispatched.length,
+            spawned: spawned.length,
+            uncovered: result.uncovered,
+            unassigned: result.unassigned,
+          },
+        }
+      },
+    }),
+
+    /**
+     * La mesa: la vista compartida del equipo.
+     */
+    oficina_mesa: tool({
+      description:
+        "La mesa de la oficina: quién está trabajando en qué, quién está libre para ayudar, qué cards no tienen owner, " +
+        "qué pedidos de ayuda siguen sin responder y qué preguntas están abiertas. " +
+        "Usala antes de reclamar trabajo, antes de pedir ayuda (para saber a quién) y cuando te digan que te asignaron una card.",
+      args: {
+        action: z
+          .enum(["view", "read", "respond", "offer", "claim"])
+          .default("view")
+          .describe("view = foto de la mesa · read = mis mensajes · respond = contestar un pedido · offer = ofrecer ayuda · claim = reclamar una card"),
+        agentId: z.string().describe("Tu id de agente."),
+        messageId: z.string().optional().describe("Mensaje al que respondés (para respond)."),
+        kind: z
+          .enum([
+            "HELP_ACCEPT",
+            "HELP_DECLINE",
+            "HELP_PARTIAL",
+            "HELP_QUESTION",
+            "CLAIM",
+            "NOTICE",
+          ])
+          .optional()
+          .describe("Tipo de respuesta (para respond/offer)."),
+        cardId: z.string().optional().describe("Card (para respond/claim)."),
+        body: z.string().optional().describe("Tu respuesta o anuncio."),
+        to: z.array(z.string()).optional().describe("Destinatarios (para offer)."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+
+        if (args.action === "view") {
+          const snapshot = await snapshotMesa(off)
+          return {
+            title: `Mesa: ${snapshot.trabajando.length} trabajando · ${snapshot.libres.length} libres`,
+            output: renderMesa(snapshot),
+            metadata: {
+              working: snapshot.trabajando.length,
+              free: snapshot.libres.length,
+              unowned: snapshot.sinOwner.length,
+              helpOpen: snapshot.ayudaAbierta.length,
+            },
+          }
+        }
+
+        if (args.action === "read") {
+          const messages = await off.bus.receive(args.agentId, [CHANNELS.peer, CHANNELS.flow, CHANNELS.command, CHANNELS.arch])
+          if (messages.length === 0) {
+            return { title: "Sin mensajes", output: "No hay mensajes nuevos en tu inbox." }
+          }
+          return {
+            title: `${messages.length} mensajes`,
+            output: messages
+              .map(
+                (m) =>
+                  `### [${m.kind}] de ${m.from} — ${m.subject}\n${JSON.stringify(m.body, null, 2)}\n_(id: ${m.id})_`,
+              )
+              .join("\n\n"),
+            metadata: { count: messages.length },
+          }
+        }
+
+        if (args.action === "respond" || args.action === "offer") {
+          if (!args.messageId && args.action === "respond") {
+            return { title: "Falta messageId", output: "Indicá el messageId del pedido al que respondés." }
+          }
+          const msg = await off.bus.send(CHANNELS.peer, {
+            from: args.agentId,
+            to: args.to ?? [],
+            kind: (args.kind ?? "HELP_ACCEPT") as never,
+            subject: args.cardId ?? "",
+            body: args.body ? safeJson(args.body) : {},
+            inReplyTo: args.messageId ?? null,
+          })
+          await off.bus.ack(args.agentId, args.messageId ?? msg.id)
+          return {
+            title: `Mensaje publicado: ${msg.kind}`,
+            output: `Publicado en el canal peer (seq ${msg.seq}).`,
+            metadata: { messageId: msg.id },
+          }
+        }
+
+        // claim
+        if (!args.cardId) {
+          return { title: "Falta cardId", output: "Indicá la card que reclamás." }
+        }
+        const state = await off.loadState()
+        const claimed = await off.claimCard(state, args.agentId, args.cardId)
+        if (!claimed.ok) {
+          return { title: "No se pudo reclamar", output: claimed.reason }
+        }
+        await off.bus.send(CHANNELS.peer, {
+          from: args.agentId,
+          to: ["*"],
+          kind: "CLAIM",
+          subject: args.cardId,
+          body: { claimed: args.cardId },
+        })
+        return {
+          title: `Card ${args.cardId} reclamada`,
+          output: `Reclamaste \`${args.cardId}\`. Avisado en el canal peer.`,
+          metadata: { cardId: args.cardId },
         }
       },
     }),

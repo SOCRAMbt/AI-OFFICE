@@ -180,7 +180,7 @@ export const CAPABILITY_TAXONOMY: Record<string, string[]> = {
   backend: ["backend", "server", "api", "endpoint", "service", "rest", "graphql", "microservice", "gateway", "contract"],
   database: ["database", "sql", "postgres", "postgresql", "prisma", "orm", "schema", "migration", "index", "query", "reliability", "availability", "tuning", "partitioning"],
   security: ["security", "auth", "authentication", "authorization", "vulnerability", "owasp", "encryption", "threat", "vuln", "pentest", "xss", "csrf", "injection", "sanitize", "hardening", "audit", "compliance"],
-  testing: ["test", "testing", "qa", "e2e", "unit-test", "coverage", "playwright", "vitest", "fixture", "assertion", "browser", "checkout"],
+  testing: ["test", "testing", "qa", "e2e", "end-to-end", "end2end", "unit-test", "coverage", "playwright", "vitest", "fixture", "assertion", "browser", "checkout", "integration-test", "acceptance-test", "smoke-test"],
   performance: ["performance", "optimization", "profiling", "caching", "latency", "benchmark", "throughput", "slowdown", "speed"],
   architecture: ["architecture", "design", "pattern", "scalability", "system-design", "refactor", "modular", "blueprint", "blueprints"],
   devops: ["devops", "ci", "cd", "deployment", "docker", "kubernetes", "infrastructure", "pipeline", "terraform", "automator", "release"],
@@ -227,7 +227,7 @@ export const DIVISION_AFFINITY: Record<string, string[]> = {
   healthcare: ["health", "clinical", "patient", "medical", "hipaa", "ehr", "diagnosis"],
   finance: ["finance", "billing", "accounting", "payment", "revenue", "cost", "pricing"],
   design: ["design", "ux", "ui", "visual", "brand", "typography", "layout", "motion", "css", "theme", "token", "copy"],
-  engineering: ["code", "develop", "build", "implement", "refactor", "api", "service", "codebase", "backend", "frontend", "data", "type", "test", "architecture", "performance", "mobile", "security", "database"],
+  engineering: ["code", "develop", "build", "implement", "refactor", "api", "service", "codebase", "backend", "frontend", "data", "type", "test", "architecture", "performance", "mobile", "security", "database", "devops", "deployment", "docker", "kubernetes", "cicd", "infrastructure", "pipeline", "release", "automation", "automator", "sre", "platform"],
   specialized: ["specialist", "optimizer", "remediation", "automation", "automator", "intelligence"],
 }
 
@@ -421,19 +421,22 @@ export function titleize(slug: string): string {
  */
 export const MATCH_WEIGHTS = {
   /** El nombre del rol y su display name. */
-  name: 0.4,
+  name: 0.35,
   /** La misión, overlap literal. */
-  missionLiteral: 0.35,
-  /** La misión, overlap conceptual (taxonomía). */
-  missionConcept: 0.2,
+  missionLiteral: 0.28,
+  /** La misión, overlap conceptual (taxonomía + lematización). */
+  missionConcept: 0.18,
   /** Capabilities inferidas del cuerpo. */
   capabilities: 0.05,
   /** Lo que el agente sabe producir. */
-  deliverables: 0.0,
-  /** La división: contexto, no especialidad. */
-  division: 0.0,
+  deliverables: 0.03,
+  /**
+   * La división: contexto, no especialidad — pero señal fuerte. Una card de
+   * e2e testing tiene que ir a la división `testing`, no a `engineering`.
+   */
+  division: 0.1,
   /** El texto completo: ruido puro. */
-  text: 0.0,
+  text: 0.01,
 } as const
 
 /**
@@ -486,16 +489,142 @@ function canonicalizeTokens(tokens: Set<string>): Set<string> {
   return concepts
 }
 
+/**
+ * Sinónimos **por capability**.
+ *
+ * ## Por qué no alcanza con la taxonomía
+ *
+ * La taxonomía agrupa por *concepto*: "e2e" y "testing" caen en el mismo
+ * grupo. Con eso, un agente que dice "testing" matcheaba "e2e", y un PDF
+ * engine que menciona "Playwright" le ganaba a un Test Automation Engineer
+ * que decía "end-to-end" — que es la misma palabra escrita larga.
+ *
+ * Los sinónimos van **por capability**: "e2e" es "end-to-end", pero
+ * "e2e" NO es "playwright". Esa distinción es la que separa a un
+ * especialista de un generalista que menciona la tool de pasada.
+ */
+export const CAPABILITY_SYNONYMS: Record<string, string[]> = {
+  e2e: ["e2e", "end-to-end", "end2end", "end to end", "integration test", "acceptance test", "browser test"],
+  testing: ["test", "tests", "testing", "qa", "suite", "suites", "test suite", "spec", "specs"],
+  playwright: ["playwright"],
+  vitest: ["vitest"],
+  jest: ["jest"],
+  cypress: ["cypress"],
+  react: ["react", "jsx", "component", "components", "hook", "hooks"],
+  css: ["css", "style", "styles", "styling", "tailwind", "layout", "theme", "token", "tokens"],
+  accessibility: ["accessibility", "a11y", "aria", "wcag", "section 508", "assistive", "screen reader", "keyboard"],
+  security: ["security", "vulnerability", "vulnerabilities", "auth", "authentication", "authorization", "owasp", "threat", "injection", "xss", "csrf", "pentest", "hardening"],
+  api: ["api", "endpoint", "endpoints", "rest", "graphql", "openapi", "contract"],
+  database: ["database", "sql", "postgres", "postgresql", "mysql", "sqlite", "prisma", "orm", "schema", "migration", "query", "index", "partitioning"],
+  backend: ["backend", "server", "service", "services", "microservice", "worker"],
+  frontend: ["frontend", "ui", "web", "spa", "browser"],
+  typescript: ["typescript", "ts", "type", "types", "generic", "generics", "typecheck"],
+  performance: ["performance", "optimize", "optimization", "profiling", "caching", "latency", "benchmark", "throughput"],
+  architecture: ["architecture", "pattern", "patterns", "design", "scalability", "system design", "refactor", "modular"],
+  devops: ["devops", "ci", "cd", "deployment", "deploy", "docker", "kubernetes", "infrastructure", "pipeline", "terraform", "release", "operations", "sre", "automation"],
+  documentation: ["documentation", "docs", "readme", "changelog", "api docs", "technical writing", "writer"],
+  cicd: ["cicd", "ci", "cd", "continuous integration", "continuous delivery", "continuous deployment", "pipeline", "release"],
+  data: ["data", "analytics", "etl", "dataset", "ingest", "aggregate", "warehouse", "pipeline", "stream", "streaming", "ml", "machine learning"],
+  accessibility_audit: ["audit", "auditor", "auditing", "audit", "review", "reviewer", "conformance", "compliance"],
+  gis: ["gis", "geospatial", "mapping", "map", "cartography", "tile", "shapefile", "coordinate", "spatial"],
+  design: ["design", "designer", "visual", "brand", "typography", "mockup"],
+  qa: ["qa", "quality assurance", "test", "testing", "review"],
+}
+
+/**
+ * Sinónimos de una capability.
+ *
+ * Si la capability no está en la tabla, sus sinónimos son ella misma: el
+ * match es literal o lematizado.
+ */
+export function synonymsOf(capability: string): Set<string> {
+  const lower = capability.toLowerCase().trim()
+  const explicit = CAPABILITY_SYNONYMS[lower]
+  if (explicit) return new Set([lower, ...explicit])
+  return new Set([lower])
+}
+
+/**
+ * ¿El agente menciona esta capability, por sinonimia o lematización?
+ *
+ * La capability puede ser una **frase** ("react components"), no un token
+ * suelto: se tokeniza y se busca cualquiera de sus partes. Un token solo
+ * ("react") se busca como synonym group.
+ */
+export function mentionsCapability(agentTokens: Set<string>, capability: string): boolean {
+  const tokens = capabilityTokens(capability)
+  for (const token of tokens) {
+    for (const alias of synonymsOf(token)) {
+      for (const agentToken of agentTokens) {
+        if (agentToken === alias) return true
+        if (stem(agentToken) === stem(alias)) return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Fracción de las capabilities objetivo que el agente menciona.
+ *
+ * Una capability puede ser una **frase** ("react component accessibility").
+ * En ese caso cuenta como varias: cada palabra se evalúa por separado. Si no,
+ * "react component accessibility" valdría lo mismo que "react", y un agente
+ * que solo menciona accesibilidad ganaría una card de frontend.
+ */
+export function capabilityCoverage(agentTokens: Set<string>, target: string[]): number {
+  if (target.length === 0) return 0
+  let hits = 0
+  let total = 0
+  for (const capability of target) {
+    const tokens = capabilityTokens(capability)
+    if (tokens.size === 0) continue
+    for (const token of tokens) {
+      total += 1
+      if (mentionsCapability(agentTokens, token)) hits += 1
+    }
+  }
+  return total === 0 ? 0 : hits / total
+}
+
+/**
+ * Lematiza un token: "testing" → "test", "validation" → "validat".
+ *
+ * ## Por qué hace falta
+ *
+ * El Commander pide capabilities en sus palabras ("testing", "validation") y
+ * los agentes de agency-agents usan las suyas ("test", "validate"). Sin
+ * lematizar, dos palabras que significan lo mismo no se ven nunca.
+ *
+ * Es la diferencia entre un matcher de palabras y uno de conceptos.
+ */
+export function stem(token: string): string {
+  if (token.length <= 4) return token
+  for (const suffix of ["ations", "ation", "ings", "ing", "ies", "ied", "ers", "er", "es", "ed", "s"]) {
+    if (token.endsWith(suffix) && token.length - suffix.length >= 3) {
+      return token.slice(0, token.length - suffix.length)
+    }
+  }
+  return token
+}
+
 /** Fracción de tokens de `want` que aparecen en `have`. */
 function tokenOverlap(want: Set<string>, have: Set<string>): number {
   if (want.size === 0) return 0
+  const haveStems = new Set([...have].map(stem))
+
   let hits = 0
   for (const token of want) {
     if (have.has(token)) {
       hits += 1
       continue
     }
-    // Match parcial: "streaming" matchea "stream".
+    // Match por lematización: "testing" ~ "test".
+    if (haveStems.has(stem(token))) {
+      hits += 1
+      continue
+    }
+    // Match parcial por prefijo: "streaming" ~ "stream".
     for (const candidate of have) {
       if (candidate.length > 3 && token.length > 3 && (candidate.startsWith(token) || token.startsWith(candidate))) {
         hits += 0.6
@@ -508,14 +637,35 @@ function tokenOverlap(want: Set<string>, have: Set<string>): number {
 
 /** Afinidad de la división con las capabilities pedidas. */
 export function divisionAffinity(division: string, target: string[]): number {
-  const wanted = new Set(DIVISION_AFFINITY[division] ?? [])
-  if (wanted.size === 0) return 0
-  const targetTokens = capabilityTokens(target.join(" "))
-  let hits = 0
-  for (const token of targetTokens) {
-    if (wanted.has(token)) hits += 1
+  const aliases = DIVISION_AFFINITY[division]
+  if (!aliases || aliases.length === 0) return 0
+
+  // El objetivo se canónica y se lematiza.
+  const targetConcepts = canonicalConcepts(target.join(" "))
+  const targetStems = new Set([...targetConcepts].map(stem))
+
+  // La división se expresa en conceptos, no en palabras sueltas.
+  // El nombre de la división cuenta: una card de testing tiene que ir a la
+  // división `testing`, y esa es la señal más obvia de todas.
+  const divisionConcepts = new Set<string>()
+  for (const alias of [...aliases, division]) {
+    for (const concept of canonicalConcepts(alias)) divisionConcepts.add(concept)
   }
-  return Math.min(1, hits / Math.max(1, Math.min(targetTokens.size, wanted.size)))
+  const divisionStems = new Set([...divisionConcepts].map(stem))
+
+  let hits = 0
+  for (const concept of targetConcepts) {
+    if (divisionConcepts.has(concept)) {
+      hits += 1
+      continue
+    }
+    if (divisionStems.has(stem(concept))) hits += 1
+  }
+
+  if (hits === 0) return 0
+  // Normalizado contra el tamaño de la división, no del objetivo: una
+  // división chica que matchea todo vale más que una grande que matchea poco.
+  return Math.min(1, hits / Math.max(1, Math.min(divisionConcepts.size, targetConcepts.size)))
 }
 
 /**
@@ -558,14 +708,21 @@ export function matchCapabilities(
       for (const token of canonicalConcepts(deliverable)) agentDeliverables.add(token)
     }
 
-    // El nombre del rol: la etiqueta más literal de la especialidad.
-    const agentName = capabilityTokens(`${agent.slug} ${agent.displayName}`)
+    // La identidad del agente: nombre, slug, **description** y **vibe**.
+    //
+    // Los dos últimos son la señal curada — líneas escritas a mano que dicen
+    // exactamente de qué se ocupa el agente. El cuerpo son 300 líneas de
+    // contexto donde cualquier palabra genérica aparece; la description y el
+    // vibe, no. Excluirlos era dejar la mejor señal afuera.
+    const agentName = capabilityTokens(
+      `${agent.slug} ${agent.displayName} ${agent.description} ${agent.vibe}`,
+    )
 
     const agentCapabilities = canonicalizeTokens(new Set(agent.capabilities))
     const agentText = canonicalizeTokens(capabilityTokens(agent.searchText))
 
-    const nameScore = tokenOverlap(targetRaw, agentName)
-    const missionLiteral = tokenOverlap(targetRaw, agentMissionRaw)
+    const nameScore = capabilityCoverage(agentName, target)
+    const missionLiteral = capabilityCoverage(agentMissionRaw, target)
     const missionConcept = tokenOverlap(targetTokens, agentMissions)
     const capabilityScore = tokenOverlap(targetTokens, agentCapabilities)
     const deliverableScore = tokenOverlap(targetTokens, agentDeliverables)
@@ -582,36 +739,50 @@ export function matchCapabilities(
       textScore * MATCH_WEIGHTS.text
 
     // **Recall**: qué parte del objetivo cubre este agente, con las señales
-    // confiables (nombre del rol + misión declarada).
+    // confiables (identidad curada + misión declarada).
     //
-    // Sin este término, un agente que matchea **una** capability compite
-    // mano a mano con uno que matchea **dos**: el score de overlap mide
-    // densidad, no alcance. Un "zk-steward" que matcheaba solo
-    // "validation" ganaba的位置 a un "Frontend Developer" que cubría
-    // "react" y "frontend".
-    const reliableHits = target.filter((t) => {
-      const raw = capabilityTokens(t)
-      const canonical = canonicalConcepts(t)
-      return (
-        tokenOverlap(raw, agentName) > 0.5 ||
-        tokenOverlap(raw, agentMissionRaw) > 0.5 ||
-        tokenOverlap(canonical, agentMissions) > 0.5
-      )
-    })
+    // El conteo es POR TOKEN, igual que `capabilityCoverage`. Si `coverage`
+    // cuenta tokens y `reliable` cuenta frases, el panel miente: un agente
+    // que menciona "mapping" de pasada se contaba como si cubriera "gis
+    // geospatial mapping cartography" entero.
+    const reliableFraction = (capability: string): number => {
+      const tokens = capabilityTokens(capability)
+      if (tokens.size === 0) return 0
+      let hits = 0
+      for (const token of tokens) {
+        if (mentionsCapability(agentName, token) || mentionsCapability(agentMissionRaw, token)) {
+          hits += 1
+        }
+      }
+      return hits / tokens.size
+    }
+    const reliableHits = target.filter((t) => reliableFraction(t) >= 0.5)
     const recall = target.length > 0 ? reliableHits.length / target.length : 0
 
+    // **Focus de misión**: qué fracción de las misiones declaradas del agente
+    // tienen que ver con el objetivo.
+    //
+    // Este es el discriminante entre un especialista y un generalista que
+    // menciona la tool de pasada. Un Test Automation Engineer tiene las 5
+    // misiones en el dominio del testing → focus ~1. Un PDF engine con UNA
+    // misión sobre "Playwright Browser Context Pools" y las otras 7 sobre
+    // PDF → focus ~0.12.
+    const matchingMissions = agent.missions.filter((m) => {
+      const raw = new Set(capabilityTokens(m))
+      return target.some((t) => mentionsCapability(raw, t))
+    })
+    const focus = agent.missions.length > 0 ? matchingMissions.length / agent.missions.length : 0
+
     // **Precisión**: qué fracción de lo que el agente es realmente va en la
-    // dirección del objetivo. Un especialista que cubre 1 de 4 conceptos
-    // pedido, pero es 100% ese concepto, es mejor match que un generalista
-    // que cubre lo mismo con 30 conceptos no pedidos.
+    // dirección del objetivo.
     const hits = [...targetTokens].filter((token) => agentMissions.has(token)).length
     const precision = agentMissions.size > 0 ? Math.min(1, hits / agentMissions.size) : 0
     const f1 = recall + precision > 0 ? (2 * recall * precision) / (recall + precision) : 0
 
     // Score final: la señal de match, el alcance sobre el objetivo y la
-    // especificidad. El recall es el que decide entre "matchea poco pero
-    // preciso" y "matchea más y cubre más del objetivo".
-    const score = coverage * 0.4 + recall * 0.35 + f1 * 0.25
+    // especificidad. El recall mide alcance; el focus mide si el agente es
+    // un especialista del dominio o un generalista que pasó por ahí.
+    const score = coverage * 0.35 + recall * 0.3 + focus * 0.25 + f1 * 0.1
 
     if (!best || score > best.coverage) {
       // `matched` y `missing` se calculan SOLO con las señales confiables:

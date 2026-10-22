@@ -8,10 +8,10 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
 [![tests](https://img.shields.io/badge/tests-201%20passing-22a06b.svg)](tests)
-[![coverage](https://img.shields.io/badge/coverage-90.2%25-7c3aed.svg)](https://vitest.dev)
+[![coverage](https://img.shields.io/badge/coverage-87.3%25-7c3aed.svg)](https://vitest.dev)
 [![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](tsconfig.json)
 
-**4 hooks · 11 tools · 7 agentes · 6 gates · 6 invariantes duros · 306 roles de catálogo**
+**4 hooks · 13 tools · 7 agentes · 6 gates · 6 invariantes duros · 306 roles de catálogo**
 
 > **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
 > **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -113,50 +113,54 @@ Por eso el parser extrae las secciones del cuerpo, y el score pondera cada seña
 
 | Señal | Peso | Por qué |
 |---|---|---|
-| **Nombre del rol** (`engineering-frontend-developer`) | 40% | La etiqueta más literal de la especialidad. El Commander también pide roles por nombre |
-| **Misión, overlap literal** | 35% | Lo que el agente dice que sabe hacer, con sus palabras |
-| **Misión, overlap conceptual** | 20% | Puentea sinónimos: *"web"* ↔ *"frontend"* ↔ *"react"* |
-| **Cuerpo completo** | 5% | Ruido: 300 líneas donde "review" aparece en todos |
-| **División** | 0% | Contexto, no especialidad: en `engineering` hay de todo |
+| **Identidad** (slug + nombre + `description` + `vibe`) | 35% | Las dos últimas son **líneas curadas** que dicen de qué se ocupa el agente. El cuerpo son 300 líneas donde cualquier palabra genérica aparece |
+| **Misión, overlap literal** | 28% | Lo que el agente dice que sabe hacer, con sus palabras |
+| **Misión, overlap conceptual** | 18% | Puentea sinónimos con una taxonomía de 26 dominios |
+| **División** | 10% | Una card de e2e testing va a la división `testing`, no a `engineering` |
+| **Cuerpo completo** | 5% | Ruido: "review" aparece en todos |
 
-El score final combina tres medidas: **señal** (qué tan bien matchea), **recall** (cuánta parte del objetivo cubre) y **F1** (qué tan puntual es). Sin el recall, un agente que matchea *una* capability compite mano a mano con uno que matchea *dos*.
+**Sinónimos por capability**, no por concepto. La taxonomía agrupa; los sinónimos no. `"e2e"` es `"end-to-end"`, pero `"e2e"` **no** es `"playwright"`. Esa distinción separa a un especialista de un generalista que menciona la tool de pasada.
 
-**Cuando la cobertura es baja (< 60% del objetivo), se fabrica el rol.** Nunca se fuerza un mal match: un rol medio-tono en el equipo arruina más de lo que aporta.
+**Lematización**: `"testing"` ~ `"test"`, `"validation"` ~ `"validate"`. El Commander pide capabilities en sus palabras y los agentes usan las suyas.
 
-### El panel de roles: primario + complementos
+**Focus de misión**: qué fracción de las misiones declaradas del agente tiene que ver con el objetivo. Un `Test Automation Engineer` tiene las 5 en el dominio → focus 1. Un PDF engine con *una* misión sobre "Playwright Browser Context Pools" y las otras 7 sobre PDF → focus 0.12. **Este es el discriminante real.**
 
-Un objetivo casi nunca es de un solo dominio. *"Formulario de login en React con validación y accesibilidad"* necesita un frontend (que no sabe de ARIA) **y** un especialista en accesibilidad (que no sabe de React).
-
-Si el sistema elige uno solo, deja huecos. Si elige varios sin criterio, duplica capacidad. El panel resuelve las dos:
-
-```
-OBJETIVO: Implementar un formulario de login en React con validación y accesibilidad
-PIDE:     react, form, validation, accessibility, frontend
-
-  PRIMARIO    28%  engineering/engineering-section-508-specialist
-              "Section 508 Accessibility Specialist"
-              misiones: Conformance Standards | Semantic HTML & ARIA
-              cubre:   form, accessibility
-
-  + COMPLEM. 23%  engineering/engineering-frontend-developer
-              "Frontend Developer"
-              misiones: Editor Integration Engineering | Create Modern Web Applications
-              aporta:  react, frontend
-```
-
-El primario se lleva la card. Los complementos son los agentes que cubren **lo que el primario no cubre**, y son sus pares naturales en el bus. Y lo que nadie cubre **se reporta explícitamente**: es la señal de que la card debería partirse en dos.
+El score final combina: cobertura (35%) + recall (30%) + focus (25%) + F1 (10%).
 
 Resolución real contra el catálogo:
 
 | Objetivo | Primario | Cobertura |
 |---|---|---|
-| Pipeline de datos con ingesta y agregación | `engineering-data-engineer` | 51% |
-| Migración de Postgres con partitioning | `engineering-gaussdb-expert` | 44% |
-| Revisar seguridad de un endpoint API | `testing-api-tester` | 35% |
-| Agente de GIS y cartografía | `gis-bim-specialist` | 31% |
-| CI/CD con Docker y Kubernetes | `engineering-devops-automator` | 21% |
+| Pipeline de datos con ingesta y agregación | `engineering-data-engineer` | 76% |
+| Migración de Postgres con partitioning | `engineering-gaussdb-expert` | 60% |
+| Formulario de login en React con accesibilidad | `engineering-uswds-developer` | 56% |
+| CI/CD con Docker y Kubernetes | `engineering-devops-automator` | 53% |
+| Agente de GIS y cartografía | `gis-web-gis-developer` | 52% |
+| Tests e2e con Playwright | `testing-test-automation-engineer` | 47% |
+| Seguridad de un endpoint API | `testing-api-tester` | 42% |
 
 Reproducible: `npx tsx scripts/demo-roles.ts`
+
+### El panel: primario + complementos
+
+Un objetivo casi nunca es de un solo dominio. *"Formulario de login en React con validación y accesibilidad"* necesita un frontend (que no sabe de ARIA) **y** un especialista en accesibilidad (que no sabe de React).
+
+Si el sistema elige uno solo, deja huecos. Si elige varios sin criterio, duplica capacidad. El panel resuelve las dos cosas:
+
+```
+OBJETIVO: Implementar un formulario de login en React con validación y accesibilidad
+PIDE:     react, form, validation, accessibility, frontend
+
+  PRIMARIO    56%  engineering/engineering-uswds-developer
+              "USWDS Developer"
+              cubre:   react, css, form, accessibility
+
+  + COMPLEM. 39%  engineering/engineering-section-508-specialist
+              "Section 508 Accessibility Specialist"
+              aporta:  form, accessibility
+```
+
+El primario se lleva la card. Los complementos son los agentes que cubren **lo que el primario no cubre**, y son sus pares naturales en el bus. Y lo que nadie cubre **se reporta explícitamente**: es la señal de que la card debería partirse en dos.
 
 ### La ficha: un solo schema
 
@@ -175,7 +179,7 @@ source:
   rules: ["Never ship a component without a test", "..."]
 capabilities: [react, component, ui, web, accessibility, performance, ...]
 scope:
-  may_touch: ["src/components/**", "src/hooks/**"]
+  mayTouch: ["src/components/**", "src/hooks/**"]
   forbidden: ["src/server/**", "**/*.env*"]
 can_delegate: true
 delegate_budget: 2
@@ -194,6 +198,71 @@ Un rol fabricado tiene que ser **indistinguible en calidad** de uno del catálog
 Por eso la factory emite **exactamente la misma estructura**: Identity & Memory, Core Mission, Critical Rules, Technical Deliverables, Workflow Process, Communication Style, Learning & Memory, Success Metrics, Advanced Capabilities. El parser no distingue el origen.
 
 Y lo importante: el prompt fabricado **no es genérico**. Lleva las capabilities concretas, el scope, el objetivo de la corrida, los modos de fallo del rol y el contexto de la card.
+
+---
+
+## El equipo se arma
+
+El flujo completo es: **doy un objetivo → el jefe lo divide → crea los subagentes → arrancan a trabajar juntos**.
+
+`oficina_dispatch` es el momento en que eso pasa:
+
+1. **El Comandante descompone** el objetivo en cards (`oficina_plan`). Cada card dice qué se produce, cómo se sabe que está bien, y qué archivos puede tocar.
+2. **El dispatch resuelve los roles.** Para cada card busca en el catálogo de agency-agents el agente que mejor encaja, calcula el **panel** (primario + complementos), y si la cobertura queda baja **fabrica** el rol con la card como contexto.
+3. **Materializa los agentes** en `.opencode/agents/` del proyecto, cada uno con su briefing de 10 secciones y su prompt de especialidad. Quedan versionados con el repo: la próxima sesión ya están registrados.
+4. **Los arranca en paralelo** vía `session.prompt` con una parte `subtask` — la vía que OpenCode provee para crear subagentes reales.
+
+El resultado:
+
+```
+▸ formulario de login en React con validación y accesibilidad
+  → `oficina-engineering-uswds-developer`       card T-00
+  + `oficina-testing-api-tester`                  par libre   aporta: validation
+  → `oficina-engineering-section-508-specialist` card T-01
+  + `oficina-testing-accessibility-auditor`       par libre   aporta: aria
+  → `oficina-testing-test-automation-engineer`    card T-02
+```
+
+Los **pares libres** son los complementos: están en la mesa, pueden recibir un pedido de ayuda, y pueden reclamar una card que quedó sin dueño.
+
+---
+
+## La mesa
+
+Los subagentes son procesos aislados: no se ven, no saben quién más trabaja, no saben a quién preguntarle. La **mesa** es la vista compartida — vive en disco, así que todos la leen sin memoria compartida.
+
+`oficina_mesa` responde:
+
+- **Quién está trabajando en qué** — y qué archivos toca cada uno
+- **Quién está libre** y puede recibir un pedido de ayuda
+- **Qué cards no tienen owner** — reclamables proactivamente
+- **Qué ayuda sigue sin responder** y **qué preguntas están abiertas**
+
+Y cuando la sesión queda `idle`, el hook de auto-continuación inyecta esa foto en el prompt del agente que arranca. Sin esto, el peer mesh es un bus al que nadie mira.
+
+### El ciclo de un agente
+
+```
+DEPLOYED → WORKING → (terminó) → IDLE_AVAILABLE → (ayuda) → WORKING
+                            ↓                                        ↑
+                        BLOCKED ──→ IDLE_AVAILABLE ──────────────────┘
+```
+
+Cuando un agente termina, **ofrece ayuda** para lo que sigue. No queda esperando.
+
+### Hablar por el bus
+
+El que recibe un pedido de ayuda **hace su propio triage** — no acepta por cortesía:
+
+1. ¿Entiendo la tarea? → si no, `HELP_DECLINE` + explicar
+2. ¿Está en mi scope? → si no, `HELP_DECLINE` + sugerir a quién
+3. ¿Puedo hacerlo ya sin romper mi card? → si no, `HELP_DECLINE` + "cuando termine"
+4. ¿Tengo el contexto? → si no, `HELP_QUESTION` por el bus
+5. ¿Vale la pena? → si no, `HELP_DECLINE` + alternativa
+6. ¿Tengo presupuesto? → si no, `HELP_DECLINE` + "sin presupuesto"
+
+**Anti-deadlock**: máximo 2 saltos en una cadena de ayuda; después escala al Integrador.
+**Anti-monotonía**: si el par A↔B ya se ayudaron 2 veces, el tercer pedido va a un tercero.
 
 ---
 
@@ -370,13 +439,15 @@ Las preguntas de un especialista al coordinador **van por el bus**, no interrump
 
 ---
 
-## Los 11 tools
+## Los 13 tools
 
-Once, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
+Trece, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
 
 | Tool | Qué hace |
 |---|---|
 | `oficina_plan` | Guarda el plan de cards. El modelo propone; el motor valida y rutea owner/reviewer |
+| `oficina_dispatch` | **Arma el equipo**: resuelve los roles, materializa los agentes con su briefing y los arranca en paralelo |
+| `oficina_mesa` | **La mesa**: quién trabaja en qué, quién está libre, qué ayuda espera respuesta, qué cards no tienen owner |
 | `oficina_board` | Estado: cards, owners, agentes libres, agentes sin heartbeat, presupuesto |
 | `oficina_assign` | Toma trabajo — la próxima card, o claim proactivo de una puntual |
 | `oficina_submit` | Entrega handoff + evidencia real → pasa a `REVIEW` |
@@ -569,7 +640,7 @@ Una sola, y es peer del host: `@opencode-ai/plugin`. Zod entra por `tool.schema`
 ## Testing
 
 ```bash
-npm test           # 201 tests, 13 archivos
+npm test           # 213 tests, 14 archivos
 npm run coverage   # 90.2% stmts · 82.8% branches
 npm run typecheck  # tsc --noEmit, strict
 npm run build      # tsc → dist/

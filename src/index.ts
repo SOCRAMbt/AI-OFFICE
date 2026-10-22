@@ -45,6 +45,14 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
   const office = new Office({
     cwd: directory,
     agencyRoot: options?.agencyRoot,
+    // El cliente del SDK permite arrancar subagentes de verdad.
+    client: input.client
+      ? {
+          session: {
+            prompt: (args) => input.client.session.prompt(args as never) as never,
+          },
+        }
+      : undefined,
   })
   await office.init()
 
