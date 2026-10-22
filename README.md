@@ -16,7 +16,7 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v3.0.4 |
+| **Paquete** | `oficina-opencode` v3.0.5 |
 | **Tools** | 16 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
@@ -30,7 +30,7 @@
 > **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
 > **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/ARCHITECTURE.md)
 
-[Documentación](#arquitectura) · [Garantías](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md) · [Compatibilidad](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/COMPATIBILITY.md) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
+[Documentación](#arquitectura) · [Garantías](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md) · [Compatibilidad](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/COMPATIBILITY.md) · [Prueba E2E](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/PRUEBA-E2E.md) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
 
 </div>
 

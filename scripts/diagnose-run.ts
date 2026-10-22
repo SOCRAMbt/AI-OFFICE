@@ -22,9 +22,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import os from "node:os"
-
-const proyecto = path.resolve(process.argv[2] ?? process.cwd())
-const office = path.join(proyecto, ".oficina")
+import { pathToFileURL } from "node:url"
 
 const C = {
   reset: "\u001b[0m",
@@ -106,7 +104,30 @@ interface RosterEntry {
   source: { kind: string; division?: string; path?: string }
 }
 
-async function main() {
+/** Resultado de un diagnostico. */
+export interface DiagnoseResult {
+  /** Invariantes rotos. */
+  fallas: number
+  /** Cosas que hay que mirar pero no son una rotura. */
+  avisos: number
+  /** Cards cerradas sobre el total. */
+  cardsDone: number
+  cardsTotal: number
+  /** Por que no se pudo diagnosticar. */
+  error?: string
+}
+
+/**
+ * Diagnostica una corrida.
+ *
+ * Devuelve un resultado en vez de solo imprimir: asi los tests pueden
+ * afirmar que el diagnostico DETECTA las roturas, y no solo que dice
+ * cosas lindas.
+ */
+export async function diagnose(dir: string): Promise<DiagnoseResult> {
+  const proyecto = path.resolve(dir)
+  const office = path.join(proyecto, ".oficina")
+
   console.log("")
   console.log(`${C.azul}DIAGNÓSTICO DE LA CORRIDA${C.reset}  ${proyecto}`)
   console.log("=".repeat(72))
@@ -115,13 +136,13 @@ async function main() {
     mal(`No hay corrida en ${office}`)
     console.log("")
     console.log("  Ejecutá `/oficina <objetivo>` en una sesión abierta en ese directorio.")
-    process.exit(1)
+    return { fallas: 1, avisos: 0, cardsDone: 0, cardsTotal: 0, error: "sin-corrida" }
   }
 
   const state = await leerJson<State>(path.join(office, "state.json"))
   if (!state) {
     mal("state.json ilegible o ausente")
-    process.exit(1)
+    return { fallas: 1, avisos: 0, cardsDone: 0, cardsTotal: 0, error: "estado-ilegible" }
   }
 
   /* ── 1. Estado general ──────────────────────────────────────────────── */
@@ -174,27 +195,31 @@ async function main() {
   } else {
     for (const a of Object.values(roster.agents)) {
       const card = a.currentCard ? state.cards[a.currentCard] : undefined
+      // Un roster escrito a mano o de otra version puede no tener `source`.
+      // Un diagnostico que se rompe por eso no sirve: no podes concluir
+      // nada de una corrida que ni miro.
+      const kind = a.source?.kind ?? "desconocido"
       console.log(`  ${C.azul}·${C.reset} ${a.id}`)
-      dim(`rol: ${a.role} (${a.source.kind}${a.source.division ? ` / ${a.source.division}` : ""})`)
-      dim(`display: ${a.displayName}`)
-      dim(`state: ${a.state} · card: ${a.currentCard ?? "—"}`)
-      if (card && a.source.kind === "agency-agents") {
+      dim(`rol: ${a.role} (${kind}${a.source?.division ? ` / ${a.source.division}` : ""})`)
+      dim(`display: ${a.displayName ?? "—"}`)
+      dim(`state: ${a.state ?? "—"} · card: ${a.currentCard ?? "—"}`)
+      if (card && kind === "agency-agents") {
         // Un rol del catálogo que no matchea las capabilities de su card es
         // la senal de que el matcher eligio por el orden de la lista.
         const caps = card.requiredCapabilities.join(" ").toLowerCase()
         const nombre = `${a.role} ${a.displayName}`.toLowerCase()
-        const共享 = caps
+        const coincide = caps
           .split(/[^a-z0-9]+/)
           .filter((t) => t.length > 3)
           .some((t) => nombre.includes(t))
-        if (!compartido) {
+        if (!coincide) {
           aviso(
             `el rol "${a.role}" no comparte ninguna capability con la card ` +
               `(${card.requiredCapabilities.join(", ")}). ¿Match por el orden de la lista?`,
           )
         }
       }
-      if (a.source.kind === "factory") {
+      if (kind === "factory") {
         dim("rol FABRICADO: el catálogo no cubría la card")
       }
     }
@@ -269,8 +294,8 @@ async function main() {
   console.log(`${C.azul}7. RECONCILIACIÓN${C.reset}`)
   console.log(`  ${C.gris}(estado vs artefactos vs filesystem)${C.reset}`)
   try {
-    const { reconcile } = await import("../src/core/recovery.ts")
-    const { Office } = await import("../src/core/office.ts")
+    const { reconcile } = await import("../src/core/recovery.js")
+    const { Office } = await import("../src/core/office.js")
     const office = new Office({ cwd: proyecto })
     await office.init()
     const report = await reconcile(office, { autoRepair: false })
@@ -287,9 +312,163 @@ async function main() {
     dim(`no se pudo reconciliar: ${String(err)}`)
   }
 
-  /* ── 8. Veredicto ───────────────────────────────────────────────────── */
+  /* ── 8. Invariantes ─────────────────────────────────────────────────── */
+  //
+  // Esto es lo que la oficina PROMETE. Cada invariante se verifica contra
+  // el disco, no contra la opinion de nadie.
+  //
+  //   1. Ninguna card se cierra sin gates.md en PASS
+  //   2. Ninguna card se cierra sin evidencia para cada criterio
+  //   3. Nadie se auto-aprueba
+  //   4. Ninguna card queda sin owner
+  //   5. El owner de una card existe en el roster
+  //   6. No se excedio el presupuesto
+  //   7. Los gates con NA dicen POR QUE
+  //
   console.log("")
-  console.log(`${C.azul}8. VEREDICTO${C.reset}`)
+  console.log(`${C.azul}8. INVARIANTES${C.reset}`)
+
+  let fallas = 0
+  let avisos = 0
+  const check = (pasó: boolean, titulo: string, detalle?: string) => {
+    if (pasó) {
+      ok(titulo)
+    } else {
+      fallas++
+      mal(titulo)
+      if (detalle) dim(detalle)
+    }
+  }
+  const checkSoft = (pasó: boolean, titulo: string, detalle?: string) => {
+    if (pasó) {
+      ok(titulo)
+    } else {
+      avisos++
+      aviso(titulo)
+      if (detalle) dim(detalle)
+    }
+  }
+
+  // 1. Toda card cerrada tiene gates.md en PASS.
+  {
+    const cerradas = state.order.filter((id) => state.cards[id]?.state === "done")
+    const sinPass: string[] = []
+    const naSinMotivo: string[] = []
+    for (const id of cerradas) {
+      const g = path.join(artsDir, id, "gates.md")
+      if (!(await existe(g))) {
+        sinPass.push(`${id}: sin gates.md`)
+        continue
+      }
+      const txt = await fs.readFile(g, "utf8")
+      const filas = txt.split("\n").filter((l) => /^\|\s*\d+\s*\|/.test(l))
+      const fallos = filas.filter((l) => /\|\s*(FAIL|NOT RUN)\s*\|/i.test(l))
+      if (fallos.length > 0) sinPass.push(`${id}: gate en FAIL`)
+      // Un NA tiene que explicar por que: "NA" pelado es una fase que
+      // nadie corrio y no se?to de nada.
+      for (const l of filas) {
+        if (/\|\s*NA\s*\|/i.test(l)) {
+          const cols = l.split("|").map((c) => c.trim())
+          const motivo = cols[4] ?? ""
+          if (motivo.length < 5) naSinMotivo.push(`${id}: NA sin motivo`)
+        }
+      }
+    }
+    check(sinPass.length === 0, "ninguna card cerrada sin gates en PASS", sinPass.join(" · "))
+    checkSoft(naSinMotivo.length === 0, "todo gate NA explica por que", naSinMotivo.join(" · "))
+  }
+
+  // 2. Toda card cerrada tiene evidencia para CADA criterio de aceptacion.
+  {
+    const cerradas = state.order.filter((id) => state.cards[id]?.state === "done")
+    const sinEvidencia: string[] = []
+    for (const id of cerradas) {
+      const card = state.cards[id]!
+      const ev = await leerJson<{ nodes?: { requirement?: string; requirementIndex?: number }[] }>(
+        path.join(office, "evidence", `${id}.json`),
+      )
+      const nodes = ev?.nodes ?? []
+      if (nodes.length === 0) {
+        sinEvidencia.push(`${id}: sin evidencia`)
+        continue
+      }
+      // Cada criterio de aceptacion tiene que tener al menos un nodo que
+      // lo referencie, por texto o por indice.
+      for (let i = 0; i < card.acceptance.length; i++) {
+        const criterio = card.acceptance[i] ?? ""
+        const cubierto = nodes.some(
+          (n) =>
+            n.requirementIndex === i ||
+            (typeof n.requirement === "string" &&
+              n.requirement.trim() !== "" &&
+              (n.requirement.trim() === criterio.trim() ||
+                criterio.includes(n.requirement.trim()) ||
+                n.requirement.trim().includes(criterio.trim()))),
+        )
+        if (!cubierto) {
+          sinEvidencia.push(`${id}: criterio ${i + 1} sin evidencia ("${criterio.slice(0, 48)}...")`)
+        }
+      }
+    }
+    check(
+      sinEvidencia.length === 0,
+      "ninguna card cerrada sin evidencia para cada criterio",
+      sinEvidencia.join(" · "),
+    )
+  }
+
+  // 3. Nadie se auto-aprueba.
+  {
+    const auto = state.order.filter((id) => {
+      const c = state.cards[id]
+      return c?.owner && c?.reviewer && c.owner === c.reviewer
+    })
+    check(auto.length === 0, "nadie se auto-aprueba", auto.join(" · "))
+  }
+
+  // 4. Ninguna card sin owner, salvo las que todavia no arrancaron.
+  {
+    const huerfanas = state.order.filter((id) => {
+      const c = state.cards[id]
+      return c && !c.owner && c.state !== "done"
+    })
+    checkSoft(huerfanas.length === 0, "ninguna card sin owner", huerfanas.join(" · "))
+  }
+
+  // 5. El owner existe en el roster.
+  {
+    const rosterRaw = await leerJson<{ agents: Record<string, unknown> }>(
+      path.join(office, "roster.json"),
+    )
+    const agentes = rosterRaw?.agents ?? {}
+    const fantasma = state.order.filter((id) => {
+      const c = state.cards[id]
+      return c?.owner && !agentes[c.owner]
+    })
+    check(fantasma.length === 0, "todo owner existe en el roster", fantasma.join(" · "))
+  }
+
+  // 6. Presupuesto respetado.
+  {
+    const b = state.budget
+    const excedido: string[] = []
+    if (b.cardsUsed > b.maxCards) excedido.push(`cards ${b.cardsUsed}/${b.maxCards}`)
+    if (b.agentCallsUsed > b.maxAgentCalls)
+      excedido.push(`llamadas ${b.agentCallsUsed}/${b.maxAgentCalls}`)
+    if (b.spawnsUsed > b.maxSpawnsTotal) excedido.push(`spawns ${b.spawnsUsed}/${b.maxSpawnsTotal}`)
+    check(excedido.length === 0, "presupuesto respetado", excedido.join(" · "))
+  }
+
+  console.log("")
+  console.log(
+    `  ${fallas === 0 ? C.verde : C.rojo}${fallas} falla(s)${C.reset}` +
+      ` · ${avisos} aviso(s)` +
+      `  ${C.gris}(una falla = un invariante roto; un aviso = mirarlo)${C.reset}`,
+  )
+
+  /* ── 9. Veredicto ───────────────────────────────────────────────────── */
+  console.log("")
+  console.log(`${C.azul}9. VEREDICTO${C.reset}`)
   const cardsDone = state.order.filter((id) => state.cards[id]?.state === "done").length
   if (cardsDone === state.order.length && state.order.length > 0) {
     ok(`las ${cardsDone} cards cerraron`)
@@ -306,9 +485,26 @@ async function main() {
   const reanudaciones = Object.values(state.sessions).reduce((a, s) => a + s.autoResumes, 0)
   dim(`auto-reanudaciones: ${reanudaciones}`)
   console.log("")
+  if (fallas > 0) process.exitCode = 1
+  return { fallas, avisos, cardsDone, cardsTotal: state.order.length }
 }
 
-main().catch((err) => {
-  console.error("FALLO:", err)
-  process.exit(1)
-})
+// ── CLI ────────────────────────────────────────────────────────────────
+//
+// Solo corre si este archivo es el entry point. Si lo importan (los
+// tests), no debe arrancar la CLI.
+const esEntryPoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (esEntryPoint) {
+  const dir = process.argv[2] ?? process.cwd()
+  diagnose(dir)
+    .then((r) => {
+      if (r.error) process.exit(1)
+    })
+    .catch((err) => {
+      console.error("FALLO:", err)
+      process.exit(1)
+    })
+}
