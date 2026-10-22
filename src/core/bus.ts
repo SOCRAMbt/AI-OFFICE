@@ -1,30 +1,24 @@
-/**
- * Bus de mensajes append-only sobre disco.
- *
- * Por qué disco y no memoria: los subagentes de OpenCode son procesos
- * aislados. No comparten heap. Un bus en memoria sería un bus de una sola
- * sesión. El disco es el único bus que sobrevive, que es compartible entre
- * harnesses, y que es auditable después.
- *
- * Semántica:
- * - Append-only: los mensajes nunca se borran. `seq` es monótono por canal.
- * - Escritura atómica: tmp + rename. Nunca hay un JSON partido en el read.
- * - Polling, no push: cada agente globa su inbox. Compatible con subagentes.
- * - Ack: el receptor deja rastro de qué leyó.
- * - TTL: un mensaje vencido es invisible para lectores nuevos, sigue en el log.
- * - Idempotency key: un pedido con la misma key no se duplica.
- * - Broadcast: `to: ["*"]` llega al pool; el primero que toma el lease gana.
- */
-
-import path from "node:path"
 import fs from "node:fs/promises"
-import type { BusMessage, MessageKind, MessagePriority } from "./types.js"
-import { listFiles, nowIso, readJson, shortId, stableHash, writeJsonAtomic } from "./fsx.js"
+import path from "node:path"
+import { withLock } from "./atomic.js"
+import { safeId } from "./ids.js"
+import { nowIso, readJson, shortId, stableHash, writeJsonAtomic } from "./fsx.js"
+import { logger } from "./log.js"
 
-export interface BusOptions {
-  ttlSec?: number
-  clock?: () => number
-}
+const log = logger("oficina:bus")
+
+export const CHANNELS = {
+  /** Del comando al flujo. */
+  command: "coord-command",
+  /** Del arquitecto a los coordinadores. */
+  arch: "coord-arch",
+  /** Del flujo al comando. */
+  flow: "coord-flow",
+  /** Entre pares. */
+  peer: "peer",
+} as const
+
+export type ChannelId = (typeof CHANNELS)[keyof typeof CHANNELS]
 
 export interface SendInput {
   from: string
@@ -40,23 +34,57 @@ export interface SendInput {
   hops?: number
 }
 
-/** Canales disponibles. Los coordinadores son canales más. */
-export const CHANNELS = {
-  command: "coord-command",
-  arch: "coord-arch",
-  flow: "coord-flow",
-  peer: "peer",
-} as const
+export interface BusOptions {
+  ttlSec?: number
+  clock?: () => number
+}
 
-export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS] | string
+export type MessageKind =
+  | "HELP_REQUEST"
+  | "HELP_ACCEPT"
+  | "HELP_DECLINE"
+  | "HELP_PARTIAL"
+  | "HELP_QUESTION"
+  | "QUESTION"
+  | "ANSWER"
+  | "SPAWN_REQUEST"
+  | "SPAWN_APPROVED"
+  | "SPAWN_REJECTED"
+  | "CLAIM"
+  | "RELEASE"
+  | "STATUS"
+  | "NOTICE"
 
-/**
- * Ruta mínima que el bus necesita. Se define acá para no acoplar el bus a
- * `paths.ts` completo y poder testearlo con un stub.
- */
-export interface ResolvedPathsLike {
-  busDir: string
-  inboxDir: string
+export type MessagePriority = "low" | "normal" | "high" | "critical"
+
+export interface BusMessage {
+  id: string
+  seq: number
+  from: string
+  to: string[]
+  kind: MessageKind
+  subject: string
+  body: Record<string, unknown>
+  replyTo: string | null
+  inReplyTo: string | null
+  ttlSec: number
+  createdAt: string
+  priority: MessagePriority
+  idempotencyKey: string | null
+  hops: number
+}
+
+export interface BusAck {
+  messageId: string
+  agentId: string
+  ackedAt: string
+}
+
+const PRIORITY_ORDER: Record<MessagePriority, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
 }
 
 export class Bus {
@@ -64,7 +92,10 @@ export class Bus {
   private readonly clock: () => number
 
   constructor(
-    private readonly paths: ResolvedPathsLike,
+    private readonly paths: {
+      busDir: string
+      inboxDir: string
+    },
     options: BusOptions = {},
   ) {
     this.ttlDefault = options.ttlSec ?? 900
@@ -75,7 +106,7 @@ export class Bus {
     return path.join(this.paths.busDir, channel)
   }
 
-  private inboxOf(agentId: string): string {
+  private ackDir(agentId: string): string {
     return path.join(this.paths.inboxDir, agentId)
   }
 
@@ -83,10 +114,15 @@ export class Bus {
    * Próximo `seq` de un canal.
    *
    * Se deriva de los archivos existentes, no de un contador en memoria: así
-   * dos emisores concurrentes no pueden producir el mismo seq.
+   * el estado sobrevive a un reinicio.
+   *
+   * OJO: derivarlo NO lo hace atomico por sí solo. Dos emisores
+   * concurrentes podian leer el mismo `max + 1` y dejar dos mensajes con el
+   * mismo seq. La asignacion real esta en `send`, que hace la asignacion Y
+   * la escritura bajo el mismo lock.
    */
   private async nextSeq(channel: string): Promise<number> {
-    const files = await listFiles(this.channelDir(channel))
+    const files = await this.listChannelFiles(channel)
     let max = 0
     for (const f of files) {
       const m = /^(\d{4,})-/.exec(f)
@@ -98,39 +134,64 @@ export class Bus {
     return max + 1
   }
 
+  private async listChannelFiles(channel: string): Promise<string[]> {
+    try {
+      const entries = await fs.readdir(this.channelDir(channel))
+      return entries.filter((e) => e.endsWith(".json"))
+    } catch {
+      return []
+    }
+  }
+
   /**
    * Publica un mensaje.
    *
    * Si ya existe un mensaje vivo con la misma `idempotencyKey` en el canal,
    * no se publica un duplicado: se devuelve el existente.
+   *
+   * ## Atomicidad
+   *
+   * Todo el critical path (chequeo de idempotencia, asignacion de seq y
+   * escritura) ocurre **bajo un lock de canal**. Sin eso:
+   *
+   * - Dos emisores concurrentes con la misma `idempotencyKey` pasaban los
+   *   dos el chequeo "existe?" y creaban dos mensajes. La idempotencia era
+   *   decorativa.
+   * - Dos emisores concurrentes calculaban el mismo `seq` y dejaban dos
+   *   mensajes con el mismo numero, rompiendo el orden del canal.
    */
   async send(channel: string, input: SendInput): Promise<BusMessage> {
-    if (input.idempotencyKey) {
-      const existing = await this.findByIdempotencyKey(channel, input.idempotencyKey)
-      if (existing) return existing
-    }
+    return withChannelLock(this.channelDir(channel), async () => {
+      if (input.idempotencyKey) {
+        const existing = await this.findByIdempotencyKey(channel, input.idempotencyKey)
+        if (existing) return existing
+      }
 
-    const seq = await this.nextSeq(channel)
-    const message: BusMessage = {
-      id: shortId("m"),
-      seq,
-      from: input.from,
-      to: input.to,
-      kind: input.kind,
-      subject: input.subject,
-      body: input.body ?? {},
-      replyTo: input.replyTo ?? null,
-      inReplyTo: input.inReplyTo ?? null,
-      ttlSec: input.ttlSec ?? this.ttlDefault,
-      createdAt: nowIso(this.clock),
-      priority: input.priority ?? "normal",
-      idempotencyKey: input.idempotencyKey ?? null,
-      hops: input.hops ?? 0,
-    }
+      const seq = await this.nextSeq(channel)
+      const message: BusMessage = {
+        id: shortId("m"),
+        seq,
+        from: input.from,
+        to: input.to,
+        kind: input.kind,
+        subject: input.subject,
+        body: input.body ?? {},
+        replyTo: input.replyTo ?? null,
+        inReplyTo: input.inReplyTo ?? null,
+        ttlSec: input.ttlSec ?? this.ttlDefault,
+        createdAt: nowIso(this.clock),
+        priority: input.priority ?? "normal",
+        idempotencyKey: input.idempotencyKey ?? null,
+        hops: input.hops ?? 0,
+      }
 
-    const file = path.join(this.channelDir(channel), `${String(seq).padStart(4, "0")}-${message.id}.json`)
-    await writeJsonAtomic(file, message)
-    return message
+      const file = path.join(
+        this.channelDir(channel),
+        `${String(seq).padStart(4, "0")}-${message.id}.json`,
+      )
+      await writeJsonAtomic(file, message)
+      return message
+    })
   }
 
   /** Busca un mensaje vivo por su idempotency key en un canal. */
@@ -143,23 +204,21 @@ export class Bus {
 
   /** Lee todos los mensajes de un canal, ordenados por seq. */
   async readChannel(channel: string): Promise<BusMessage[]> {
-    const dir = this.channelDir(channel)
-    const files = (await listFiles(dir)).filter((f) => f.endsWith(".json")).sort()
+    const files = (await this.listChannelFiles(channel)).sort()
     const out: BusMessage[] = []
     for (const f of files) {
-      const msg = await readJson<BusMessage>(path.join(dir, f))
-      if (msg) out.push(msg)
+      const message = await readJson<BusMessage>(path.join(this.channelDir(channel), f))
+      if (message) out.push(message)
     }
     return out.sort((a, b) => a.seq - b.seq)
   }
 
   /** ¿El mensaje venció? */
   isExpired(message: BusMessage): boolean {
-    const age = this.clock() - Date.parse(message.createdAt)
-    return age > message.ttlSec * 1000
+    return this.clock() - Date.parse(message.createdAt) > message.ttlSec * 1000
   }
 
-  /** ¿El mensaje va dirigido a este agente (o es broadcast)? */
+  /** ¿El mensaje es para este agente? */
   isAddressedTo(message: BusMessage, agentId: string): boolean {
     if (message.from === agentId) return false
     if (message.to.includes("*")) return true
@@ -167,14 +226,13 @@ export class Bus {
   }
 
   /**
-   * Recibe los mensajes dirigidos a un agente que todavía no acknowledgió.
+   * Recibe mensajes dirigidos al agente.
    *
-   * Los mensajes expirados se omiten (siguen en el log para auditoría).
+   * Los yaodrivenados por el agente se filtran: no puede auto-confirmarse.
    */
   async receive(agentId: string, channels: string[] = [CHANNELS.peer]): Promise<BusMessage[]> {
     const acked = await this.ackedIds(agentId)
     const out: BusMessage[] = []
-
     for (const channel of channels) {
       for (const message of await this.readChannel(channel)) {
         if (acked.has(message.id)) continue
@@ -183,75 +241,82 @@ export class Bus {
         out.push(message)
       }
     }
-
     return out.sort((a, b) => {
-      const prio = { critical: 0, high: 1, normal: 2, low: 3 }
-      const p = prio[a.priority] - prio[b.priority]
-      return p !== 0 ? p : a.seq - b.seq
+      const pa = PRIORITY_ORDER[a.priority] ?? 2
+      const pb = PRIORITY_ORDER[b.priority] ?? 2
+      if (pa !== pb) return pa - pb
+      return a.seq - b.seq
     })
   }
 
-  /** Ids que el agente ya acknowledgió. */
+  /** Ids que este agente ya acknowledgeo. */
   async ackedIds(agentId: string): Promise<Set<string>> {
-    const dir = this.inboxOf(agentId)
-    const files = await listFiles(dir)
+    const dir = this.ackDir(agentId)
     const out = new Set<string>()
+    let files: string[]
+    try {
+      files = await fs.readdir(dir)
+    } catch {
+      return out
+    }
     for (const f of files) {
       if (!f.endsWith(".ack")) continue
-      const ack = await readJson<{ messageId: string }>(path.join(dir, f))
-      if (ack) out.add(ack.messageId)
+      out.add(f.slice(0, -".ack".length))
     }
     return out
   }
 
-  /** Marca un mensaje como leído. */
+  /**
+   * Confirma un mensaje.
+   *
+   * El `messageId` se sanitiza: venia del modelo y se usaba crudo como
+   * nombre de archivo.
+   */
   async ack(agentId: string, messageId: string): Promise<void> {
-    const dir = this.inboxOf(agentId)
+    const safe = safeId(messageId)
+    if (!safe) {
+      log.warn("ack con messageId no seguro, ignorado", { agentId, messageId })
+      return
+    }
+    const dir = this.ackDir(agentId)
     await fs.mkdir(dir, { recursive: true })
-    await writeJsonAtomic(path.join(dir, `${messageId}.ack`), {
-      messageId,
-      agentId,
-      ackedAt: nowIso(this.clock),
-    })
+    const ack: BusAck = { messageId: safe, agentId, ackedAt: nowIso(this.clock) }
+    await writeJsonAtomic(path.join(dir, `${safe}.ack`), ack)
   }
 
-  /** Ack de varios mensajes de una. */
+  /** Confirma varios mensajes. */
   async ackMany(agentId: string, messageIds: string[]): Promise<void> {
     for (const id of messageIds) await this.ack(agentId, id)
   }
 
-  /** ¿Quién acknowledged este mensaje? */
+  /** ¿Quién confirmo este mensaje? */
   async ackedBy(messageId: string): Promise<string[]> {
-    const dir = this.paths.inboxDir
-    const agents = await listFiles(dir)
     const out: string[] = []
+    let agents: string[]
+    try {
+      agents = await fs.readdir(this.paths.inboxDir)
+    } catch {
+      return out
+    }
     for (const agent of agents) {
-      const ack = await readJson<{ agentId: string }>(path.join(dir, agent, `${messageId}.ack`))
-      if (ack) out.push(ack.agentId)
+      const acks = await this.ackedIds(agent)
+      if (acks.has(messageId)) out.push(agent)
     }
     return out
   }
 
-  /** Canal donde vive un mensaje dado. */
+  /** ¿En qué canal está un mensaje? */
   async channelOf(messageId: string): Promise<string | undefined> {
-    const channels = await listFiles(this.paths.busDir)
+    const channels = Object.values(CHANNELS)
     for (const channel of channels) {
-      const files = await listFiles(path.join(this.paths.busDir, channel))
-      if (files.some((f) => f.includes(messageId))) return channel
+      for (const message of await this.readChannel(channel)) {
+        if (message.id === messageId) return channel
+      }
     }
     return undefined
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Protocolo de ayuda
-  // ───────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Publica un pedido de ayuda.
-   *
-   * La idempotency key deriva de card + agente + motivo, así dos intentos del
-   * mismo pedido no generan un storm en el pool.
-   */
+  /** Pide ayuda a uno o varios agentes. */
   async requestHelp(input: {
     from: string
     to: string[]
@@ -266,8 +331,8 @@ export class Bus {
       kind: "HELP_REQUEST",
       subject: input.cardId,
       body: { need: input.need, why_me: input.whyMe },
-      idempotencyKey: `help:${input.cardId}:${input.from}:${stableHash(input.need)}`,
       hops: input.hops ?? 0,
+      idempotencyKey: `help:${input.cardId}:${input.from}:${stableHash(input.need)}`,
     })
   }
 
@@ -292,7 +357,7 @@ export class Bus {
     })
   }
 
-  /** Broadcast al pool: "necesito X". El primero que acepta toma el lease. */
+  /** Pide ayuda a todos los pares. */
   async broadcastHelp(input: {
     from: string
     cardId: string
@@ -303,13 +368,24 @@ export class Bus {
     return this.requestHelp({ ...input, to: ["*"] })
   }
 
-  /** Snapshot de auditoría del bus. */
+  /** Estadísticas por canal. */
   async stats(): Promise<Record<string, number>> {
-    const channels = await listFiles(this.paths.busDir)
     const out: Record<string, number> = {}
-    for (const channel of channels) {
+    for (const channel of Object.values(CHANNELS)) {
       out[channel] = (await this.readChannel(channel)).length
     }
     return out
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Helpers locales
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Lock de canal: serializa las publicaciones de un canal. */
+function withChannelLock<T>(channelDir: string, fn: () => Promise<T>): Promise<T> {
+  return withLock(path.join(channelDir, ".channel.lock"), fn, {
+    timeoutMs: 10_000,
+    staleMs: 30_000,
+  })
 }

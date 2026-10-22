@@ -45,7 +45,12 @@ export async function readJson<T>(filePath: string): Promise<T | undefined> {
     const code = (err as NodeJS.ErrnoException).code
     if (code === "ENOENT") return undefined
     if (err instanceof SyntaxError) {
-      // Archivo corrupto o escritura a medio hacer. Se aparta y se sigue.
+      // Un archivo vacio casi siempre es una escritura en curso (otro
+      // proceso lo esta creando), no corrupcion. Ponerlo en cuarentena
+      // lo destruye: el escritor que estaba en medio pierde su archivo.
+      // Un archivo con contenido que no parsea SI es corrupcion.
+      const raw = await fs.readFile(filePath, "utf8").catch(() => "")
+      if (raw.trim().length === 0) return undefined
       const quarantine = `${filePath}.corrupt-${Date.now()}`
       await fs.rename(filePath, quarantine).catch(() => {})
       return undefined

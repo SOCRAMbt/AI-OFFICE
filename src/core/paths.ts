@@ -13,6 +13,7 @@
 import path from "node:path"
 import fs from "node:fs/promises"
 import { exists } from "./fsx.js"
+import { safeId } from "./ids.js"
 
 export const PROJECT_MARKERS = [
   "package.json",
@@ -149,19 +150,42 @@ export async function resolvePaths(cwd: string): Promise<ResolvedPaths> {
   }
 }
 
-/** Path de una card. */
+/**
+ * Path de una card.
+ *
+ * El `cardId` se sanitiza: viene del modelo y se usaba crudo como nombre
+ * de directorio. Con `cardId = "../../evil"`, `writeAtomic` (que hace
+ * `mkdir -p` del padre) escribia los artefactos fuera de `.oficina/`.
+ */
 export function cardDir(paths: ResolvedPaths, cardId: string): string {
-  return path.join(paths.artifactsDir, cardId)
+  const safe = safeId(cardId)
+  if (!safe) throw new UnsafeIdError(cardId, "cardId")
+  return path.join(paths.artifactsDir, safe)
 }
 
 /** Path del inbox de un agente. */
 export function inboxDirOf(paths: ResolvedPaths, agentId: string): string {
-  return path.join(paths.inboxDir, agentId)
+  const safe = safeId(agentId)
+  if (!safe) throw new UnsafeIdError(agentId, "agentId")
+  return path.join(paths.inboxDir, safe)
 }
 
 /** Path de un lease. */
 export function leasePath(paths: ResolvedPaths, taskId: string): string {
-  return path.join(paths.leasesDir, `${taskId}.json`)
+  const safe = safeId(taskId)
+  if (!safe) throw new UnsafeIdError(taskId, "taskId")
+  return path.join(paths.leasesDir, `${safe}.json`)
+}
+
+/** Error de un id que no se puede usar como nombre de archivo. */
+export class UnsafeIdError extends Error {
+  constructor(raw: string, field: string) {
+    super(
+      `[oficina] ${field} no seguro: "${raw}". No puede contener separadores de ruta, "..", ` +
+        `caracteres de control, ni empezar con punto.`,
+    )
+    this.name = "UnsafeIdError"
+  }
 }
 
 /** Convierte un path absoluto a relativo al project root, para artefactos. */
