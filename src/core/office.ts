@@ -13,6 +13,7 @@ import type {
   CardState,
   CardType,
   CatalogAgent,
+  CatalogMatch,
   Ficha,
   GateResult,
   Limits,
@@ -26,7 +27,12 @@ import { RosterStore } from "./roster.js"
 import { LeaseStore } from "./leases.js"
 import { createRun, transitionCard, transitionRun, assertInvariants, selectNextCard, migrateState } from "./state.js"
 import { createFicha, CandidateRegistry } from "./factory.js"
-import { scanCatalog, resolveRole } from "./catalog.js"
+import { scanCatalog, resolveRole, rankCandidates, type RolePanel } from "./catalog.js"
+import {
+  buildBriefing as buildBriefingContext,
+  renderBriefing,
+  type Briefing,
+} from "./briefing.js"
 import { routeCard, routeHelp, ownerStreak, type RouteResult } from "./router.js"
 import { decideRetry, recordRejection, recordApproval, consumeAgentCall } from "./retry.js"
 import { detectTooling, runTechnicalGates, runSecurityGate, consolidate, type CommandRunner, type Tooling } from "./gates.js"
@@ -184,9 +190,27 @@ export class Office {
     delegateBudget?: number
     peers?: string[]
     objective?: string
-  }): Promise<{ ficha: Ficha; source: "agency-agents" | "factory"; coverage: number }> {
+    mission?: string
+  }): Promise<{
+    ficha: Ficha
+    source: "agency-agents" | "factory"
+    coverage: number
+    /** Por qué se eligió este agente y qué le falta cubrir. */
+    match?: CatalogMatch
+    /** Alternativas válidas, por si elCommander quiere repartir carga. */
+    alternatives: CatalogMatch[]
+    /** El panel completo: primario + complementos + huecos. */
+    panel?: RolePanel
+  }> {
     const catalog = await this.catalog()
-    const { match, needsFactory } = resolveRole(catalog, input.capabilities, this.limits.minCatalogCoverage)
+    const { match, needsFactory, panel } = resolveRole(
+      catalog,
+      input.capabilities,
+      this.limits.minCatalogCoverage,
+    )
+    const alternatives = rankCandidates(catalog, input.capabilities, 5).filter(
+      (m) => m.agent.slug !== match?.agent.slug,
+    )
 
     if (match && !needsFactory) {
       const ficha: Ficha = {
@@ -198,8 +222,14 @@ export class Office {
           division: match.agent.division,
           path: match.agent.path,
           sourcePrompt: match.agent.sourcePrompt,
+          vibe: match.agent.vibe,
+          missions: match.agent.missions,
+          deliverables: match.agent.deliverables,
+          rules: match.agent.rules,
         },
-        capabilities: match.agent.capabilities,
+        // Las capabilities vienen del cuerpo del agente, no del nombre: son
+        // su especialidad real (Core Mission + Advanced + Deliverables).
+        capabilities: match.agent.capabilities.slice(0, 24),
         tools: ["read", "glob", "grep", "edit", "write", "bash"],
         scope: {
           mayTouch: input.scope?.mayTouch ?? ["**"],
@@ -216,7 +246,7 @@ export class Office {
         onFinish: "idle-join",
         escalateTo: "integrator",
       }
-      return { ficha, source: "agency-agents", coverage: match.coverage }
+      return { ficha, source: "agency-agents", coverage: match.coverage, match, alternatives, panel }
     }
 
     const ficha = createFicha({
@@ -228,21 +258,64 @@ export class Office {
       delegateBudget: input.delegateBudget,
       peers: input.peers,
       objective: input.objective,
+      mission: input.mission,
     })
     this.candidates.record(ficha.role, nowIso(this.options.clock))
-    return { ficha, source: "factory", coverage: match?.coverage ?? 0 }
+    return { ficha, source: "factory", coverage: match?.coverage ?? 0, match, alternatives, panel }
   }
 
-  /** Despliega un agente: lo registra en el roster y escribe su ficha. */
-  async deploy(ficha: Ficha): Promise<RosterEntry> {
-    const roster = await this.loadRoster(ficha.id)
-    const entry = await this.rosterStore.upsert(roster, ficha, "deployed")
-    await this.saveRoster(roster)
+  /**
+   * Construye el briefing de un agente para una card.
+   *
+   * El briefing es el contrato de información: qué sabe, qué no, qué tiene
+   * que entregar y a quién escalar. Se valida antes de usarlo — si le falta
+   * una sección requerida, el agente no arranca.
+   *
+   * El contexto sale del ledger de la corrida (`.oficina/context.md`), que
+   * es lo que evita que un agente repita lo que ya se decidió.
+   */
+  buildBriefing(ficha: Ficha, card: Card, roster?: Roster, state?: OfficeState): Briefing {
+    const peers = roster
+      ? Object.values(roster.agents).filter((a) => a.id !== ficha.id && a.state !== "retired")
+      : []
+    const context = state?.context
+    return buildBriefingContext({
+      ficha,
+      card,
+      objective: state?.objective || card.title,
+      knownDecisions: context?.decisions,
+      knownConstraints: context?.constraints,
+      builtPieces: context?.pieces,
+      knownTraps: context?.traps,
+      openQuestions: context?.open,
+      peers,
+      coordinatorId: ficha.escalateTo,
+    })
+  }
 
-    const fichaPath = path.join(this.paths.fichasDir, `${ficha.id}.md`)
-    await writeAtomic(fichaPath, renderFicha(ficha))
-    entry.fichaPath = fichaPath
-    await this.saveRoster(roster)
+  /**
+   * Despliega un agente: lo registra en el roster y escribe su briefing.
+   *
+   * El briefing se materializa en 4 archivos: `ficha.md`, `misiones.md`,
+   * `protocolo.md` y `bus.md`. El agente **no arranca sin `misiones.md`**.
+   */
+  async deploy(ficha: Ficha, card?: Card, roster?: Roster, state?: OfficeState): Promise<RosterEntry> {
+    const currentRoster = roster ?? (await this.loadRoster(ficha.id))
+    const entry = await this.rosterStore.upsert(currentRoster, ficha, "deployed")
+    await this.saveRoster(currentRoster)
+
+    const dir = path.join(this.paths.fichasDir, ficha.id)
+    await ensureDir(dir)
+
+    const target = card ?? PLACEHOLDER_CARD(ficha.id)
+    const briefing = this.buildBriefing(ficha, target, currentRoster, state)
+    for (const artifact of briefing.artifacts) {
+      await writeAtomic(path.join(dir, artifact.filename), artifact.content)
+    }
+    await writeAtomic(path.join(dir, "briefing.md"), renderBriefing(briefing))
+
+    entry.fichaPath = path.join(dir, "ficha.md")
+    await this.saveRoster(currentRoster)
     return entry
   }
 
@@ -593,6 +666,29 @@ export class Office {
       working: this.rosterStore.workingAgents(roster),
       dead: this.rosterStore.deadAgents(roster, this.limits.heartbeatSec * 3),
     }
+  }
+}
+
+/** Card vacía para un agente recién desplegado, antes de que le asignen una. */
+function PLACEHOLDER_CARD(agentId: string): Card {
+  return {
+    id: "sin-card",
+    title: "Sin card asignada",
+    type: "exploration",
+    state: "todo",
+    owner: agentId,
+    reviewer: null,
+    requiredCapabilities: [],
+    scope: { mayTouch: ["**"], forbidden: ["**/*.env"] },
+    acceptance: ["Esperar la asignación de una card"],
+    gate: "sin gate hasta que se le asigne una card",
+    dependsOn: [],
+    attempts: 0,
+    rejections: 0,
+    artifacts: "",
+    result: null,
+    helpRequests: [],
+    helpHops: 0,
   }
 }
 

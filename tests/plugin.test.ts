@@ -43,7 +43,7 @@ function mockHost() {
 }
 
 describe("Plugin OFICINA", () => {
-  it("se inicializa y registra las 10 tools", async () => {
+  it("se inicializa y registra las 11 tools", async () => {
     const { input } = mockHost()
     const hooks = await OficinaPlugin(input)
 
@@ -52,6 +52,7 @@ describe("Plugin OFICINA", () => {
     expect(names).toEqual([
       "oficina_assign",
       "oficina_board",
+      "oficina_brief",
       "oficina_bus",
       "oficina_escalate",
       "oficina_ficha",

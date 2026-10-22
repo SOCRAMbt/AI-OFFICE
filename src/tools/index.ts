@@ -14,6 +14,7 @@ import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import type { Card, CardType, MessageKind, MessagePriority } from "../core/types.js"
 import { CHANNELS } from "../core/bus.js"
 import { Office, renderFicha } from "../core/office.js"
+import { renderBriefing } from "../core/briefing.js"
 
 /**
  * Se usa el zod del propio plugin (`tool.schema`) en vez de importar zod.
@@ -588,6 +589,107 @@ export function buildTools(office: Office): Record<string, ToolDefinition> {
             `**Recomendación:** ${args.recommendation}`,
           ].join("\n"),
           metadata: { cardId: args.cardId, options: args.options.length },
+        }
+      },
+    }),
+
+    /**
+     * Genera el briefing de un agente para una card.
+     */
+    oficina_brief: tool({
+      description:
+        "Generá el briefing de un agente: el contrato de información completo con 10 secciones en orden fijo " +
+        "(quién sos · tu misión · lo que ya sabés · lo que NO sabés · tu territorio · cómo trabajás · tu canal · " +
+        "qué se espera de vos · lo que no podés hacer · cómo se mide que terminaste). " +
+        "Las secciones requeridas son el mínimo: si falta alguna, el briefing se marca INCOMPLETO y el agente no arranca. " +
+        "Devuelve también las alternativas de rol que servían, para que elCommander pueda repartir carga.",
+      args: {
+        role: z.string().describe("El rol que querés. Se resuelve contra el catálogo de agency-agents."),
+        capabilities: z.array(z.string()).describe("Capabilities que el rol necesita."),
+        cardId: z.string().optional().describe("Card a la que se asignará. Si se omite, se usa una card de ejemplo."),
+        objective: z.string().optional().describe("Objetivo de la corrida, para que el briefing no sea genérico."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+
+        const resolved = await off.resolveFicha({
+          role: args.role,
+          capabilities: args.capabilities,
+          objective: args.objective,
+        })
+
+        const state = await off.loadState()
+        const card =
+          (args.cardId ? state.cards[args.cardId] : undefined) ??
+          state.order.map((id) => state.cards[id]).find((c) => c && c.state === "todo")
+
+        if (!card) {
+          return {
+            title: "Sin card para el briefing",
+            output:
+              "No hay ninguna card en la corrida. Pasá `cardId` de una card existente, o armá el plan primero con `oficina_plan`.",
+          }
+        }
+
+        const roster = await off.loadRoster(state.runId)
+        const briefing = off.buildBriefing(resolved.ficha, card, roster)
+
+        const alternatives = resolved.alternatives
+          .slice(0, 4)
+          .map(
+            (alt) =>
+              `- \`${alt.agent.slug}\` (${alt.agent.division}) — cobertura ${(alt.coverage * 100).toFixed(0)}%`,
+          )
+
+        // El panel: primario + complementos + huecos. Los complementos son
+        // los agentes que cubren lo que el primario NO cubre.
+        const panel = resolved.panel
+        const panelLines: string[] = []
+        if (panel?.primary) {
+          panelLines.push(
+            `**Primario:** \`${panel.primary.agent.slug}\` (${panel.primary.agent.division}) — ${(panel.primary.coverage * 100).toFixed(0)}% · cubre ${panel.primary.matched.join(", ") || "—"}`,
+          )
+          for (const c of panel.complements) {
+            const aporta = c.matched.filter((m) => !panel.primary!.matched.includes(m))
+            panelLines.push(
+              `**Complemento:** \`${c.agent.slug}\` (${c.agent.division}) — ${(c.coverage * 100).toFixed(0)}% · aporta ${aporta.join(", ") || "—"}`,
+            )
+          }
+          if (panel.uncovered.length > 0) {
+            panelLines.push(
+              `**Sin cubrir por nadie del panel:** ${panel.uncovered.join(", ")} — considerá partir la card o fabricar un rol.`,
+            )
+          }
+        }
+
+        return {
+          title: `Briefing de ${resolved.ficha.displayName} — ${card.id}`,
+          output: [
+            `**Rol:** \`${resolved.ficha.role}\` · **origen:** ${resolved.source} · **cobertura:** ${(resolved.coverage * 100).toFixed(0)}%`,
+            `**Card:** ${card.id} — ${card.title}`,
+            `**Briefing:** ${briefing.complete ? "COMPLETO" : `INCOMPLETO — faltan: ${briefing.missing.join(", ")}`}`,
+            "",
+            ...(panelLines.length > 0 ? ["### Panel de roles", "", ...panelLines, ""] : []),
+            "---",
+            "",
+            renderBriefing(briefing),
+            "---",
+            "",
+            "**Alternativas de rol** (por si querés repartir carga):",
+            ...alternatives,
+            "",
+            `Los 4 artefactos (\`ficha.md\`, \`misiones.md\`, \`protocolo.md\`, \`bus.md\`) se escriben en \`.oficina/fichas/${resolved.ficha.id}/\` al desplegar.`,
+          ].join("\n"),
+          metadata: {
+            agentId: resolved.ficha.id,
+            source: resolved.source,
+            coverage: resolved.coverage,
+            complete: briefing.complete,
+            missing: briefing.missing,
+            complements: resolved.panel?.complements.length ?? 0,
+            uncovered: resolved.panel?.uncovered ?? [],
+          },
         }
       },
     }),

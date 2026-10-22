@@ -1,4 +1,4 @@
----
+﻿---
 name: oficina
 description: Oficina de Agents que trabaja un objetivo de principio a fin sin instrucciones repetidas. Con el plugin instalado, la oficina es una máquina de estados con hooks de enforcement: el Director descompone, delega a especialistas con ficha normalizada, coordina por un bus de mensajes en disco, permite pedir ayuda y delegar entre pares, y un hook de auto-continuación sigue trabajando cuando el modelo dice "terminé". Sin el plugin, el mismo protocolo funciona con el flujo de artefactos en markdown. Úsala cuando el usuario da un objetivo, feature, bug o refactor y quiere que un equipo de agentes lo ejecute completo, se auto-verifique y entregue evidencia, en vez de que el assistant lo haga todo lineal.
 ---
@@ -73,44 +73,44 @@ Un solo coordinador es cuello de botella y punto único de falla. Tres, con domi
 
 ```
 OBJETIVO
-   │
-   ▼
- ┌──────────────────────┐
- │ 1. PLAN (Comandante) │  Descompone → cards con owner, acceptance, gate, scope
- └──────────────────────┘
-   │
-   ▼
- ┌──────────────────────┐
- │ 2. STANDUP            │  Elige la card más prioritaria con deps satisfechas
- └──────────────────────┘
-   │
-   ▼
- ┌──────────────────────┐
- │ 3. TRABAJO (Owner)    │  Ejecuta + escribe handoff.md + evidence.md
- └──────────────────────┘
-   │
-   ▼
- ┌──────────────────────┐
- │ 4. AUTO-REVIEW        │  Crítico ≠ owner. APROBADO o RECHAZADO con razón
- └──────────────────────┘
-   │ RECHAZADO ─────────────┐
-   │ APROBADO               │
-   ▼                        │
- ┌──────────────────────┐  │
- │ 5. GATES              │  │
- │  Verificador (técn.)  │  │
- │  Guardián (seguridad) │  │
- └──────────────────────┘  │
-   │                        │
-   │ FALLA ─────────────────┤
-   │ PASA                   │
-   ▼                        ▼
- ┌─────────────┐         ┌──────────────┐
- │ 6. DONE     │         │ 7. REWORK    │
- └─────────────┘         │  1er: reintenta│
-                         │  2do: replan  │
-                         │  3ro: ESCALA  │
-                         └──────────────┘
+   |
+   v
+ +---------------------------+
+ | 1. PLAN (Comandante)     |  Descompone -> cards con owner, acceptance, gate, scope
+ +---------------------------+
+   |
+   v
+ +---------------------------+
+ | 2. STANDUP               |  Elige la card mas prioritaria con deps satisfechas
+ +---------------------------+
+   |
+   v
+ +---------------------------+
+ | 3. TRABAJO (Owner)       |  Ejecuta + escribe handoff.md + evidence.md
+ +---------------------------+
+   |
+   v
+ +---------------------------+
+ | 4. AUTO-REVIEW           |  Critico != owner. APROBADO o RECHAZADO con razon
+ +---------------------------+
+   | RECHAZADO ----------------+
+   | APROBADO                 |
+   v                           |
+ +---------------------------+ |
+ | 5. GATES                 | |
+ |  Verificador (tecnico)   | |
+ |  Guardian (seguridad)     | |
+ +---------------------------+ |
+   |                           |
+   | FALLA ---------------------+
+   | PASA
+   v
+ +-----------+         +---------------+
+ | 6. DONE   |         | 7. REWORK     |
+ +-----------+         |  1er: reintenta|
+                       |  2do: replan  |
+                       |  3ro: ESCALA  |
+                       +---------------+
 ```
 
 **[plugin]** Con el plugin, el paso 3 es un `oficina_assign` y el paso 5 un `oficina_gate` que corre los comandos de verdad.
@@ -137,16 +137,44 @@ Cada 3 cards completadas → **checkpoint** al usuario. Al final → **informe d
 
 ---
 
-## Resolver roles: catálogo → factory
+## Resolver roles: catálogo → factory → panel
 
-**[plugin]** `oficina_ficha` hace esto:
+**[plugin]** `oficina_brief` muestra el panel sin desplegar; `oficina_ficha` además despliega el agente con su briefing.
 
-1. **Catálogo match**: busca en el repo de agency-agents el agente con mayor overlap de capabilities.
-2. **Factory** (si cobertura < 60%): genera el rol desde un template, con el contexto de la corrida en el prompt.
+**1. Catálogo primero.** El repo de agency-agents tiene **306 agentes en 25 divisiones**. La especialidad real de cada uno está en el **cuerpo** (Core Mission, Technical Deliverables, Advanced Capabilities), no en el `description`. El matcher pondera el nombre del rol (40%), la misión literal (35%) y la misión conceptual (20%).
 
-Nunca se fuerza un mal match. Un rol medio-tonto en el equipo arruina más de lo que aporta.
+**2. Factory si la cobertura es < 60%.** El rol fabricado emite la **misma estructura de 10 secciones** que el catálogo, con las capabilities, el scope, el objetivo de la corrida y los modos de fallo del rol. Un rol fabricado con contexto es usable; uno genérico no.
+
+**3. Panel, no un solo agente.** Un objetivo casi nunca es de un solo dominio. El panel devuelve:
+
+- **primario** — el mejor match. Se lleva la card.
+- **complementos** — los que cubren lo que el primario NO cubre. Son sus pares en el bus.
+- **sin cubrir** — lo que nadie cubre. Señal de que la card debería partirse en dos.
+
+**Nunca fuerces un mal match.** Si nadie cubre una capacidad, se fabrica el rol o se pide ayuda. Un rol medio-tono en el equipo arruina más de lo que aporta.
 
 **Sin plugin**: la tabla de `reference/roles.md`.
+
+---
+
+## El briefing: qué recibe cada agente
+
+**[plugin]** Todo agente desplegado recibe un briefing de **10 secciones en orden fijo** —de lo más estable a lo más cambiante— y **4 artefactos** en `.oficina/fichas/<agentId>/`:
+
+| Artefacto | Contenido |
+|---|---|
+| `ficha.md` | Quién sos: rol, especialidad, origen, vibe |
+| `misiones.md` | Tu misión · lo que ya sabés · lo que NO sabés |
+| `protocolo.md` | Cómo trabajás · tu territorio · qué se espera · límites · éxito |
+| `bus.md` | Tu canal: dónde, formato, TTLs, cómo acusar recibo |
+
+**El agente no arranca sin `misiones.md`. Nunca.**
+
+**Mínimo**: las 10 secciones son requeridas. Si alguna queda vacía, el briefing se marca `INCOMPLETO` y el agente no se despliega. Un briefing a medio llenar produce un agente a medio informado, que es peor que no tener agente.
+
+La sección *"lo que ya sabés"* se alimenta del **ledger** (`.oficina/context.md`): decisiones, restricciones, piezas construidas y trampas. Es lo que evita repetir lo ya decidido.
+
+Detalle completo en `reference/mesh.md`.
 
 ---
 

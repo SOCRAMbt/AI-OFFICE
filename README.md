@@ -7,11 +7,11 @@
 [![npm](https://img.shields.io/npm/v/oficina-opencode?label=npm&color=cb3837)](https://www.npmjs.com/package/oficina-opencode)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
-[![tests](https://img.shields.io/badge/tests-157%20passing-22a06b.svg)](tests)
-[![coverage](https://img.shields.io/badge/coverage-87.8%25-7c3aed.svg)](https://vitest.dev)
+[![tests](https://img.shields.io/badge/tests-201%20passing-22a06b.svg)](tests)
+[![coverage](https://img.shields.io/badge/coverage-90.2%25-7c3aed.svg)](https://vitest.dev)
 [![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](tsconfig.json)
 
-**4 hooks · 10 tools · 7 agentes · 6 gates · 6 invariantes duros**
+**4 hooks · 11 tools · 7 agentes · 6 gates · 6 invariantes duros · 306 roles de catálogo**
 
 > **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
 > **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
@@ -34,15 +34,13 @@ Working con agents tiene cinco fallas concretas. No son falta de inteligencia: s
 | **El contexto se pierde** | Hay que repetir lo que ya se dijo, lo ya se decidió y lo ya se encontró. |
 | **Los subagentes son islands** | No se piden ayuda, no se coordinan, no se benefician del trabajo del otro. |
 
-Una skill de markdown no arregla ninguna de las cinco. Un prompt puede pedirle al modelo que sea cuidadoso; no puede **impedirle** que termine antes de tiempo.
+Una skill de markdown no arregla ninguna de las cinco. Un sistema con reglas escritas en código, no: porque **no dependen de que el modelo tenga ganas de seguirlas**.
 
 ---
 
 ## Qué es
 
 **AI-OFFICE** es un plugin de OpenCode que convierte la orquestación en **código ejecutable**, no en instrucciones.
-
-La diferencia:
 
 ```
 Skill     →  "Hacé lo que corresponda"          →  depende de que el modelo quiera
@@ -58,6 +56,10 @@ Cuatro piezas lo hacen posible:
 **3. Gates que se ejecutan, no se opinan.** Build, type check, lint, tests, escaneo de secretos y diff review. El motor corre los comandos, lee los exit codes y decide. La salida real queda pegada en el artefacto.
 
 **4. Invariantes que el código garantiza.** `gate_required_before_done` y `reviewer_neq_owner` no son recomendaciones: `assertInvariants` lanza y la transición no ocurre.
+
+Y una quinta, que es lo que hace confiable todo lo demás:
+
+**5. El roster se arma según el objetivo.** Los roles salen del catálogo real de agency-agents (**306 agentes, 25 divisiones**), matcheados contra lo que la card pide. Y cada agente recibe un **briefing** de 10 secciones con lo que sabe, lo que no, y qué tiene que entregar.
 
 ---
 
@@ -85,13 +87,76 @@ Cuatro capas. De abajo hacia arriba.
 │          ▼                                                              │
 │ CAPA 1 — ESPECIALISTAS  (ficha normalizada)                         │
 │  E1  E2  E3  E4  E5  E6  E7  E8  E9  E10                            │
-│  fichas: id · role · capabilities · scope · peers · must_not         │
+│  briefing: ficha.md · misiones.md · protocolo.md · bus.md            │
 │          │                                                              │
 │          ▼                                                              │
 │ CAPA 0 — ROSTER / FICHAS  (resolución de roles)                      │
 │  agency-agents/<division>/*.md  →  ficha  │  catálogo < 60% → factory│
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Capa 0 — De dónde sale la especialidad
+
+El repo de agency-agents tiene **306 agentes en 25 divisiones**, y cada uno trae un briefing de 10 secciones. La especialidad real **no está en el `description`** del frontmatter: está en el cuerpo.
+
+Un agente de statistics declara:
+- `description`: *"Expert in quantitative research methodology..."*
+- **Core Mission** → *Pressure-Test Quantitative Claims*, *Design Sound Studies*
+- **Technical Deliverables** → *Claim Interrogation Framework*, *Effect Size Report*
+- **Advanced Capabilities** → *Causal Inference*, *Experimental Design*
+
+La `description` dice de qué se ocupa. El cuerpo dice **en qué es exactamente bueno**. Un matcher que solo mira la `description` no puede distinguir a un metodólogo de un analista de datos — aunque uno de los dos sea exactamente lo que la card necesita.
+
+Por eso el parser extrae las secciones del cuerpo, y el score pondera cada señal por lo que aporta:
+
+| Señal | Peso | Por qué |
+|---|---|---|
+| **Nombre del rol** (`engineering-frontend-developer`) | 40% | La etiqueta más literal de la especialidad. El Commander también pide roles por nombre |
+| **Misión, overlap literal** | 35% | Lo que el agente dice que sabe hacer, con sus palabras |
+| **Misión, overlap conceptual** | 20% | Puentea sinónimos: *"web"* ↔ *"frontend"* ↔ *"react"* |
+| **Cuerpo completo** | 5% | Ruido: 300 líneas donde "review" aparece en todos |
+| **División** | 0% | Contexto, no especialidad: en `engineering` hay de todo |
+
+El score final combina tres medidas: **señal** (qué tan bien matchea), **recall** (cuánta parte del objetivo cubre) y **F1** (qué tan puntual es). Sin el recall, un agente que matchea *una* capability compite mano a mano con uno que matchea *dos*.
+
+**Cuando la cobertura es baja (< 60% del objetivo), se fabrica el rol.** Nunca se fuerza un mal match: un rol medio-tono en el equipo arruina más de lo que aporta.
+
+### El panel de roles: primario + complementos
+
+Un objetivo casi nunca es de un solo dominio. *"Formulario de login en React con validación y accesibilidad"* necesita un frontend (que no sabe de ARIA) **y** un especialista en accesibilidad (que no sabe de React).
+
+Si el sistema elige uno solo, deja huecos. Si elige varios sin criterio, duplica capacidad. El panel resuelve las dos:
+
+```
+OBJETIVO: Implementar un formulario de login en React con validación y accesibilidad
+PIDE:     react, form, validation, accessibility, frontend
+
+  PRIMARIO    28%  engineering/engineering-section-508-specialist
+              "Section 508 Accessibility Specialist"
+              misiones: Conformance Standards | Semantic HTML & ARIA
+              cubre:   form, accessibility
+
+  + COMPLEM. 23%  engineering/engineering-frontend-developer
+              "Frontend Developer"
+              misiones: Editor Integration Engineering | Create Modern Web Applications
+              aporta:  react, frontend
+```
+
+El primario se lleva la card. Los complementos son los agentes que cubren **lo que el primario no cubre**, y son sus pares naturales en el bus. Y lo que nadie cubre **se reporta explícitamente**: es la señal de que la card debería partirse en dos.
+
+Resolución real contra el catálogo:
+
+| Objetivo | Primario | Cobertura |
+|---|---|---|
+| Pipeline de datos con ingesta y agregación | `engineering-data-engineer` | 51% |
+| Migración de Postgres con partitioning | `engineering-gaussdb-expert` | 44% |
+| Revisar seguridad de un endpoint API | `testing-api-tester` | 35% |
+| Agente de GIS y cartografía | `gis-bim-specialist` | 31% |
+| CI/CD con Docker y Kubernetes | `engineering-devops-automator` | 21% |
+
+Reproducible: `npx tsx scripts/demo-roles.ts`
 
 ### La ficha: un solo schema
 
@@ -100,8 +165,15 @@ Venga el rol de `agency-agents` o de la factory, se materializa en la **misma** 
 ```yaml
 id: e-frontend
 role: frontend-developer
-source: { kind: agency-agents, division: engineering, path: engineering/frontend-developer.md }
-capabilities: [react-component-design, css-architecture, accessibility]
+source:
+  kind: agency-agents
+  division: engineering
+  path: engineering/frontend-developer.md
+  vibe: "Pixel obsessive, allergic to dead CSS."
+  missions: ["Create Modern Web Applications", "Optimize Performance and UX"]
+  deliverables: ["Component Library", "Design Token System"]
+  rules: ["Never ship a component without a test", "..."]
+capabilities: [react, component, ui, web, accessibility, performance, ...]
 scope:
   may_touch: ["src/components/**", "src/hooks/**"]
   forbidden: ["src/server/**", "**/*.env*"]
@@ -115,16 +187,65 @@ on_finish: idle-join
 escalate_to: coordinator-flow
 ```
 
-### Resolución de roles: catálogo primero, factory después
+### La factory: el mismo briefing, sin catálogo
 
-1. **Catálogo match** — se escanea el repo real de `agency-agents`, se infieren capabilities del nombre y la descripción, y se elige el de mayor overlap.
-2. **Factory** — si la cobertura queda **< 60%**, el rol se genera desde un template, con las capabilities y el objetivo de la corrida dentro del prompt. Un rol fabricado queda marcado como candidato a skill.
+Un rol fabricado tiene que ser **indistinguible en calidad** de uno del catálogo. Si el catálogo tiene agentes con briefing de 10 secciones, uno fabricado con un prompt de 5 líneas se nota: es monótono, no tiene criterio propio, y el resto de la malla lo trata como de segunda.
 
-**Nunca se fuerza un mal match.** Si la card pide capabilities que nadie cubre, el router devuelve `null` y las faltantes — para fabricar el rol o pedir ayuda. Un rol medio-tonto en el equipo arruina más de lo que aporta.
+Por eso la factory emite **exactamente la misma estructura**: Identity & Memory, Core Mission, Critical Rules, Technical Deliverables, Workflow Process, Communication Style, Learning & Memory, Success Metrics, Advanced Capabilities. El parser no distingue el origen.
+
+Y lo importante: el prompt fabricado **no es genérico**. Lleva las capabilities concretas, el scope, el objetivo de la corrida, los modos de fallo del rol y el contexto de la card.
 
 ---
 
-## El bus
+## Capa 1 — El briefing: qué sabe cada agente antes de arrancar
+
+Un subagente arranca con el contexto vacío. Si el Commander le pasa un prompt suelta (*"implementá el login"*), el agente tiene que adivinar: qué sabe del proyecto, qué espera de él, qué puede tocar, a quién preguntarle si se traba, y qué tiene que entregar. Adivinar es la fuente de todo el trabajo que se repite y de los agentes que se salen del scope.
+
+El briefing es el contrato de información. Tiene **orden fijo** y **mínimo verificable**.
+
+### El orden
+
+La información llega de lo más estable a lo más cambiante. Un agente lee de arriba hacia abajo y siempre tiene lo que necesita para el paso siguiente.
+
+| # | Sección | Qué le dice |
+|---|---|---|
+| 1 | **Quién sos** | Rol, especialidad de origen, de dónde viene tu briefing, tu vibe |
+| 2 | **Tu misión** | La card exacta, los criterios de aceptación numerados, el control de calidad |
+| 3 | **Lo que ya sabés** | Decisiones tomadas, restricciones descubiertas, piezas construidas, trampas |
+| 4 | **Lo que NO sabés** | Los huecos explícitos y **a quién preguntarle** por cada uno |
+| 5 | **Tu territorio** | Qué podés tocar, qué no, y qué prohibiciones trae tu ficha |
+| 6 | **Cómo trabajás** | El ciclo, cuándo pedir ayuda, cuándo delegar, cuándo escalar |
+| 7 | **Tu canal** | Dónde dejás y encontrás mensajes, formato, TTLs, cómo acusar recibo |
+| 8 | **Qué se espera de vos** | Los entregables exactos: `handoff.md` y `evidence.md` |
+| 9 | **Lo que no podés hacer** | Las prohibiciones duras. Están en código, no en tu criterio |
+| 10 | **Cómo se mide que terminaste** | Las tres condiciones de terminado |
+
+### El mínimo
+
+Las diez secciones son **requeridas**. Si alguna queda vacía, el briefing se marca `INCOMPLETO` y **el agente no arranca**. Un briefing a medio llenar produce un agente a medio informado, que es peor que no tener agente.
+
+### Los cuatro artefactos
+
+El briefing se materializa en cuatro archivos en disco, porque un agente no "recuerda" un prompt largo: lo lee.
+
+```
+.oficina/fichas/<agentId>/
+├── ficha.md       ← Quién sos
+├── misiones.md    ← Tu misión · lo que ya sabés · lo que NO sabés
+├── protocolo.md   ← Cómo trabajás · tu territorio · qué se espera · límites · éxito
+├── bus.md         ← Tu canal
+└── briefing.md    ← el documento completo, para lectura humana
+```
+
+**El agente no arranca sin `misiones.md`. Nunca.**
+
+### El ledger: lo que ya sabés
+
+La sección 3 se alimenta del **contexto acumulado** de la corrida (`.oficina/context.md`), que registra decisiones, restricciones, piezas construidas y trampas. Es lo que evita que un agente repita lo que ya se decidió — y lo que convierte al bus en algo más que un tablón de avisos.
+
+---
+
+## Capa 2 — El bus
 
 Los subagentes de OpenCode son **procesos aislados sin memoria compartida**. No pueden hablarse de facto. La solución coherente es un bus append-only sobre disco.
 
@@ -249,9 +370,9 @@ Las preguntas de un especialista al coordinador **van por el bus**, no interrump
 
 ---
 
-## Los 10 tools
+## Los 11 tools
 
-Diez, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
+Once, no treinta. Cada tool que se suma es ruido en el contexto de todos los agentes.
 
 | Tool | Qué hace |
 |---|---|
@@ -264,7 +385,8 @@ Diez, no treinta. Cada tool que se suma es ruido en el contexto de todos los age
 | `oficina_bus` | Bus: `send` · `receive` · `ack` · `help` |
 | `oficina_spawn` | Pide desplegar un agente. El Integrador aprueba o rechaza |
 | `oficina_escalate` | Escala al usuario con 2-3 opciones concretas y recomendación |
-| `oficina_ficha` | Resuelve un rol a ficha — del catálogo o de la factory |
+| `oficina_ficha` | Resuelve un rol a ficha y **despliega** el agente con su briefing |
+| `oficina_brief` | Muestra el briefing y el **panel de roles** sin desplegar: decisión del Comandante |
 
 ---
 
@@ -324,13 +446,11 @@ export { OficinaPlugin, default } from "oficina-opencode"
 
 ### Los assets del protocolo
 
-El paquete incluye la skill, los agentes y el comando. Para instalarlos:
-
 ```bash
 oficina install --target ~/.config/opencode
 ```
 
-O a mano: `skills/oficina/` → `~/.config/opencode/skills/oficina/`, `agents/*.md` → `~/.config/opencode/agents/`, `commands/oficina.md` → `~/.config/opencode/commands/`.
+Instala la skill, los 7 agentes, el comando y el entry point del plugin.
 
 ---
 
@@ -372,8 +492,8 @@ oficina board                              # Tablero Kanban
 oficina bus                                # Estadísticas del bus
 oficina audit T-03                         # Artefactos, gates y review de una card
 oficina verify                             # Corre los gates de las cards en review
-oficina catalog --agency-root <path>      # Lista el catálogo de roles
 oficina install --target <dir>             # Instala skill, agentes y comando
+oficina catalog --agency-root <path>       # Lista el catálogo de roles disponible
 oficina reset --force                      # Abandona la corrida
 ```
 
@@ -395,7 +515,7 @@ oficina reset --force                      # Abandona la corrida
 │   └── peer/
 ├── inbox/<agentId>/  # acks
 ├── leases/<taskId>.json
-├── fichas/<agentId>.md
+├── fichas/<agentId>/ # los 4 artefactos del briefing + briefing.md
 └── artifacts/<cardId>/
     ├── handoff.md    # qué hizo el owner
     ├── evidence.md   # salida real de los comandos
@@ -410,7 +530,7 @@ El formato de artefactos es compatible con OFICINA v1 (la skill). El plugin **mi
 
 ## Código
 
-21 archivos TypeScript · 4.722 líneas de `src/` · 1.883 líneas de test · 14 módulos en `core/`.
+24 archivos TypeScript · 14 módulos en `core/` · 1 toolset · 4 hooks.
 
 ```
 src/
@@ -422,8 +542,9 @@ src/
 │   ├── bus.ts            # bus append-only con TTL/ack/idempotencia
 │   ├── roster.ts         # quién existe + pool idle
 │   ├── leases.ts         # leases con TTL y heartbeat
-│   ├── catalog.ts        # escaneo de agency-agents + matching de capabilities
-│   ├── factory.ts        # generación de roles + registro de candidatos
+│   ├── catalog.ts        # escaneo de agency-agents + matching + panel
+│   ├── factory.ts        # generación de roles con briefing de 10 secciones
+│   ├── briefing.ts       # el contrato de información del agente
 │   ├── router.ts         # enrutado + rotación anti-monotonía
 │   ├── gates.ts          # runner de los 6 gates + escaneo de secretos
 │   ├── retry.ts          # política de 3 golpes
@@ -431,7 +552,7 @@ src/
 │   ├── paths.ts          # resolución de project root
 │   ├── fsx.ts            # IO atómico
 │   └── log.ts            # logging estructurado
-├── tools/index.ts        # las 10 tools
+├── tools/index.ts        # las 11 tools
 └── hooks/
     ├── sessionIdle.ts    # auto-continuación
     ├── scopeGuard.ts     # enforcement de scope
@@ -448,8 +569,8 @@ Una sola, y es peer del host: `@opencode-ai/plugin`. Zod entra por `tool.schema`
 ## Testing
 
 ```bash
-npm test           # 157 tests, 11 archivos
-npm run coverage   # 87.8% stmts · 81.0% branches
+npm test           # 201 tests, 13 archivos
+npm run coverage   # 90.2% stmts · 82.8% branches
 npm run typecheck  # tsc --noEmit, strict
 npm run build      # tsc → dist/
 ```
@@ -461,7 +582,9 @@ npm run build      # tsc → dist/
 | `gates.test.ts` | Detección de tooling, las 6 fases, N/A con motivo, consolidación, redacción |
 | `router.test.ts` | Enrutado, rotación, reviewer ≠ owner, política de 3 golpes, presupuesto |
 | `leases.test.ts` | Adquisición, heartbeat, expiración, double-claim, reasignación |
-| `catalog.test.ts` | Escaneo del catálogo, matching, cobertura, factory, template |
+| `catalog.test.ts` | Frontmatter, secciones, extracción, matching ponderado, panel, factory |
+| `catalogReal.test.ts` | El catálogo real de 306 agentes: estructuras, matching, división |
+| `briefing.test.ts` | Orden, mínimo, las 10 secciones, los 4 artefactos, INCOMPLETO |
 | `office.test.ts` | Ciclo completo end-to-end, invariantes, artefactos en disco |
 | `scopeGuard.test.ts` | Globs, extracción de path, enforcement de scope |
 | `plugin.test.ts` | El plugin contra un host mockeado: tools, hooks, auto-resume |

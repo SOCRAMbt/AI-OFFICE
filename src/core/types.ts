@@ -110,6 +110,14 @@ export interface FichaSource {
   path?: string
   /** El system prompt original, verbatim. */
   sourcePrompt?: string
+  /** El "vibe" del agente: la personality hook de una línea. */
+  vibe?: string
+  /** Las misiones declaradas del agente (de "Core Mission"). */
+  missions?: string[]
+  /** Los entregables declarados (de "Technical Deliverables"). */
+  deliverables?: string[]
+  /** Las reglas críticas declaradas (de "Critical Rules"). */
+  rules?: string[]
 }
 
 /**
@@ -414,12 +422,31 @@ export interface CatalogAgent {
   slug: string
   displayName: string
   description: string
+  /** La personality hook de una línea que trae el frontmatter. */
+  vibe: string
   division: string
   path: string
-  /** Capabilities inferidas del texto del agente. */
+  /**
+   * Capabilities inferidas del **cuerpo**, no del nombre.
+   *
+   * Es la diferencia entre "de qué se ocupa" (description) y "en qué es
+   * exactamente bueno" (Core Mission + Advanced Capabilities + Deliverables).
+   */
   capabilities: string[]
+  /** Subtítulos de "Core Mission": la especialidad declarada. */
+  missions: string[]
+  /** Subtítulos de "Technical Deliverables": lo que sabe producir. */
+  deliverables: string[]
+  /** Subtítulos de "Advanced Capabilities". */
+  advanced: string[]
+  /** Items de "Critical Rules". */
+  rules: string[]
+  /** Secciones H2 parseadas del cuerpo. */
+  sections: Record<string, string>
   /** Prompt original completo. */
   sourcePrompt: string
+  /** Texto indexable para matching. */
+  searchText: string
 }
 
 export interface CatalogMatch {
