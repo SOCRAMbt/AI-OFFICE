@@ -757,8 +757,20 @@ export function matchCapabilities(
     // exactamente de qué se ocupa el agente. El cuerpo son 300 líneas de
     // contexto donde cualquier palabra genérica aparece; la description y el
     // vibe, no. Excluirlos era dejar la mejor señal afuera.
+    //
+    // El slug se parte en sus palabras. Como token único no matchea NADA:
+    // "code" nunca va a ser igual a "engineering-code-reviewer", así que el
+    // agente que se llama literal "Code Reviewer" perdía contra un
+    // ingeniero civil que menciona "code" de pasada.
+    //
+    // La primera parte es la division, y la division YA es una señal propia
+    // (divisionAffinity). Dejarla además como token la duplicaría y haría
+    // que todo agente de esa division matchee la capability "engineering".
+    const partesSlug = agent.slug.split("-")
+    const slugSinDivision =
+      (partesSlug[0] ?? "") === agent.division ? partesSlug.slice(1) : partesSlug
     const agentName = capabilityTokens(
-      `${agent.slug} ${agent.displayName} ${agent.description} ${agent.vibe}`,
+      `${slugSinDivision.join(" ")} ${agent.displayName} ${agent.description} ${agent.vibe}`,
     )
 
     const agentCapabilities = canonicalizeTokens(new Set(agent.capabilities))
