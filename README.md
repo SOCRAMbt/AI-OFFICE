@@ -13,6 +13,9 @@
 
 **4 hooks · 10 tools · 7 agentes · 6 gates · 6 invariantes duros**
 
+> **¿Preferís la versión en humano?** → [`docs/QUE-ES.md`](docs/QUE-ES.md) — qué es, qué hace y por qué, sin jerga.
+> **¿Preferís el porqué técnico?** → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+
 [Documentación](#arquitectura) · [Instalación](#instalación) · [Uso](#uso) · [CLI](#cli-operación)
 
 </div>
