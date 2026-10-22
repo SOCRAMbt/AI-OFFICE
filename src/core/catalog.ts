@@ -177,6 +177,17 @@ export const CAPABILITY_TAXONOMY: Record<string, string[]> = {
   css: ["css", "styling", "layout", "tailwind", "design-system", "animation", "motion", "theme", "token"],
   accessibility: ["accessibility", "a11y", "aria", "wcag", "screen-reader", "keyboard", "semantic", "section-508", "conformance"],
   typescript: ["typescript", "ts", "type-safety", "typecheck", "generics", "type"],
+  /**
+   * Lenguajes y programacion en general.
+   *
+   * Sin estos conceptos, un objetivo razonable como "javascript,
+   * code-generation" no matchea con NADA del catalogo: la palabra
+   * "javascript" no aparece en la identidad curada de ningun agente, y
+   * "code-generation" tampoco. El resultado era que todos los candidatos
+   * daban 3% y ganaba el primero de la lista.
+   */
+  javascript: ["javascript", "js", "ecmascript", "vanilla-js", "nodejs", "node"],
+  code: ["code", "coding", "code-generation", "programming", "implementation", "implement", "source"],
   backend: ["backend", "server", "api", "endpoint", "service", "rest", "graphql", "microservice", "gateway", "contract"],
   database: ["database", "sql", "postgres", "postgresql", "prisma", "orm", "schema", "migration", "index", "query", "reliability", "availability", "tuning", "partitioning"],
   security: ["security", "auth", "authentication", "authorization", "vulnerability", "owasp", "encryption", "threat", "vuln", "pentest", "xss", "csrf", "injection", "sanitize", "hardening", "audit", "compliance"],
@@ -519,6 +530,8 @@ export const CAPABILITY_SYNONYMS: Record<string, string[]> = {
   backend: ["backend", "server", "service", "services", "microservice", "worker"],
   frontend: ["frontend", "ui", "web", "spa", "browser"],
   typescript: ["typescript", "ts", "type", "types", "generic", "generics", "typecheck"],
+  javascript: ["javascript", "js", "ecmascript", "node", "nodejs"],
+  code: ["code", "coding", "code-generation", "programming", "implementation", "implement"],
   performance: ["performance", "optimize", "optimization", "profiling", "caching", "latency", "benchmark", "throughput"],
   architecture: ["architecture", "pattern", "patterns", "design", "scalability", "system design", "refactor", "modular"],
   devops: ["devops", "ci", "cd", "deployment", "deploy", "docker", "kubernetes", "infrastructure", "pipeline", "terraform", "release", "operations", "sre", "automation"],
@@ -919,24 +932,63 @@ export interface RolePanel {
   complements: CatalogMatch[]
   /** Capabilities que nadie del panel cubre. */
   uncovered: string[]
+  /**
+   * true cuando el primario entro por la banda de segundo.
+   *
+   * O sea: **nadie** del catalogo llega al minimo de cobertura, pero este
+   * agente cubre al menos una capability y no es ruido. Se acepta y se
+   * reporta, porque un especialista del dominio es mejor que un rol
+   * fabricado — pero hay que decirlo, no venderlo como match solido.
+   */
+  fallback?: boolean
 }
 
 export function buildPanel(
   catalog: CatalogAgent[],
   target: string[],
-  options: { maxComplements?: number; minComplementCoverage?: number } = {},
+  options: { maxComplements?: number; minComplementCoverage?: number; minCoverage?: number } = {},
 ): RolePanel {
   const maxComplements = options.maxComplements ?? 3
   const minComplementCoverage = options.minComplementCoverage ?? 0.15
-
+  const minCoverage = options.minCoverage ?? 0.6
+  /**
+   * El minimo de cobertura es un filtro, no un dato.
+   *
+   * Sin esto, el "mejor" match de un objetivo que el catalogo no cubre es
+   * casi cualquier agente: todos dan 3% y gana el primero de la lista. Un
+   * caso real: pedir "javascript, code-generation" elegia un mentor de
+   * ServiceNow, porque era el primero con la palabra "code".
+   *
+   * Y con un minimo fijo tampoco alcanza: con 2 capabilities, 1 de 2 da 0.5
+   * y el minimo de 0.6 seria inalcanzable SIEMPRE. Por eso hay dos bandas:
+   *
+   * - **Banda 1** (cobertura >= minCoverage): match solido.
+   * - **Banda 2** (cubre >= 1 capability y cobertura >= minCoverage/2): el
+   *   mejor disponible, y se marca como `fallback` para que el despacho lo
+   *   diga. Un especialista del dominio le gana a un rol fabricado.
+   * - **Ninguna**: no hay match. Se fabrica el rol.
+   */
   const ranked = catalog
     .map((agent) => matchCapabilities([agent], target))
     .filter((m): m is CatalogMatch => !!m)
     .sort((a, b) => b.coverage - a.coverage)
 
-  const primary = ranked[0] ?? null
-  if (!primary) {
+  const best = ranked[0] ?? null
+  if (!best) {
     return { primary: null, complements: [], uncovered: [...target] }
+  }
+
+  let primary = best
+  let fallback = false
+  if (best.coverage < minCoverage) {
+    const candidato = ranked.find(
+      (m) => m.matched.length > 0 && m.coverage >= minCoverage / 2,
+    )
+    if (!candidato) {
+      return { primary: null, complements: [], uncovered: [...target] }
+    }
+    primary = candidato
+    fallback = true
   }
 
   const covered = new Set(primary.matched)
@@ -956,5 +1008,6 @@ export function buildPanel(
     primary,
     complements,
     uncovered: target.filter((t) => !covered.has(t)),
+    fallback,
   }
 }

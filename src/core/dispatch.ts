@@ -33,6 +33,7 @@ import path from "node:path"
 import type { Card, CatalogAgent, Ficha, OfficeState, Roster, RosterEntry } from "./types.js"
 import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
+import { createFicha } from "./factory.js"
 import { ensureDir, nowIso, writeAtomic } from "./fsx.js"
 import type { Office } from "./office.js"
 
@@ -262,12 +263,40 @@ export async function dispatchOffice(
 
     const panel: RolePanel = buildPanel(options.catalog, card.requiredCapabilities, {
       maxComplements: options.maxComplements,
+      minCoverage: options.minCoverage,
     })
 
-    if (!panel.primary) {
+    if (budget <= 0) {
       result.unassigned.push(cardId)
+      result.notes.push(`Sin presupuesto de agentes: ${cardId} quedó sin owner.`)
+      continue
+    }
+
+    // ── Sin match suficiente: se FABRICA el rol ──
+    //
+    // El protocolo es explicito: "factory si la cobertura es < 60%. Nunca
+    // fuerces un mal match." Antes esta rama dejaba la card sin owner, y
+    // el matcher tomaba el primero de la lista cuando todos empataban en
+    // 3% — un mentor de ServiceNow para "sumar dos numeros".
+    //
+    // Un rol fabricado con el contexto de la card es infinitamente mas
+    // util que un rol del catalogo que no tiene nada que ver.
+    if (!panel.primary) {
+      const fabricando = await instantiateFactory(office, roster, card, options)
+      if (!fabricando) {
+        result.unassigned.push(cardId)
+        result.notes.push(
+          `La card ${cardId} no tiene match en el catálogo con cobertura ≥ ${options.minCoverage}.`,
+        )
+        continue
+      }
+      budget -= 1
+      result.dispatched.push(fabricando)
+      card.owner = fabricando.agentId
+      card.reviewer = null
       result.notes.push(
-        `La card ${cardId} no tiene match en el catálogo con cobertura ≥ ${options.minCoverage}.`,
+        `La card ${cardId} no tiene match en el catálogo con cobertura ≥ ${options.minCoverage}: ` +
+          `se fabricó un rol especifico para sus capabilities.`,
       )
       continue
     }
@@ -276,10 +305,11 @@ export async function dispatchOffice(
       if (!result.uncovered.includes(missing)) result.uncovered.push(missing)
     }
 
-    if (budget <= 0) {
-      result.unassigned.push(cardId)
-      result.notes.push(`Sin presupuesto de agentes: ${cardId} quedó sin owner.`)
-      continue
+    if (panel.fallback) {
+      result.notes.push(
+        `La card ${cardId} no tiene match solido en el catálogo (minimo ${options.minCoverage}); ` +
+          `se usa ${panel.primary.agent.slug} por ser el mejor disponible.`,
+      )
     }
 
     const primary = await instantiate(
@@ -338,6 +368,83 @@ export async function dispatchOffice(
   await office.saveRoster(roster)
   await office.saveState(state)
   return result
+}
+
+/**
+ * Fabrica el rol de una card que el catálogo no cubre.
+ *
+ * ## Por qué un rol fabricado y no "el menos malo"
+ *
+ * Cuando el mejor match del catálogo da 3% de cobertura, TODOS dan 3%: no
+ * hay un match, hay ruido. Tomar el primero de la lista produce un agente
+ * competente en otra cosa — un mentor de ServiceNow para "sumar dos
+ * números" — que además **cree** que su especialidad aplica.
+ *
+ * Un rol fabricado con el contexto de la card es peor en充电 y mejor en
+ * todo lo demás: conoce el objetivo, el scope y los modos de fallo, y su
+ * briefing tiene las mismas 10 secciones que el de un agente del catálogo.
+ */
+async function instantiateFactory(
+  office: Office,
+  roster: Roster,
+  card: Card,
+  options: DispatchOptions,
+): Promise<DispatchedAgent | undefined> {
+  const capabilities = card.requiredCapabilities.length > 0 ? card.requiredCapabilities : ["implementacion"]
+  const role = `implementador-${capabilities.slice(0, 2).join("-")}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()
+
+  const ficha = createFicha({
+    role,
+    displayName: `Implementador (${capabilities.slice(0, 3).join(", ")})`,
+    capabilities,
+    scope: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden },
+    canDelegate: true,
+    delegateBudget: 2,
+    objective: options.objective,
+    mission: `Entregar ${card.title} cumpliendo exactamente: ${card.acceptance.join("; ")}.`,
+    failureModes: [
+      "El entregable no compila o el gate falla",
+      "Se escribio fuera del scope de la card",
+      "La evidencia no demuestra los criterios de aceptacion",
+    ],
+  })
+
+  const briefing = office.buildBriefing(ficha, card, roster)
+  const agentFile = await materializeAgent(options.projectRoot, ficha, briefing)
+  const prompt = buildAgentPrompt(ficha, briefing)
+
+  roster.agents[ficha.id] = {
+    id: ficha.id,
+    role: ficha.role,
+    displayName: ficha.displayName,
+    state: "working",
+    capabilities: ficha.capabilities,
+    fichaPath: agentFile,
+    currentCard: card.id,
+    lease: null,
+    idleSince: null,
+    canAccept: false,
+    helpGiven: 0,
+    helpReceived: 0,
+    helpedPeers: [],
+    lastHeartbeat: nowIso(),
+    source: ficha.source,
+  }
+
+  return {
+    agentId: ficha.id,
+    agentName: agentNameFor(ficha.role),
+    cardId: card.id,
+    role: ficha.role,
+    displayName: ficha.displayName,
+    source: "factory",
+    coverage: 0,
+    contributes: [],
+    prompt,
+    agentFile,
+    artifacts: briefing.artifacts.map((a) => a.filename),
+    isPeer: false,
+  }
 }
 
 /** Crea (o reutiliza) un agente y devuelve el payload de despacho. */
