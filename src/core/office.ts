@@ -60,12 +60,17 @@ export interface OfficeOptions {
   runner?: CommandRunner
   clock?: () => number
   /**
-   * Cliente del SDK de OpenCode.
+   * Cliente del SDK de OpenCode **v1**.
    *
    * Se usa para **desviar subagentes**: `session.prompt` con una parte
    * `subtask` crea un subagente real. Sin cliente, la oficina funciona igual
    * (los agentes se materializan y el LLM los invoca con la tool `task`),
    * pero no puede arrancarlos sola.
+   *
+   * **En OpenCode v2 este camino no existe.** La v2 crea la sesion hija con
+   * `session.create({ parentID })` y la dispara con `session.prompt`. Por eso
+   * existe `spawner`: el entry v2 inyecta ahi su propia implementacion y el
+   * motor no depende de ninguna de las dos APIs.
    */
   client?: {
     session: {
@@ -82,6 +87,20 @@ export interface OfficeOptions {
       }) => Promise<unknown>
     }
   }
+  /**
+   * Como crear un subagente, si el host lo permite.
+   *
+   * Es el punto de extension del motor: el entry v1 usa el cliente de
+   * OpenCode v1 (parte `subtask`), y el entry v2 usa `session.create` +
+   * `session.prompt`. El motor solo pide "arranca este agente con este
+   * prompt" y no sabe como lo hace el host.
+   */
+  spawner?: (input: {
+    sessionID: string
+    agentName: string
+    prompt: string
+    description: string
+  }) => Promise<boolean>
 }
 
 export class Office {
@@ -334,6 +353,17 @@ export class Office {
     prompt: string,
     description: string,
   ): Promise<boolean> {
+    // El spawner del host tiene prioridad: es el que sabe como se crea un
+    // subagente en ESTA version de OpenCode.
+    if (this.options.spawner) {
+      try {
+        return await this.options.spawner({ sessionID, agentName, prompt, description })
+      } catch (err) {
+        log.warn("el spawner del host fallo", { agent: agentName, error: String(err) })
+        return false
+      }
+    }
+
     const client = this.options.client
     if (!client) return false
 

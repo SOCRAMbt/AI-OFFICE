@@ -114,18 +114,80 @@ export default Plugin.define({
     const enforce = options.enforceScope !== false
     const directory = ctx.location.directory
 
-    const office = new Office({ cwd: directory })
+    const office = new Office({
+      cwd: directory,
+      /**
+       * Como se crea un subagente en OpenCode v2.
+       *
+       * La v1 usaba `session.prompt` con una parte `subtask`. **En v2 esa
+       * parte no existe.** La forma de v2 es crear la sesion hija y
+       * dispararle un prompt:
+       *
+       *     const child = await ctx.session.create({ parentID, title, agent })
+       *     await ctx.session.prompt({ sessionID: child.id, text })
+       *
+       * El hijo queda colgando de la sesion padre, asi que hereda su
+       * scope: el guard lo encuentra subiendo por la cadena de padres.
+       */
+      spawner: async ({ sessionID, agentName, prompt, description }) => {
+        try {
+          const child = (await ctx.session.create({
+            parentID: sessionID,
+            title: description || `Oficina: ${agentName}`,
+            // El agente materializado puede no estar registrado todavia
+            // (OpenCode arma su lista al arrancar), asi que se dispara con
+            // `general` y la especialidad viaja completa en el prompt.
+            agent: "general",
+          })) as { id: string }
+          await ctx.session.prompt({
+            sessionID: child.id,
+            text: prompt,
+            metadata: { oficina: { agent: agentName, description } },
+          })
+          return true
+        } catch (err) {
+          log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
+          return false
+        }
+      },
+    })
     await office.init()
 
     const tripwire = new Tripwire(office.paths.projectRoot, {
       maxFiles: options.tripwireMaxFiles ?? 4000,
     })
 
+    /**
+     * El padre de una sesion, con cache.
+     *
+     * Es lo que hace que un subagente **herede el scope** de quien lo
+     * lanzo: la sesion hija cuelga de la padre, y el guard sube por la
+     * cadena hasta encontrar la sesion que tiene la card.
+     *
+     * Sin esto, delegar seria un escalon para salirse del scope: el
+     * subagente no tendria card y el guard lo dejaria pasar todo.
+     */
+    const parentCache = new Map<string, string | undefined>()
+
+    const resolveParentSession = async (sessionID: string): Promise<string | undefined> => {
+      if (parentCache.has(sessionID)) return parentCache.get(sessionID)
+      try {
+        const session = (await ctx.session.get({ sessionID })) as { parentID?: string } | undefined
+        const parent = session?.parentID
+        parentCache.set(sessionID, parent)
+        return parent
+      } catch (err) {
+        log.debug("no se pudo resolver el padre de la sesion", { sessionID, error: String(err) })
+        parentCache.set(sessionID, undefined)
+        return undefined
+      }
+    }
+
     /** El scope que aplica a una sesion, si tiene. */
     const scopeOf = async (sessionID: string) => {
       try {
         const state = await office.loadState()
-        const card = await resolveScopeCard(state, sessionID, { enforce })
+        const card = await resolveScopeCard(state, sessionID, { enforce, resolveParentSession })
         if (!card) return undefined
         const policy: ScopePolicy = {
           mayTouch: card.scope.mayTouch,
