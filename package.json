@@ -91,6 +91,7 @@
     }
   },
   "devDependencies": {
+    "@opencode-ai/plugin": "^1.19.4",
     "@opencode/client": "^2.1.2",
     "@opencode/plugin": "^2.1.2",
     "@types/node": "^24.12.2",
