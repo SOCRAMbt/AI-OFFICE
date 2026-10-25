@@ -1,6 +1,6 @@
 # Resultados del benchmark de selección
 
-Generado: 2026-10-25T16:30:14.396Z
+Generado: 2026-10-25T17:32:25.933Z
 
 Catálogo: 258 agentes · 21 tareas
 
