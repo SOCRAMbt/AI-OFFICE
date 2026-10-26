@@ -224,16 +224,21 @@ async function findSymlinks(
 export async function resolveTarget(root: string, rawPath: string): Promise<ResolvedTarget> {
   // Resolve the project root to its real path to handle Windows short-path aliases (e.g., RUNNER~1 vs runneradmin)
   const projectRoot = await fs.realpath(path.resolve(root))
-  const absolute = path.resolve(projectRoot, rawPath)
+  
+  // For absolute rawPath, path.resolve ignores projectRoot. We must rebase onto canonical projectRoot.
+  // On Windows, we also need to handle 8.3 short-name aliases (RUNNER~1 vs runneradmin).
+  const isAbsoluteInput = path.isAbsolute(rawPath)
+  const absolute = isAbsoluteInput
+    ? await rebaseAbsolutePath(projectRoot, rawPath)
+    : path.resolve(projectRoot, rawPath)
 
   const { resolved, exists } = await realpathBestEffort(absolute)
   const { symlinks, escapes } = await findSymlinks(projectRoot, absolute)
 
-  // For absolute paths, use the resolved (canonicalized) path for lexical containment check
+  // For absolute paths, use the rebased absolute path for lexical containment check
   // to handle Windows 8.3 short-name aliases (e.g., RUNNER~1 vs runneradmin).
   // For relative paths, use the lexical path to catch ".." traversal attempts.
-  const isAbsoluteInput = path.isAbsolute(rawPath)
-  const pathForLexicalCheck = isAbsoluteInput ? resolved : absolute
+  const pathForLexicalCheck = isAbsoluteInput ? absolute : absolute
   
   const insideLexically = isInsideRoot(projectRoot, pathForLexicalCheck)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
@@ -248,6 +253,67 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
     insideLexically,
     insidePhysically,
   }
+}
+
+/**
+ * On Windows, rebases an absolute path onto the canonical project root,
+ * expanding 8.3 short-name aliases (e.g., RUNNER~1 -> runneradmin) by
+ * matching path components case-insensitively.
+ * 
+ * If the path is not under the project root, returns the original path unchanged.
+ */
+async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Promise<string> {
+  if (!IS_WINDOWS) {
+    return absolutePath
+  }
+
+  try {
+    // Get canonical project root components
+    const rootComponents = projectRoot.split(path.sep).filter(c => c.length > 0)
+    // Get absolute path components
+    const absComponents = absolutePath.split(path.sep).filter(c => c.length > 0)
+
+    // Check if absolute path starts with project root (case-insensitive, handling 8.3 aliases)
+    // We match component by component, allowing 8.3 aliases to match their long names
+    if (absComponents.length < rootComponents.length) {
+      return absolutePath // Too short to be under project root
+    }
+
+    let matches = true
+    for (let i = 0; i < rootComponents.length; i++) {
+      const rootComp = rootComponents[i]!.toLowerCase()
+      const absComp = absComponents[i]!.toLowerCase()
+      
+      if (rootComp === absComp) continue
+      
+      // Check if this is an 8.3 alias mismatch
+      // Try to resolve the actual directory name at this level
+      const partialPath = absComponents.slice(0, i + 1).join(path.sep)
+      const fullPartialPath = path.resolve(path.sep, partialPath)
+      
+      try {
+        const entries = await fs.readdir(path.dirname(fullPartialPath))
+        const actualName = entries.find(e => e.toLowerCase() === absComp)
+        if (!actualName || actualName.toLowerCase() !== rootComp) {
+          matches = false
+          break
+        }
+      } catch {
+        matches = false
+        break
+      }
+    }
+
+    if (matches) {
+      // Path is under project root - rebase onto canonical project root
+      const relativeParts = absComponents.slice(rootComponents.length)
+      return path.join(projectRoot, ...relativeParts)
+    }
+  } catch {
+    // On any error, fall back to original path
+  }
+
+  return absolutePath
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

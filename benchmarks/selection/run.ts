@@ -39,6 +39,19 @@ function pct(x: number): string {
   return `${(x * 100).toFixed(0)}%`
 }
 
+/** Crea un hash simple del conjunto de tareas para detectar cambios en la definición. */
+function hashTasks(tasks: Task[]): string {
+  const str = tasks
+    .map(t => `${t.id}|${t.objetivo}|${t.capabilities.sort().join(",")}|${t.esperados.sort().join(",")}`)
+    .join("||")
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash |= 0
+  }
+  return hash.toString(16)
+}
+
 const here = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(here, "..", "..")
 
@@ -355,29 +368,47 @@ async function main() {
 
   // Only write if metrics actually changed (check existing file)
   let shouldWrite = true
+  let currentFingerprint = ""
   try {
     const existing = await fs.readFile(path.join(here, "RESULTADOS.md"), "utf8")
-    // Extract metrics from existing file (parse markdown table)
-    const existingLines = existing.split("\n")
-    // Parse existing table rows (skip header and separator)
-    const existingMetrics = existingLines
-      .filter(l => l.startsWith("| ") && !l.includes("---") && !l.includes("Estrategia"))
-      .map(l => {
-        const parts = l.split("|").map(p => p.trim()).filter(Boolean)
-        return `${parts[0]}|${parts[1]}|${parts[2]}|${parts[3]}|${parts[4]}`
-      })
-      .join("\n")
-    const currentMetrics = resultados.map(r => `${r.name}|${pct(r.hit1)}|${pct(r.hit3)}|${pct(r.hit5)}|${r.mrr.toFixed(3)}`).join("\n")
-    if (currentMetrics === existingMetrics) {
-      shouldWrite = false
-      console.log("Métricas sin cambios — RESULTADOS.md no se actualiza")
+    // Build a fingerprint of the current run: catalog revision + size + tasks hash + metrics + failures
+    currentFingerprint = JSON.stringify({
+      catalogRevision,
+      catalogSize: catalog.length,
+      taskCount: tasks.length,
+      // Hash of task definitions to detect changes in evaluation set
+      tasksHash: hashTasks(tasks),
+      metrics: resultados.map(r => ({
+        name: r.name,
+        hit1: pct(r.hit1),
+        hit3: pct(r.hit3),
+        hit5: pct(r.hit5),
+        mrr: r.mrr.toFixed(3),
+      })),
+      failures: completoRes.fallos.map(f => ({
+        task: f.task,
+        expected: f.esperado.sort(),
+        got: f.obtenido.sort(),
+      })),
+    })
+
+    // Extract fingerprint from existing file (look for embedded fingerprint comment)
+    const existingFingerprintMatch = existing.match(/<!-- FINGERPRINT: (.+) -->/)
+    if (existingFingerprintMatch) {
+      const existingFingerprint = existingFingerprintMatch[1]
+      if (currentFingerprint === existingFingerprint) {
+        shouldWrite = false
+        console.log("Fingerprint sin cambios — RESULTADOS.md no se actualiza")
+      }
     }
   } catch {
     // File doesn't exist or parse error, will write
   }
 
   if (shouldWrite) {
-    await fs.writeFile(path.join(here, "RESULTADOS.md"), resultsContent, "utf8")
+    // Embed fingerprint in the output
+    const resultsContentWithFingerprint = resultsContent + `\n<!-- FINGERPRINT: ${currentFingerprint} -->\n`
+    await fs.writeFile(path.join(here, "RESULTADOS.md"), resultsContentWithFingerprint, "utf8")
     console.log("Resultados escritos en benchmarks/selection/RESULTADOS.md")
   }
 
