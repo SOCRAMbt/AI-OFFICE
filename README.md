@@ -6,9 +6,9 @@
 
 [![npm](https://img.shields.io/npm/v/oficina-opencode?label=npm&color=cb3837)](https://www.npmjs.com/package/oficina-opencode)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org)
-[![tests](https://img.shields.io/badge/tests-213%20passing-22a06b.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/tests)
-[![coverage](https://img.shields.io/badge/coverage-87.3%25-7c3aed.svg)](https://vitest.dev)
+[![node](https://img.shields.io/badge/node-%3E%3D22-339933.svg)](https://nodejs.org)
+[![tests](https://img.shields.io/badge/tests-419%20passing-22a06b.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/tests)
+[![coverage](https://img.shields.io/badge/coverage-87.76%25-7c3aed.svg)](https://vitest.dev)
 [![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/tsconfig.json)
 
 **Una malla de coordinadores + peer mesh sobre un roster de roles.**
@@ -20,7 +20,7 @@
 | **Tools** | 16 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
-| **Node** | >=20 |
+| **Node** | >=22 |
 | **Catálogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
 | **Límites** | 20 cards · 40 llamadas · 20 spawns · 10 agentes |

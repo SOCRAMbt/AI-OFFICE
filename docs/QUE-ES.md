@@ -7,7 +7,7 @@
 | **Tools** | 16 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
-| **Node** | >=20 |
+| **Node** | >=22 |
 | **Catálogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
 | **Límites** | 20 cards · 40 llamadas · 20 spawns · 10 agentes |

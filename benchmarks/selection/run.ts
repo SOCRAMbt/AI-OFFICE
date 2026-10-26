@@ -353,16 +353,23 @@ async function main() {
   let shouldWrite = true
   try {
     const existing = await fs.readFile(path.join(here, "RESULTADOS.md"), "utf8")
-    // Extract metrics from existing file (simple check)
+    // Extract metrics from existing file (parse markdown table)
     const existingLines = existing.split("\n")
+    // Parse existing table rows (skip header and separator)
+    const existingMetrics = existingLines
+      .filter(l => l.startsWith("| ") && !l.includes("---"))
+      .map(l => {
+        const parts = l.split("|").map(p => p.trim()).filter(Boolean)
+        return `${parts[0]}|${parts[1]}|${parts[2]}|${parts[3]}|${parts[4]}`
+      })
+      .join("\n")
     const currentMetrics = resultados.map(r => `${r.name}|${pct(r.hit1)}|${pct(r.hit3)}|${pct(r.hit5)}|${r.mrr.toFixed(3)}`).join("\n")
-    const existingMetrics = existingLines.filter(l => l.startsWith("| ")).slice(1, -1).join("\n")
     if (currentMetrics === existingMetrics) {
       shouldWrite = false
       console.log("Métricas sin cambios — RESULTADOS.md no se actualiza")
     }
   } catch {
-    // File doesn't exist, will write
+    // File doesn't exist or parse error, will write
   }
 
   if (shouldWrite) {

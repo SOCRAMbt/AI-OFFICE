@@ -138,11 +138,15 @@ export async function computeFacts(options: ComputeFactsOptions): Promise<Projec
 
   let packageName = "oficina-opencode"
   let version = "0.0.0"
+  let nodeVersion = "22"
   try {
     const raw = await fs.readFile(path.join(projectRoot, "package.json"), "utf8")
-    const pkg = JSON.parse(raw) as { name?: string; version?: string }
+    const pkg = JSON.parse(raw) as { name?: string; version?: string; engines?: { node?: string } }
     packageName = pkg.name ?? packageName
     version = pkg.version ?? version
+    if (pkg.engines?.node) {
+      nodeVersion = pkg.engines.node.replace(/^>=?/, "")
+    }
   } catch {
     // El paquete puede no estar armado todavia.
   }
@@ -178,7 +182,7 @@ export async function computeFacts(options: ComputeFactsOptions): Promise<Projec
     toolNames,
     hooks: 7,
     pluginApi: await readPluginApiVersion(projectRoot),
-    runtime: { node: ">=20" },
+    runtime: { node: `>=${nodeVersion}` },
     limits: {
       maxCards: DEFAULT_LIMITS.maxCards,
       maxAgentCalls: DEFAULT_LIMITS.maxAgentCalls,
