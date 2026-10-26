@@ -211,7 +211,10 @@ async function main() {
     
     // Try to get git revision of the catalog
     try {
-      const { stdout } = await import("node:child_process").then(m => m.execSync(`git -C "${agencyRoot}" rev-parse HEAD`, { encoding: "utf8" }))
+      // Use forward slashes for git -C on Windows
+      const gitRoot = agencyRoot.replace(/\\/g, '/')
+      const cp = await import("node:child_process")
+      const stdout = cp.execSync(`git -C "${gitRoot}" rev-parse HEAD`, { encoding: "utf8" })
       catalogRevision = stdout.trim()
     } catch {
       // Ignore if git not available
