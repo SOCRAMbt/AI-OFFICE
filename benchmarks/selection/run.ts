@@ -32,6 +32,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import crypto from "node:crypto"
 import { scanCatalog, rankCandidates, capabilityTokens, canonicalConcepts } from "../../src/core/catalog.ts"
 import type { CatalogAgent } from "../../src/core/types.ts"
 
@@ -39,17 +40,21 @@ function pct(x: number): string {
   return `${(x * 100).toFixed(0)}%`
 }
 
-/** Crea un hash simple del conjunto de tareas para detectar cambios en la definición. */
+/** Crea un hash SHA-256 del conjunto de tareas para detectar cambios en la definición. */
 function hashTasks(tasks: Task[]): string {
-  const str = tasks
-    .map(t => `${t.id}|${t.objetivo}|${t.capabilities.sort().join(",")}|${t.esperados.sort().join(",")}`)
+  // Canonicalize without mutating original arrays
+  const canonical = tasks
+    .map(t => ({
+      id: t.id,
+      objetivo: t.objetivo,
+      capabilities: [...t.capabilities].sort().join(","),
+      esperados: [...t.esperados].sort().join(","),
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(t => `${t.id}|${t.objetivo}|${t.capabilities}|${t.esperados}`)
     .join("||")
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    hash |= 0
-  }
-  return hash.toString(16)
+  
+  return crypto.createHash("sha256").update(canonical).digest("hex")
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -366,43 +371,46 @@ async function main() {
     "",
   ].join("\n")
 
+  // Build fingerprint before any file I/O (includes evaluator identity for reproducibility)
+  const evaluatorVersion = "1.0.0" // Increment when evaluation logic changes
+  const currentFingerprint = crypto.createHash("sha256").update(JSON.stringify({
+    catalogRevision,
+    catalogSize: catalog.length,
+    taskCount: tasks.length,
+    tasksHash: hashTasks(tasks),
+    evaluatorVersion,
+    metrics: resultados.map(r => ({
+      name: r.name,
+      hit1: pct(r.hit1),
+      hit3: pct(r.hit3),
+      hit5: pct(r.hit5),
+      mrr: r.mrr.toFixed(3),
+    })),
+    failures: completoRes.fallos.map(f => ({
+      task: f.task,
+      expected: [...f.esperado].sort(),
+      got: [...f.obtenido].sort(),
+    })),
+  })).digest("hex")
+
   // Only write if metrics actually changed (check existing file)
   let shouldWrite = true
-  let currentFingerprint = ""
   try {
     const existing = await fs.readFile(path.join(here, "RESULTADOS.md"), "utf8")
-    // Build a fingerprint of the current run: catalog revision + size + tasks hash + metrics + failures
-    currentFingerprint = JSON.stringify({
-      catalogRevision,
-      catalogSize: catalog.length,
-      taskCount: tasks.length,
-      // Hash of task definitions to detect changes in evaluation set
-      tasksHash: hashTasks(tasks),
-      metrics: resultados.map(r => ({
-        name: r.name,
-        hit1: pct(r.hit1),
-        hit3: pct(r.hit3),
-        hit5: pct(r.hit5),
-        mrr: r.mrr.toFixed(3),
-      })),
-      failures: completoRes.fallos.map(f => ({
-        task: f.task,
-        expected: f.esperado.sort(),
-        got: f.obtenido.sort(),
-      })),
-    })
-
     // Extract fingerprint from existing file (look for embedded fingerprint comment)
-    const existingFingerprintMatch = existing.match(/<!-- FINGERPRINT: (.+) -->/)
+    const existingFingerprintMatch = existing.match(/<!-- FINGERPRINT: ([a-f0-9]{64}) -->/)
     if (existingFingerprintMatch) {
       const existingFingerprint = existingFingerprintMatch[1]
       if (currentFingerprint === existingFingerprint) {
         shouldWrite = false
         console.log("Fingerprint sin cambios — RESULTADOS.md no se actualiza")
       }
+    } else {
+      // No valid fingerprint found, treat as changed
+      console.log("Fingerprint no encontrado o inválido — se actualiza RESULTADOS.md")
     }
   } catch {
-    // File doesn't exist or parse error, will write
+    // File doesn't exist or read error, will write
   }
 
   if (shouldWrite) {

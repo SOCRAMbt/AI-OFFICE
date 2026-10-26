@@ -257,8 +257,10 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
 
 /**
  * On Windows, rebases an absolute path onto the canonical project root,
- * expanding 8.3 short-name aliases (e.g., RUNNER~1 -> runneradmin) by
- * matching path components case-insensitively.
+ * expanding 8.3 short-name aliases (e.g., RUNNER~1 -> runneradmin).
+ * 
+ * Uses fs.realpath() to resolve the canonical path, then checks if it's
+ * under the canonical project root. If so, rebases onto the canonical root.
  * 
  * If the path is not under the project root, returns the original path unchanged.
  */
@@ -268,49 +270,20 @@ async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Pr
   }
 
   try {
-    // Get canonical project root components
-    const rootComponents = projectRoot.split(path.sep).filter(c => c.length > 0)
-    // Get absolute path components
-    const absComponents = absolutePath.split(path.sep).filter(c => c.length > 0)
+    // Resolve both paths to their canonical forms (expands 8.3 aliases, symlinks, etc.)
+    const canonicalRoot = await fs.realpath(projectRoot)
+    const canonicalPath = await fs.realpath(absolutePath)
 
-    // Check if absolute path starts with project root (case-insensitive, handling 8.3 aliases)
-    // We match component by component, allowing 8.3 aliases to match their long names
-    if (absComponents.length < rootComponents.length) {
-      return absolutePath // Too short to be under project root
-    }
+    // Check if the canonical path is under the canonical project root
+    const relative = path.relative(canonicalRoot, canonicalPath)
+    const isUnderRoot = !relative.startsWith('..') && !path.isAbsolute(relative)
 
-    let matches = true
-    for (let i = 0; i < rootComponents.length; i++) {
-      const rootComp = rootComponents[i]!.toLowerCase()
-      const absComp = absComponents[i]!.toLowerCase()
-      
-      if (rootComp === absComp) continue
-      
-      // Check if this is an 8.3 alias mismatch
-      // Try to resolve the actual directory name at this level
-      const partialPath = absComponents.slice(0, i + 1).join(path.sep)
-      const fullPartialPath = path.resolve(path.sep, partialPath)
-      
-      try {
-        const entries = await fs.readdir(path.dirname(fullPartialPath))
-        const actualName = entries.find(e => e.toLowerCase() === absComp)
-        if (!actualName || actualName.toLowerCase() !== rootComp) {
-          matches = false
-          break
-        }
-      } catch {
-        matches = false
-        break
-      }
-    }
-
-    if (matches) {
-      // Path is under project root - rebase onto canonical project root
-      const relativeParts = absComponents.slice(rootComponents.length)
-      return path.join(projectRoot, ...relativeParts)
+    if (isUnderRoot) {
+      // Rebase onto the canonical project root (which is the same as projectRoot since we already resolved it)
+      return path.join(canonicalRoot, relative)
     }
   } catch {
-    // On any error, fall back to original path
+    // On any error (e.g., path doesn't exist), fall back to original path
   }
 
   return absolutePath
