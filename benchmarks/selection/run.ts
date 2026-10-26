@@ -35,6 +35,10 @@ import { fileURLToPath } from "node:url"
 import { scanCatalog, rankCandidates, capabilityTokens, canonicalConcepts } from "../../src/core/catalog.ts"
 import type { CatalogAgent } from "../../src/core/types.ts"
 
+function pct(x: number): string {
+  return `${(x * 100).toFixed(0)}%`
+}
+
 const here = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(here, "..", "..")
 
@@ -174,13 +178,19 @@ function evaluate(strategy: Strategy, tasks: Task[], catalog: CatalogAgent[]): S
   }
 }
 
-function pct(x: number): string {
-  return `${(x * 100).toFixed(0)}%`
-}
-
 /* ────────────────────────────────────────────────────────────────────────────
  * Main
  * ──────────────────────────────────────────────────────────────────────────── */
+
+interface BenchmarkResult {
+  metrics: StrategyResult[]
+  catalogRevision: string
+  catalogSize: number
+  taskCount: number
+  passed: boolean
+  regressionDetected: boolean
+  timestamp: string
+}
 
 async function main() {
   const raw = await fs.readFile(path.join(here, "tasks.json"), "utf8")
@@ -191,13 +201,55 @@ async function main() {
     process.env.HOME ?? process.env.USERPROFILE ?? "",
     "agency-agents",
   )
-  const catalog = await scanCatalog({ root: agencyRoot })
+
+  let catalog: CatalogAgent[]
+  let catalogRevision = "unknown"
+  
+  try {
+    const catalogData = await scanCatalog({ root: agencyRoot })
+    catalog = catalogData
+    
+    // Try to get git revision of the catalog
+    try {
+      const { stdout } = await import("node:child_process").then(m => m.execSync(`git -C "${agencyRoot}" rev-parse HEAD`, { encoding: "utf8" }))
+      catalogRevision = stdout.trim()
+    } catch {
+      // Ignore if git not available
+    }
+  } catch (err) {
+    console.error("FALLO: No se pudo cargar el catálogo de agency-agents")
+    console.error(`  Directorio: ${agencyRoot}`)
+    console.error(`  Error: ${err}`)
+    process.exit(1)
+  }
+
+  if (catalog.length === 0) {
+    console.error("FALLO: El catálogo está vacío (0 agentes)")
+    process.exit(1)
+  }
+
+  // Verify expected slugs exist in catalog
+  const catalogSlugs = new Set(catalog.map(a => a.slug))
+  const missingSlugs: string[] = []
+  for (const task of tasks) {
+    for (const esperado of task.esperados) {
+      if (!catalogSlugs.has(esperado)) {
+        missingSlugs.push(`${task.id}: ${esperado}`)
+      }
+    }
+  }
+  if (missingSlugs.length > 0) {
+    console.error("FALLO: Slugs esperados no encontrados en el catálogo:")
+    for (const m of missingSlugs) console.error(`  - ${m}`)
+    process.exit(1)
+  }
 
   console.log("")
   console.log("BENCHMARK DE SELECCIÓN DE AGENTES")
   console.log("=".repeat(72))
   console.log(`catálogo: ${catalog.length} agentes`)
   console.log(`tareas:   ${tasks.length}`)
+  console.log(`revisión: ${catalogRevision}`)
   console.log("")
 
   const estrategias = [completo, keywords, soloNombre]
@@ -221,6 +273,11 @@ async function main() {
   console.log("LECTURA")
   console.log("-".repeat(72))
   const deltaMrr = completoRes.mrr - keywordsRes.mrr
+  
+  // Regresion detection
+  const hit1Threshold = 0.60 // 60% minimum hit@1
+  const regressionDetected = completoRes.hit1 < hit1Threshold || completoRes.hit1 <= keywordsRes.hit1
+  
   if (completoRes.hit1 > keywordsRes.hit1) {
     console.log(
       `El matcher completo le gana a keywords en hit@1 (${pct(completoRes.hit1)} vs ${pct(keywordsRes.hit1)}). ` +
@@ -257,33 +314,70 @@ async function main() {
   }
   console.log("")
 
-  await fs.writeFile(
-    path.join(here, "RESULTADOS.md"),
-    [
-      "# Resultados del benchmark de selección",
-      "",
-      `Generado: ${new Date().toISOString()}`,
-      "",
-      `Catálogo: ${catalog.length} agentes · ${tasks.length} tareas`,
-      "",
-      "| Estrategia | hit@1 | hit@3 | hit@5 | MRR |",
-      "|---|---|---|---|---|",
-      ...resultados.map(
-        (r) => `| ${r.name} | ${pct(r.hit1)} | ${pct(r.hit3)} | ${pct(r.hit5)} | ${r.mrr.toFixed(3)} |`,
-      ),
-      "",
-      "## Fallos del matcher completo",
-      "",
-      ...(completoRes.fallos.length === 0
-        ? ["Ninguno."]
-        : completoRes.fallos.flatMap((f) => [
-            `- **${f.task}** — esperaba ${f.esperado.join(", ")}; obtuvo ${f.obtenido.join(", ")}`,
-          ])),
-      "",
-    ].join("\n"),
-    "utf8",
-  )
-  console.log("Resultados escritos en benchmarks/selection/RESULTADOS.md")
+  // Prepare benchmark result
+  const result: BenchmarkResult = {
+    metrics: resultados,
+    catalogRevision,
+    catalogSize: catalog.length,
+    taskCount: tasks.length,
+    passed: !regressionDetected,
+    regressionDetected,
+    timestamp: new Date().toISOString(),
+  }
+
+  // Write results file (without timestamp if metrics unchanged)
+  const resultsContent = [
+    "# Resultados del benchmark de selección",
+    "",
+    `Generado: ${result.timestamp}`,
+    "",
+    `Catálogo: ${catalog.length} agentes (rev: ${catalogRevision.slice(0,8)}) · ${tasks.length} tareas`,
+    "",
+    "| Estrategia | hit@1 | hit@3 | hit@5 | MRR |",
+    "|---|---|---|---|---|",
+    ...resultados.map(
+      (r) => `| ${r.name} | ${pct(r.hit1)} | ${pct(r.hit3)} | ${pct(r.hit5)} | ${r.mrr.toFixed(3)} |`,
+    ),
+    "",
+    "## Fallos del matcher completo",
+    "",
+    ...(completoRes.fallos.length === 0
+      ? ["Ninguno."]
+      : completoRes.fallos.flatMap((f) => [
+          `- **${f.task}** — esperaba ${f.esperado.join(", ")}; obtuvo ${f.obtenido.join(", ")}`,
+        ])),
+    "",
+  ].join("\n")
+
+  // Only write if metrics actually changed (check existing file)
+  let shouldWrite = true
+  try {
+    const existing = await fs.readFile(path.join(here, "RESULTADOS.md"), "utf8")
+    // Extract metrics from existing file (simple check)
+    const existingLines = existing.split("\n")
+    const currentMetrics = resultados.map(r => `${r.name}|${pct(r.hit1)}|${pct(r.hit3)}|${pct(r.hit5)}|${r.mrr.toFixed(3)}`).join("\n")
+    const existingMetrics = existingLines.filter(l => l.startsWith("| ")).slice(1, -1).join("\n")
+    if (currentMetrics === existingMetrics) {
+      shouldWrite = false
+      console.log("Métricas sin cambios — RESULTADOS.md no se actualiza")
+    }
+  } catch {
+    // File doesn't exist, will write
+  }
+
+  if (shouldWrite) {
+    await fs.writeFile(path.join(here, "RESULTADOS.md"), resultsContent, "utf8")
+    console.log("Resultados escritos en benchmarks/selection/RESULTADOS.md")
+  }
+
+  // Exit with error code if regression detected
+  if (regressionDetected) {
+    console.error("")
+    console.error("REGRESIÓN DETECTADA: El matcher completo no cumple el umbral mínimo (hit@1 >= 60%) o no supera a keywords")
+    process.exit(1)
+  }
+
+  console.log("Benchmark PASSED ✓")
 }
 
 main().catch((err) => {

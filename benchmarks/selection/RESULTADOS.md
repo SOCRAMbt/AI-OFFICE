@@ -1,8 +1,8 @@
 # Resultados del benchmark de selección
 
-Generado: 2026-10-25T17:32:25.933Z
+Generado: 2026-10-26T11:40:21.763Z
 
-Catálogo: 258 agentes · 21 tareas
+Catálogo: 258 agentes (rev: unknown) · 21 tareas
 
 | Estrategia | hit@1 | hit@3 | hit@5 | MRR |
 |---|---|---|---|---|
