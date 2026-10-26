@@ -222,7 +222,8 @@ async function findSymlinks(
  * no decide: la decision vive en un solo lugar.
  */
 export async function resolveTarget(root: string, rawPath: string): Promise<ResolvedTarget> {
-  const projectRoot = path.resolve(root)
+  // Resolve the project root to its real path to handle Windows short-path aliases (e.g., RUNNER~1 vs runneradmin)
+  const projectRoot = await fs.realpath(path.resolve(root))
   const absolute = path.resolve(projectRoot, rawPath)
 
   const { resolved, exists } = await realpathBestEffort(absolute)

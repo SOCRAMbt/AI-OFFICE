@@ -3,7 +3,7 @@
  *
  * ## Por qué esto no es un `grep` de descripciones
  *
- * El repo de agency-agents tiene 306 agentes en 25 divisiones. Cada uno trae
+ * El repo de agency-agents tiene 258 agentes en 18 divisiones. Cada uno trae
  * un *briefing* de 10 secciones, y la especialidad real NO está en el
  * `description` del frontmatter: está en el cuerpo.
  *

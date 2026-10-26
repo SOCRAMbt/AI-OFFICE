@@ -73,7 +73,7 @@ Cuatro piezas lo hacen posible:
 
 Y una quinta, que es lo que hace confiable todo lo demás:
 
-**5. El roster se arma según el objetivo.** Los roles salen del catálogo real de agency-agents (**306 agentes, 25 divisiones**), matcheados contra lo que la card pide. Y cada agente recibe un **briefing** de 10 secciones con lo que sabe, lo que no, y qué tiene que entregar.
+**5. El roster se arma según el objetivo.** Los roles salen del catálogo real de agency-agents (**258 agentes, 18 divisiones**), matcheados contra lo que la card pide. Y cada agente recibe un **briefing** de 10 secciones con lo que sabe, lo que no, y qué tiene que entregar.
 
 ---
 
@@ -113,7 +113,7 @@ Cuatro capas. De abajo hacia arriba.
 
 ## Capa 0 — De dónde sale la especialidad
 
-El repo de agency-agents tiene **306 agentes en 25 divisiones**, y cada uno trae un briefing de 10 secciones. La especialidad real **no está en el `description`** del frontmatter: está en el cuerpo.
+El repo de agency-agents tiene **258 agentes en 18 divisiones**, y cada uno trae un briefing de 10 secciones. La especialidad real **no está en el `description`** del frontmatter: está en el cuerpo.
 
 Un agente de statistics declara:
 - `description`: *"Expert in quantitative research methodology..."*
