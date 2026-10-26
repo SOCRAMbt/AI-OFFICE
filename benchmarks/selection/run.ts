@@ -211,13 +211,14 @@ async function main() {
     
     // Try to get git revision of the catalog
     try {
-      // Use forward slashes for git -C on Windows
-      const gitRoot = agencyRoot.replace(/\\/g, '/')
+      // Use execFileSync for security (no shell interpolation)
       const cp = await import("node:child_process")
-      const stdout = cp.execSync(`git -C "${gitRoot}" rev-parse HEAD`, { encoding: "utf8" })
+      const stdout = cp.execFileSync("git", ["-C", agencyRoot, "rev-parse", "HEAD"], { encoding: "utf8" })
       catalogRevision = stdout.trim()
     } catch {
-      // Ignore if git not available
+      // If git not available or not a git repo, fail explicitly
+      console.error("FALLO: No se pudo obtener la revisión Git del catálogo (requerida para reproducibilidad)")
+      process.exit(1)
     }
   } catch (err) {
     console.error("FALLO: No se pudo cargar el catálogo de agency-agents")
@@ -360,7 +361,7 @@ async function main() {
     const existingLines = existing.split("\n")
     // Parse existing table rows (skip header and separator)
     const existingMetrics = existingLines
-      .filter(l => l.startsWith("| ") && !l.includes("---"))
+      .filter(l => l.startsWith("| ") && !l.includes("---") && !l.includes("Estrategia"))
       .map(l => {
         const parts = l.split("|").map(p => p.trim()).filter(Boolean)
         return `${parts[0]}|${parts[1]}|${parts[2]}|${parts[3]}|${parts[4]}`

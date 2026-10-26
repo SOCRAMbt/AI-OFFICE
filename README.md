@@ -801,7 +801,7 @@ src/
 | Paquete | Para qué |
 |---|---|
 | `@opencode/plugin` | Los tipos y el helper del API de plugins **v2**. Es la dependencia real. |
-| `zod` | Los schemas de los argumentos de las tools. Versión pineada para que los tipos no divergan. |
+| `zod` | Los schemas de los argumentos de las tools. Rango semver `^4.6.7` (mínimo 4.6.7 por CVE). |
 
 `@opencode-ai/plugin` (v1) es un **peer opcional**: solo lo necesita el entry
 `oficina-opencode/v1`, para los hosts que todavía corren la API vieja.
@@ -815,7 +815,7 @@ en v1 y en v2.
 ## Testing
 
 ```bash
-npm test           # 385 tests, 21 archivos
+npm test           # 419 tests, 26 archivos
 npm run coverage   # cobertura por línea
 npm run docs:check # la documentación coincide con el código
 npm run bench:selection  # el matcher le gana a las alternativas simples

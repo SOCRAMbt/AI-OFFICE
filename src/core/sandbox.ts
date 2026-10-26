@@ -229,7 +229,13 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
   const { resolved, exists } = await realpathBestEffort(absolute)
   const { symlinks, escapes } = await findSymlinks(projectRoot, absolute)
 
-  const insideLexically = isInsideRoot(projectRoot, absolute)
+  // For absolute paths, use the resolved (canonicalized) path for lexical containment check
+  // to handle Windows 8.3 short-name aliases (e.g., RUNNER~1 vs runneradmin).
+  // For relative paths, use the lexical path to catch ".." traversal attempts.
+  const isAbsoluteInput = path.isAbsolute(rawPath)
+  const pathForLexicalCheck = isAbsoluteInput ? resolved : absolute
+  
+  const insideLexically = isInsideRoot(projectRoot, pathForLexicalCheck)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
 
   return {
