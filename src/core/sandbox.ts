@@ -261,6 +261,7 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
  * 
  * Uses fs.realpath() to resolve the canonical path, then checks if it's
  * under the canonical project root. If so, rebases onto the canonical root.
+ * Handles non-existent files by resolving the parent directory first.
  * 
  * If the path is not under the project root, returns the original path unchanged.
  */
@@ -272,18 +273,28 @@ async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Pr
   try {
     // Resolve both paths to their canonical forms (expands 8.3 aliases, symlinks, etc.)
     const canonicalRoot = await fs.realpath(projectRoot)
-    const canonicalPath = await fs.realpath(absolutePath)
+    
+    // Handle non-existent files: resolve the parent directory first, then append the basename
+    let canonicalPath: string
+    try {
+      canonicalPath = await fs.realpath(absolutePath)
+    } catch {
+      // File doesn't exist: resolve parent directory and append basename
+      const parentDir = path.dirname(absolutePath)
+      const canonicalParent = await fs.realpath(parentDir)
+      canonicalPath = path.join(canonicalParent, path.basename(absolutePath))
+    }
 
     // Check if the canonical path is under the canonical project root
     const relative = path.relative(canonicalRoot, canonicalPath)
     const isUnderRoot = !relative.startsWith('..') && !path.isAbsolute(relative)
 
     if (isUnderRoot) {
-      // Rebase onto the canonical project root (which is the same as projectRoot since we already resolved it)
+      // Rebase onto the canonical project root
       return path.join(canonicalRoot, relative)
     }
   } catch {
-    // On any error (e.g., path doesn't exist), fall back to original path
+    // On any error (e.g., parent doesn't exist), fall back to original path
   }
 
   return absolutePath
