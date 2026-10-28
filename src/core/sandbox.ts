@@ -55,6 +55,8 @@ import path from "node:path"
  * En Windows, `fs.realpath` SÍ expande nombres largos para rutas existentes.
  * Para rutas inexistentes, caminamos hacia arriba hasta encontrar un ancestro
  * que exista, lo resolvemos, y re-enganchamos la cola.
+ * Además, en Windows, expande aliases 8.3 (RUNNER~1 -> runneradmin) caminando
+ * desde la raíz del disco hacia abajo.
  *
  * Fail-closed: si no podemos resolver el ancestro, lanzamos error.
  */
@@ -67,7 +69,8 @@ export async function normalizePath(target: string): Promise<string> {
       const real = await fs.realpath(current)
       // Re-enganchamos la cola (componentes que no existían)
       const resolved = tail.length > 0 ? path.join(real, ...tail) : real
-      return resolved
+      // En Windows, expandir aliases 8.3 en el resultado
+      return IS_WINDOWS ? await expand83AliasesFromRoot(resolved) : resolved
     } catch (err) {
       // Si es un error distinto de ENOENT, propagamos (fail-closed)
       const code = (err as NodeJS.ErrnoException).code
@@ -82,6 +85,64 @@ export async function normalizePath(target: string): Promise<string> {
       tail.unshift(path.basename(current))
       current = parent
     }
+  }
+}
+
+/**
+ * En Windows, expande aliases 8.3 (ej. RUNNER~1 -> runneradmin) caminando
+ * desde la raíz del disco hacia abajo y comparando con entradas reales del FS.
+ * Retorna la ruta con nombres largos.
+ */
+async function expand83AliasesFromRoot(absPath: string): Promise<string> {
+  if (!IS_WINDOWS) return absPath
+
+  try {
+    const components = absPath.split(path.sep).filter(c => c.length > 0)
+    if (components.length === 0) return absPath
+
+    // Empezar desde la raíz del disco (ej. "C:")
+    const drive = components[0]!
+    let currentPath = drive + path.sep
+    const expanded: string[] = [drive]
+
+    for (let i = 1; i < components.length; i++) {
+      const comp = components[i]!
+      const compLower = comp.toLowerCase()
+
+      // Verificar si este componente parece un alias 8.3 (~1, ~2, etc.)
+      const is83Alias = /^[A-Z0-9]{1,6}~[0-9]+$/i.test(comp)
+
+      if (!is83Alias) {
+        // No es alias 8.3, usar tal cual
+        expanded.push(comp)
+        currentPath = path.join(currentPath, comp)
+        continue
+      }
+
+      // Es un alias 8.3: buscar el nombre real en el directorio actual
+      try {
+        const entries = await fs.readdir(currentPath)
+        // Buscar entrada que coincida case-insensitive
+        const realName = entries.find(e => e.toLowerCase() === compLower)
+        if (realName) {
+          expanded.push(realName)
+          currentPath = path.join(currentPath, realName)
+        } else {
+          // No encontrado: mantener el alias (fail-open para no romper)
+          expanded.push(comp)
+          currentPath = path.join(currentPath, comp)
+        }
+      } catch {
+        // Error leyendo directorio: mantener alias
+        expanded.push(comp)
+        currentPath = path.join(currentPath, comp)
+      }
+    }
+
+    return path.join(...expanded)
+  } catch {
+    // Cualquier error: devolver ruta original
+    return absPath
   }
 }
 
