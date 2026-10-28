@@ -178,12 +178,12 @@ describe("Absolute path normalization (critical for GitHub Actions Windows)", ()
     expect(v.kind).toBe("outside-project")
   })
 
-  it("normalizePath works on absolute path with non-existent tail", async () => {
-    const { normalizePath } = await import("../src/core/sandbox.js")
+  it("canonicalizePhysical works on absolute path with non-existent tail", async () => {
+    const { canonicalizePhysical } = await import("../src/core/sandbox.js")
     const deepAbsolute = path.join(root, ".oficina", "artifacts", "T-00", "handoff.md")
     // None of .oficina/artifacts/T-00 exist
     
-    const normalized = await normalizePath(deepAbsolute)
+    const normalized = await canonicalizePhysical(deepAbsolute)
     expect(normalized).toBe(deepAbsolute) // Should resolve to same logical path
   })
 

@@ -41,67 +41,29 @@ import fs from "node:fs/promises"
 import path from "node:path"
 
 /* ────────────────────────────────────────────────────────────────────────────
- * Normalización única de paths (Windows 8.3-safe)
+ * Normalización canónica para contención (Windows 8.3-safe)
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Normaliza una ruta resolviendo el ancestro existente más profundo con
- * `fs.realpath` y re-enganchando la cola de componentes inexistentes.
- * Sigue symlinks (para verificación física).
+ * Canoniza una ruta para contención LÉXICA (sin seguir symlinks).
  *
- * Esta es la función de normalización para verificación FÍSICA.
- * Tanto el `projectRoot` como el `target` pasan por aquí para `insidePhysically`.
+ * Algoritmo:
+ * 1. path.resolve para obtener la ruta absoluta
+ * 2. Caminar hacia arriba hasta encontrar el ancestro existente más profundo (lstat, NO realpath)
+ * 3. fs.realpath sobre el PADRE de ese ancestro (en Windows expande 8.3 automáticamente)
+ *    Esto evita seguir symlinks en el componente final mientras expande 8.3.
+ * 4. Re-enganchar el componente encontrado + cola de componentes inexistentes
  *
- * En Windows, `fs.realpath` SÍ expande nombres largos para rutas existentes.
- * Para rutas inexistentes, caminamos hacia arriba hasta encontrar un ancestro
- * que exista, lo resolvemos, y re-enganchamos la cola.
- * Además, en Windows, expande aliases 8.3 (RUNNER~1 -> runneradmin) caminando
- * desde la raíz del disco hacia abajo.
- *
- * Fail-closed: si no podemos resolver el ancestro, lanzamos error.
+ * Para contención LÉXICA: NO sigue symlinks en la cola, usa lstat para verificar existencia.
+ * Usada para insideLexically y lexicalRelative.
  */
-export async function normalizePath(target: string): Promise<string> {
+export async function canonicalizeLexical(target: string): Promise<string> {
   let current = path.resolve(target)
   const tail: string[] = []
 
   for (;;) {
     try {
-      const real = await fs.realpath(current)
-      // Re-enganchamos la cola (componentes que no existían)
-      const resolved = tail.length > 0 ? path.join(real, ...tail) : real
-      // En Windows, expandir aliases 8.3 en el resultado
-      return IS_WINDOWS ? await expand83AliasesFromRoot(resolved) : resolved
-    } catch (err) {
-      // Si es un error distinto de ENOENT, propagamos (fail-closed)
-      const code = (err as NodeJS.ErrnoException).code
-      if (code !== "ENOENT" && code !== "ENOTDIR") {
-        throw err
-      }
-      const parent = path.dirname(current)
-      if (parent === current) {
-        // Llegamos a la raíz del sistema y no existe: no podemos normalizar
-        throw new Error(`Cannot normalize path: no existing ancestor for ${target}`)
-      }
-      tail.unshift(path.basename(current))
-      current = parent
-    }
-  }
-}
-
-/**
- * Normaliza una ruta para verificación LÉXICA (sin seguir symlinks).
- * Expande aliases 8.3 caminando desde la raíz del disco hacia abajo y
- * comparando con entradas reales del FS. NO llama a fs.realpath.
- * Usada para `insideLexically` y `lexicalRelative`.
- */
-export async function normalizePathLexical(target: string): Promise<string> {
-  // Primero, encontrar el ancestro existente más profundo (sin seguir symlinks)
-  let current = path.resolve(target)
-  const tail: string[] = []
-
-  for (;;) {
-    try {
-      // Use lstat to check existence WITHOUT following symlinks
+      // lstat NO sigue symlinks - solo verifica existencia
       await fs.lstat(current)
       break
     } catch (err) {
@@ -111,74 +73,54 @@ export async function normalizePathLexical(target: string): Promise<string> {
       }
       const parent = path.dirname(current)
       if (parent === current) {
-        throw new Error(`Cannot normalize path: no existing ancestor for ${target}`)
+        throw new Error(`Cannot canonicalize path: no existing ancestor for ${target}`)
       }
       tail.unshift(path.basename(current))
       current = parent
     }
   }
 
-  // Ahora `current` es el ancestro existente más profundo.
-  // Expandir 8.3 aliases desde la raíz del disco hacia abajo.
-  const basePath = tail.length > 0 ? path.join(current, ...tail) : current
-  return IS_WINDOWS ? await expand83AliasesFromRoot(basePath) : basePath
+  // current es el ancestro existente más profundo (sin seguir symlinks)
+  // Usar realpath del PADRE para expandir 8.3 aliases sin seguir symlinks en current
+  const parent = path.dirname(current)
+  const realParent = await fs.realpath(parent)
+  const baseName = path.basename(current)
+  const real = path.join(realParent, baseName)
+  return tail.length > 0 ? path.join(real, ...tail) : real
 }
 
 /**
- * En Windows, expande aliases 8.3 (ej. RUNNER~1 -> runneradmin) caminando
- * desde la raíz del disco hacia abajo y comparando con entradas reales del FS.
- * Retorna la ruta con nombres largos.
+ * Canoniza una ruta para contención FÍSICA (siguiendo symlinks).
+ *
+ * Algoritmo:
+ * 1. path.resolve para obtener la ruta absoluta
+ * 2. Caminar hacia arriba hasta encontrar el ancestro existente más profundo
+ * 3. fs.realpath sobre ese ancestro (sigue symlinks, expande 8.3 en Windows)
+ * 4. Re-enganchar la cola de componentes inexistentes
+ *
+ * Para contención FÍSICA: sigue symlinks, usa realpath.
+ * Usada para insidePhysically y relative.
  */
-async function expand83AliasesFromRoot(absPath: string): Promise<string> {
-  if (!IS_WINDOWS) return absPath
+export async function canonicalizePhysical(target: string): Promise<string> {
+  let current = path.resolve(target)
+  const tail: string[] = []
 
-  try {
-    const components = absPath.split(path.sep).filter(c => c.length > 0)
-    if (components.length === 0) return absPath
-
-    // Empezar desde la raíz del disco (ej. "C:")
-    const drive = components[0]!
-    let currentPath = drive + path.sep
-    const expanded: string[] = [drive]
-
-    for (let i = 1; i < components.length; i++) {
-      const comp = components[i]!
-      const compLower = comp.toLowerCase()
-
-      // Verificar si este componente parece un alias 8.3 (~1, ~2, etc.)
-      const is83Alias = /^[A-Z0-9]{1,6}~[0-9]+$/i.test(comp)
-
-      if (!is83Alias) {
-        // No es alias 8.3, usar tal cual
-        expanded.push(comp)
-        currentPath = path.join(currentPath, comp)
-        continue
+  for (;;) {
+    try {
+      const real = await fs.realpath(current)
+      return tail.length > 0 ? path.join(real, ...tail) : real
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        throw err
       }
-
-      // Es un alias 8.3: buscar el nombre real en el directorio actual
-      try {
-        const entries = await fs.readdir(currentPath)
-        // Buscar entrada que coincida case-insensitive
-        const realName = entries.find(e => e.toLowerCase() === compLower)
-        if (realName) {
-          expanded.push(realName)
-          currentPath = path.join(currentPath, realName)
-        } else {
-          // No encontrado: mantener el alias (fail-open para no romper)
-          expanded.push(comp)
-          currentPath = path.join(currentPath, comp)
-        }
-      } catch {
-        // Error leyendo directorio: mantener alias
-        expanded.push(comp)
-        currentPath = path.join(currentPath, comp)
+      const parent = path.dirname(current)
+      if (parent === current) {
+        throw new Error(`Cannot canonicalize path: no existing ancestor for ${target}`)
       }
+      tail.unshift(path.basename(current))
+      current = parent
     }
-
-    return path.join(...expanded)
-  } catch {
-    // Cualquier error: devolver ruta original
-    return absPath
   }
 }
 
@@ -313,6 +255,8 @@ async function realpathBestEffort(target: string): Promise<{ resolved: string; e
  *
  * Un symlink que apunta fuera del root es un escape, se detecte o no el
  * archivo final.
+ * 
+ * Recibe `root` ya canonizado y `absolute` path léxico (sin canonizar).
  */
 async function findSymlinks(
   root: string,
@@ -360,48 +304,43 @@ async function findSymlinks(
  * no decide: la decision vive en un solo lugar.
  * 
  * IMPORTANTE: 
- * - Root y target (absoluto o relativo) se normalizan con normalizePath LEXICAL
- *   para verificación LÉXICA (insideLexically, lexicalRelative). NO sigue symlinks.
- * - Root y target se normalizan con normalizePath para verificación FÍSICA 
- *   (insidePhysically, relative). SÍ sigue symlinks.
- * - Para detectar symlinks, usamos el path lexicográfico (path.join) sin 
- *   normalizar y se lo pasamos a findSymlinks.
+ * - Root y target se canonizan con la MISMA función `canonicalizeLexical`
+ *   para todas las decisiones de contención (insideLexically, insidePhysically).
+ * - La contención léxica y física usan paths canonizados de la misma forma.
+ * - Para detectar symlinks, usamos el path lexicográfico sin canonizar y lo pasamos a findSymlinks.
  * 
- * Si se proporciona `preNormalizedRoot`, se usa directamente (evita normalizar dos veces).
+ * Si se proporciona `preNormalizedRoot`, se usa directamente (evita canonizar dos veces).
  */
 export async function resolveTarget(root: string, rawPath: string, preNormalizedRoot?: string): Promise<ResolvedTarget & { projectRoot: string }> {
-  // Normalize the project root with normalizePath (or use pre-normalized)
-  const projectRoot = preNormalizedRoot ?? await normalizePath(root)
+  // Canonizar el root con la función canónica ÚNICA
+  const projectRoot = preNormalizedRoot ?? await canonicalizeLexical(root)
   
-  // Compute the absolute path LEXICALLY (without following symlinks) for symlink detection
+  // Path absoluto léxico (sin canonizar) para detección de symlinks
   const isAbsoluteInput = path.isAbsolute(rawPath)
   const absoluteLexical = isAbsoluteInput
     ? path.resolve(rawPath)
     : path.join(projectRoot, rawPath)
   
-  // For LEXICAL containment checks, normalize with normalizePathLexical (doesn't follow symlinks)
-  const absoluteLexicalNormalized = isAbsoluteInput
-    ? await normalizePathLexical(rawPath)
-    : await normalizePathLexical(path.join(projectRoot, rawPath))
+  // Canonizar target con la MISMA función que el root para contención
+  const targetCanonical = isAbsoluteInput
+    ? await canonicalizeLexical(rawPath)
+    : await canonicalizeLexical(path.join(projectRoot, rawPath))
   
-  // For PHYSICAL containment checks, normalize with normalizePath (follows symlinks)
-  const absoluteNormalized = isAbsoluteInput
-    ? await normalizePath(rawPath)
-    : await normalizePath(path.join(projectRoot, rawPath))
+  // Para verificación física: resolver symlinks del target canonizado
+  const { resolved, exists } = await realpathBestEffort(targetCanonical)
   
-  const { resolved, exists } = await realpathBestEffort(absoluteNormalized)
+  // Detección de symlinks: walk léxico sin canonizar
   const { symlinks, escapes } = await findSymlinks(projectRoot, absoluteLexical)
 
-  // Lexical containment: use lexically normalized paths (consistent 8.3 handling, no symlink following)
-  const insideLexically = isInsideRoot(projectRoot, absoluteLexicalNormalized)
-  // Physical containment: use physically normalized paths (follows symlinks, 8.3 expanded)
+  // Contención: AMBOS usan paths canonizados con la MISMA función
+  const insideLexically = isInsideRoot(projectRoot, targetCanonical)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
 
   return {
-    absolute: absoluteNormalized,
+    absolute: targetCanonical,
     resolved,
     relative: toPosix(path.relative(projectRoot, resolved)),
-    lexicalRelative: toPosix(path.relative(projectRoot, absoluteLexicalNormalized)),
+    lexicalRelative: toPosix(path.relative(projectRoot, targetCanonical)),
     symlinks,
     exists,
     insideLexically,
@@ -537,19 +476,18 @@ export async function checkScope(
   policy: ScopePolicy,
   options: ScopeCheckOptions = {},
 ): Promise<ScopeVerdict> {
-  // Normalize root ONCE. This is the single source of truth for all comparisons.
-  // Critical for Windows 8.3: both root and target must go through normalizePath.
+  // Canonizar root UNA VEZ léxicamente. Esta es la única fuente de verdad.
   if (typeof rawPath !== "string" || rawPath.length === 0) {
-    const projectRoot = await normalizePath(root)
+    const projectRoot = await canonicalizeLexical(root)
     return deny("invalid", "Ruta vacía.", projectRoot, "")
   }
   if (rawPath.includes("\0")) {
-    const projectRoot = await normalizePath(root)
+    const projectRoot = await canonicalizeLexical(root)
     return deny("invalid", "La ruta contiene un byte NUL.", projectRoot, "")
   }
 
-  // Normalize root first, then resolve target with the pre-normalized root
-  const projectRoot = await normalizePath(root)
+  // Canonizar root léxicamente, luego resolver target con el root ya canonizado
+  const projectRoot = await canonicalizeLexical(root)
   const target = await resolveTarget(root, rawPath, projectRoot)
 
   // 1. Fuera del proyecto (por `..` o por path absoluto).
