@@ -40,6 +40,8 @@ export interface TripwireSnapshot {
   scanned: number
   /** true si se supero el tope y la foto esta incompleta. */
   truncated: boolean
+  /** Errores ocurridos durante la captura (permisos, E/S, etc.). */
+  errors: string[]
 }
 
 export interface TripwireChange {
@@ -89,6 +91,7 @@ export async function snapshotTree(
   const files = new Map<string, string>()
   let scanned = 0
   let truncated = false
+  const errors: string[] = []
 
   const walk = async (dir: string): Promise<void> => {
     if (scanned >= maxFiles) {
@@ -98,7 +101,8 @@ export async function snapshotTree(
     let entries: Dirent[]
     try {
       entries = await fs.readdir(dir, { withFileTypes: true })
-    } catch {
+    } catch (err) {
+      errors.push(`Error reading directory ${dir}: ${String(err)}`)
       return
     }
     for (const entry of entries) {
@@ -110,6 +114,10 @@ export async function snapshotTree(
         if (skip.has(entry.name)) continue
         if (entry.name.startsWith(".") && entry.name !== ".opencode") continue
         await walk(path.join(dir, entry.name))
+        if (scanned >= maxFiles) {
+          truncated = true
+          return
+        }
         continue
       }
       if (!entry.isFile()) continue
@@ -127,11 +135,16 @@ export async function snapshotTree(
         let stat: Awaited<ReturnType<typeof fs.stat>>
         try {
           stat = await fs.stat(full)
-        } catch {
+        } catch (err) {
+          errors.push(`Error stat sensitive file ${relative}: ${String(err)}`)
           continue
         }
         files.set(relative, `${stat.mtimeMs}:${stat.size}`)
         scanned += 1
+        if (scanned >= maxFiles) {
+          truncated = true
+          return
+        }
         continue
       }
 
@@ -141,16 +154,21 @@ export async function snapshotTree(
       let stat: Awaited<ReturnType<typeof fs.stat>>
       try {
         stat = await fs.stat(full)
-      } catch {
+      } catch (err) {
+        errors.push(`Error stat file ${relative}: ${String(err)}`)
         continue
       }
       files.set(relative, `${stat.mtimeMs}:${stat.size}`)
       scanned += 1
+      if (scanned >= maxFiles) {
+        truncated = true
+        return
+      }
     }
   }
 
   await walk(root)
-  return { files, scanned, truncated }
+  return { files, scanned, truncated, errors }
 }
 
 /**
@@ -163,7 +181,7 @@ export function diffSnapshots(
   before: TripwireSnapshot,
   after: TripwireSnapshot,
   scope: string[],
-): TripwireChange[] {
+): { changes: TripwireChange[]; incomplete: boolean; errors: string[] } {
   const changes: TripwireChange[] = []
 
   for (const [file, signature] of after.files) {
@@ -181,7 +199,10 @@ export function diffSnapshots(
     }
   }
 
-  return changes.sort((a, b) => a.path.localeCompare(b.path))
+  const incomplete = before.truncated || after.truncated
+  const allErrors = [...before.errors, ...after.errors]
+
+  return { changes: changes.sort((a, b) => a.path.localeCompare(b.path)), incomplete, errors: allErrors }
 }
 
 /**
@@ -213,17 +234,24 @@ export class Tripwire {
    *
    * Devuelve los cambios que estan FUERA del scope: los que estan adentro
    * son el trabajo esperado del agente.
+   *
+   * El resultado incluye metadatos sobre completitud y errores.
    */
-  async check(callID: string, scope: string[]): Promise<TripwireChange[]> {
+  async check(callID: string, scope: string[]): Promise<{
+    changes: TripwireChange[]
+    incomplete: boolean
+    errors: string[]
+  }> {
     const before = this.snapshots.get(callID)
     this.snapshots.delete(callID)
-    if (!before) return []
+    if (!before) return { changes: [], incomplete: false, errors: [] }
 
     try {
       const after = await snapshotTree(this.root, scope, this.options)
-      return diffSnapshots(before, after, scope).filter((c) => c.outsideScope)
-    } catch {
-      return []
+      const { changes, incomplete, errors } = diffSnapshots(before, after, scope)
+      return { changes: changes.filter((c) => c.outsideScope), incomplete, errors }
+    } catch (err) {
+      return { changes: [], incomplete: true, errors: [String(err)] }
     }
   }
 

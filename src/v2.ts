@@ -346,14 +346,16 @@ export default Plugin.define({
     await ctx.tool.hook("execute.after", async (event) => {
       const scope = await scopeOf(event.sessionID)
       if (!scope) return
-      const cambios = await tripwire.check(String(event.id), scope.policy.mayTouch)
-      if (cambios.length === 0) return
+      const { changes: cambios, incomplete, errors } = await tripwire.check(String(event.id), scope.policy.mayTouch)
+      if (cambios.length === 0 && !incomplete && errors.length === 0) return
 
       const detalle = cambios.map((c) => `  - ${c.kind}: ${c.path}`).join("\n")
       log.warn("escrituras fuera del scope detectadas", {
         card: scope.card.id,
         tool: event.tool,
         cambios: cambios.length,
+        incomplete,
+        errors: errors.length,
       })
 
       await office.bus
@@ -367,6 +369,8 @@ export default Plugin.define({
             message:
               `Se detectaron ${cambios.length} cambio(s) fuera del scope de la card ${scope.card.id} ` +
               `durante \`${event.tool}\`:\n${detalle}\n\n` +
+              `${incomplete ? "⚠️ Inspección incompleta (límite de archivos alcanzado). " : ""}` +
+              `${errors.length > 0 ? `⚠️ ${errors.length} error(es) durante la inspección. ` : ""}` +
               `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })

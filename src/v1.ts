@@ -249,14 +249,16 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
     "tool.execute.after": async (hookInput) => {
       const scope = await scopeOf(hookInput.sessionID)
       if (!scope) return
-      const cambios = await tripwire.check(hookInput.callID, scope.policy.mayTouch)
-      if (cambios.length === 0) return
+      const { changes: cambios, incomplete, errors } = await tripwire.check(hookInput.callID, scope.policy.mayTouch)
+      if (cambios.length === 0 && !incomplete && errors.length === 0) return
 
       const detalle = cambios.map((c) => `  - ${c.kind}: ${c.path}`).join("\n")
       log.warn("escrituras fuera del scope detectadas", {
         card: scope.card.id,
         tool: hookInput.tool,
         cambios: cambios.length,
+        incomplete,
+        errors: errors.length,
       })
       log.warn(`\n${detalle}`)
 
@@ -273,6 +275,8 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
             message:
               `Se detectaron ${cambios.length} cambio(s) fuera del scope de la card ${scope.card.id} ` +
               `durante \`${hookInput.tool}\`:\n${detalle}\n\n` +
+              `${incomplete ? "⚠️ Inspección incompleta (límite de archivos alcanzado). " : ""}` +
+              `${errors.length > 0 ? `⚠️ ${errors.length} error(es) durante la inspección. ` : ""}` +
               `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })
