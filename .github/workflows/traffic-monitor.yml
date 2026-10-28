@@ -1,0 +1,105 @@
+name: Traffic Monitor
+
+on:
+  schedule:
+    # Cada 6 horas para capturar tráfico (GitHub actualiza cada ~1h, retiene 14 días)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # permitir ejecución manual
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  capture-traffic:
+    name: Capture GitHub Traffic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (para acceso a GH_TOKEN)
+        uses: actions/checkout@v4
+
+      - name: Fetch traffic views
+        id: views
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/views)
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Fetch traffic clones
+        id: clones
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/clones)
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Fetch referrers
+        id: referrers
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/popular/referrers)
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Fetch popular paths
+        id: paths
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/popular/paths)
+          echo "response<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Save traffic snapshot
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
+          mkdir -p traffic-snapshots
+          
+          cat > "traffic-snapshots/${TIMESTAMP}.json" <<EOF
+          {
+            "captured_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "repo": "${{ github.repository }}",
+            "views": ${{ steps.views.outputs.response }},
+            "clones": ${{ steps.clones.outputs.response }},
+            "referrers": ${{ steps.referrers.outputs.response }},
+            "popular_paths": ${{ steps.paths.outputs.response }}
+          }
+          EOF
+          
+          echo "Saved: traffic-snapshots/${TIMESTAMP}.json"
+          cat "traffic-snapshots/${TIMESTAMP}.json" | jq '.views | {count: .count, uniques: .uniques, last_day: .views[-1]}'
+
+      - name: Upload traffic history artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-history
+          path: traffic-snapshots/
+          retention-days: 90
+
+      - name: Log summary
+        run: |
+          echo "=== Traffic Summary ==="
+          echo "Views: $(echo '${{ steps.views.outputs.response }}' | jq '.count // 0') total, $(echo '${{ steps.views.outputs.response }}' | jq '.uniques // 0') unique"
+          echo "Clones: $(echo '${{ steps.clones.outputs.response }}' | jq '.count // 0') total, $(echo '${{ steps.clones.outputs.response }}' | jq '.uniques // 0') unique"
+          echo "Referrers: $(echo '${{ steps.referrers.outputs.response }}' | jq 'length')"
+          echo "Popular paths: $(echo '${{ steps.paths.outputs.response }}' | jq 'length')"
+
+  analyze-actors:
+    name: Analyze Clone Actors (workflow_dispatch only)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Fetch recent workflow runs (to see who triggered clones via CI)
+        run: |
+          # This captures who ran workflows that might have cloned the repo
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=50" | \
+            jq '.workflow_runs[] | {actor: .actor.login, event: .event, created_at: .created_at, conclusion: .conclusion}' | \
+            head -100

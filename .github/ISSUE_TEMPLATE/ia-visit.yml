@@ -1,0 +1,42 @@
+---
+name: IA Visit Log
+about: Las IAs (Claude, GPT, Gemini, Cursor, Copilot, etc.) reportan su visita aquí
+title: "[IA Visit] <modelo> - <acción> - <fecha>"
+labels: ["ia-visit", "tracking"]
+assignees: ""
+---
+
+## 🤖 Reporte de visita de IA
+
+**Modelo/Plataforma:**
+- [ ] Claude (Sonnet/Opus/Haiku) via OpenCode / CLI / Web
+- [ ] GPT-4o / GPT-4 / o1 via ChatGPT / API / Cursor / Copilot
+- [ ] Gemini (Pro/Flash) via AI Studio / Vertex / CLI
+- [ ] Cursor (built-in)
+- [ ] GitHub Copilot / Copilot Chat
+- [ ] Otro: ___________
+
+**Sesión/Contexto:**
+- Fecha/hora (UTC): 
+- ID de sesión (si aplica): 
+- Qué te pidieron hacer: 
+
+**Acción realizada:**
+- [ ] Clonó el repo
+- [ ] Leyó README / docs
+- [ ] Analizó arquitectura / código
+- [ ] Instaló plugin / probó CLI
+- [ ] Ejecutó tests / benchmarks
+- [ ] Buscó vulnerabilidades / auditoría
+- [ ] Usó en producción / proyecto real
+- [ ] Otro: ___________
+
+**Feedback (opcional):**
+- Qué funcionó bien:
+- Qué falló / confusión:
+- Qué falta / sugerencia:
+
+---
+
+> **Nota:** Este issue es solo para tracking. No esperes respuesta a menos que reportes un bug real.
+> Si encontraste un bug real, abrí un issue separado con label `bug`.
