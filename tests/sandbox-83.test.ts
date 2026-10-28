@@ -178,13 +178,15 @@ describe("Absolute path normalization (critical for GitHub Actions Windows)", ()
     expect(v.kind).toBe("outside-project")
   })
 
-  it("canonicalizePhysical works on absolute path with non-existent tail", async () => {
+  it("canonicalizePhysical expands 8.3 aliases on absolute path with non-existent tail", async () => {
     const { canonicalizePhysical } = await import("../src/core/sandbox.js")
     const deepAbsolute = path.join(root, ".oficina", "artifacts", "T-00", "handoff.md")
     // None of .oficina/artifacts/T-00 exist
     
     const normalized = await canonicalizePhysical(deepAbsolute)
-    expect(normalized).toBe(deepAbsolute) // Should resolve to same logical path
+    // canonicalizePhysical uses fs.realpath which expands 8.3 aliases (RUNNER~1 -> runneradmin)
+    // The result should be the normalized long form, not the short form
+    expect(normalized).toBe(deepAbsolute.replace(/RUNNER~1/gi, "runneradmin"))
   })
 
   it("resolveTarget returns same projectRoot for root and absolute target", async () => {
