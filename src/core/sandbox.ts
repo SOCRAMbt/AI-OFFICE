@@ -262,6 +262,7 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
  * Uses fs.realpath() to resolve the canonical path, then checks if it's
  * under the canonical project root. If so, rebases onto the canonical root.
  * Handles non-existent files by resolving the parent directory first.
+ * Also expands 8.3 short names by matching directory entries.
  * 
  * If the path is not under the project root, returns the original path unchanged.
  */
@@ -285,6 +286,9 @@ async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Pr
       canonicalPath = path.join(canonicalParent, path.basename(absolutePath))
     }
 
+    // Expand 8.3 short names in the path by matching directory entries
+    canonicalPath = await expand83Aliases(canonicalRoot, canonicalPath)
+
     // Check if the canonical path is under the canonical project root
     const relative = path.relative(canonicalRoot, canonicalPath)
     const isUnderRoot = !relative.startsWith('..') && !path.isAbsolute(relative)
@@ -298,6 +302,100 @@ async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Pr
   }
 
   return absolutePath
+}
+
+/**
+ * Expands 8.3 short-name aliases (e.g., RUNNER~1, OFICIN~4) in a Windows path
+ * by matching directory entries. Works component by component from root to leaf.
+ * Only runs on Windows; returns path unchanged on other platforms.
+ */
+async function expand83Aliases(root: string, targetPath: string): Promise<string> {
+  if (!IS_WINDOWS) return targetPath
+
+  try {
+    const rootComponents = root.split(path.sep).filter(c => c.length > 0)
+    const targetComponents = targetPath.split(path.sep).filter(c => c.length > 0)
+
+    // If target is shorter than root, it can't be under root
+    if (targetComponents.length < rootComponents.length) {
+      return targetPath
+    }
+
+    // Walk from root down, expanding target components that are 8.3 aliases
+    // by comparing against the canonical root components
+    let expandedComponents: string[] = []
+    
+    for (let i = 0; i < rootComponents.length; i++) {
+      const rootComp = rootComponents[i]
+      const targetComp = targetComponents[i]
+
+      if (!rootComp || !targetComp) return targetPath
+      
+      const rootCompLower = rootComp.toLowerCase()
+      const targetCompLower = targetComp.toLowerCase()
+      
+      if (rootCompLower === targetCompLower) {
+        // Exact match - use canonical component
+        expandedComponents.push(rootComp)
+        continue
+      }
+
+      // Check if targetComp is an 8.3 alias for rootComp
+      // Compute expected 8.3 alias from canonical root component
+      const expectedAlias = compute83Alias(rootComp).toLowerCase()
+      const expectedPrefix = expectedAlias.split('~')[0] ?? ''
+      if (targetCompLower === expectedAlias || targetCompLower.startsWith(expectedPrefix)) {
+        // Target is an 8.3 alias for the canonical root component
+        expandedComponents.push(rootComp) // Use canonical name
+        continue
+      }
+
+      // Fallback: try filesystem lookup from canonical path so far
+      const currentCanonicalPath = path.join(path.sep, ...expandedComponents) || path.sep
+      try {
+        const entries = await fs.readdir(currentCanonicalPath)
+        
+        // Look for exact match
+        let actualName = entries.find(e => e.toLowerCase() === targetCompLower)
+        
+        // If no exact match, try to match 8.3 alias pattern in filesystem entries
+        if (!actualName) {
+          const prefix = targetCompLower.split('~')[0] ?? ''
+          const aliasMatch = entries.find(e => e.toLowerCase().startsWith(prefix) && e.toLowerCase().includes('~'))
+          if (aliasMatch) {
+            actualName = aliasMatch
+          }
+        }
+        
+        if (actualName) {
+          expandedComponents.push(actualName)
+        } else {
+          // No match found
+          return targetPath
+        }
+      } catch {
+        // Can't read directory, assume no match
+        return targetPath
+      }
+    }
+
+    // Append remaining target components (the part after root)
+    const relativeParts = targetComponents.slice(rootComponents.length)
+    return path.join(path.sep, ...expandedComponents, ...relativeParts)
+  } catch {
+    // On any error, return original path
+    return targetPath
+  }
+}
+
+/**
+ * Compute expected 8.3 short name alias from a long name.
+ * Simplified version matching common Windows behavior.
+ */
+function compute83Alias(longName: string): string {
+  // Remove non-alphanumeric, take first 6 chars, uppercase
+  const cleaned = longName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase()
+  return `${cleaned}~1`
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
