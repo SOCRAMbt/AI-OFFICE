@@ -47,10 +47,10 @@ import path from "node:path"
 /**
  * Normaliza una ruta resolviendo el ancestro existente más profundo con
  * `fs.realpath` y re-enganchando la cola de componentes inexistentes.
+ * Sigue symlinks (para verificación física).
  *
- * Esta es la ÚNICA función de normalización que se debe usar. Tanto el
- * `projectRoot` como el `target` pasan por aquí, garantizando que la
- * comparación posterior sea consistente.
+ * Esta es la función de normalización para verificación FÍSICA.
+ * Tanto el `projectRoot` como el `target` pasan por aquí para `insidePhysically`.
  *
  * En Windows, `fs.realpath` SÍ expande nombres largos para rutas existentes.
  * Para rutas inexistentes, caminamos hacia arriba hasta encontrar un ancestro
@@ -86,6 +86,42 @@ export async function normalizePath(target: string): Promise<string> {
       current = parent
     }
   }
+}
+
+/**
+ * Normaliza una ruta para verificación LÉXICA (sin seguir symlinks).
+ * Expande aliases 8.3 caminando desde la raíz del disco hacia abajo y
+ * comparando con entradas reales del FS. NO llama a fs.realpath.
+ * Usada para `insideLexically` y `lexicalRelative`.
+ */
+export async function normalizePathLexical(target: string): Promise<string> {
+  // Primero, encontrar el ancestro existente más profundo (sin seguir symlinks)
+  let current = path.resolve(target)
+  const tail: string[] = []
+
+  for (;;) {
+    try {
+      // Use lstat to check existence WITHOUT following symlinks
+      await fs.lstat(current)
+      break
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        throw err
+      }
+      const parent = path.dirname(current)
+      if (parent === current) {
+        throw new Error(`Cannot normalize path: no existing ancestor for ${target}`)
+      }
+      tail.unshift(path.basename(current))
+      current = parent
+    }
+  }
+
+  // Ahora `current` es el ancestro existente más profundo.
+  // Expandir 8.3 aliases desde la raíz del disco hacia abajo.
+  const basePath = tail.length > 0 ? path.join(current, ...tail) : current
+  return IS_WINDOWS ? await expand83AliasesFromRoot(basePath) : basePath
 }
 
 /**
@@ -285,14 +321,10 @@ async function findSymlinks(
   const symlinks: string[] = []
   let escapes = false
 
-  if (!isInsideRoot(root, absolute)) {
-    return { symlinks, escapes: true }
-  }
-
-  const rel = path.relative(path.resolve(root), absolute)
+  const rel = path.relative(root, absolute)
   const parts = rel.split(path.sep).filter((p) => p.length > 0)
 
-  let current = path.resolve(root)
+  let current = root
   for (const part of parts) {
     current = path.join(current, part)
     let stat: Awaited<ReturnType<typeof fs.lstat>>
@@ -327,13 +359,13 @@ async function findSymlinks(
  * Devuelve toda la información que `checkScope` necesita para decidir, y
  * no decide: la decision vive en un solo lugar.
  * 
- * IMPORTANTE: Tanto root como target (absoluto o relativo) se normalizan con
- * la MISMA función `normalizePath`. Esto garantiza consistencia en Windows
- * donde fs.realpath puede devolver aliases 8.3 (RUNNER~1) que deben ser
- * tratados igual en ambos lados de la comparación.
- * 
- * Para detectar symlinks, usamos el path lexicográfico (sin seguir symlinks)
- * y lo pasamos a findSymlinks. La normalización solo se usa para contención.
+ * IMPORTANTE: 
+ * - Root y target (absoluto o relativo) se normalizan con normalizePath LEXICAL
+ *   para verificación LÉXICA (insideLexically, lexicalRelative). NO sigue symlinks.
+ * - Root y target se normalizan con normalizePath para verificación FÍSICA 
+ *   (insidePhysically, relative). SÍ sigue symlinks.
+ * - Para detectar symlinks, usamos el path lexicográfico (path.join) sin 
+ *   normalizar y se lo pasamos a findSymlinks.
  * 
  * Si se proporciona `preNormalizedRoot`, se usa directamente (evita normalizar dos veces).
  */
@@ -347,7 +379,12 @@ export async function resolveTarget(root: string, rawPath: string, preNormalized
     ? path.resolve(rawPath)
     : path.join(projectRoot, rawPath)
   
-  // For containment checks, normalize BOTH root and target with the SAME function
+  // For LEXICAL containment checks, normalize with normalizePathLexical (doesn't follow symlinks)
+  const absoluteLexicalNormalized = isAbsoluteInput
+    ? await normalizePathLexical(rawPath)
+    : await normalizePathLexical(path.join(projectRoot, rawPath))
+  
+  // For PHYSICAL containment checks, normalize with normalizePath (follows symlinks)
   const absoluteNormalized = isAbsoluteInput
     ? await normalizePath(rawPath)
     : await normalizePath(path.join(projectRoot, rawPath))
@@ -355,17 +392,16 @@ export async function resolveTarget(root: string, rawPath: string, preNormalized
   const { resolved, exists } = await realpathBestEffort(absoluteNormalized)
   const { symlinks, escapes } = await findSymlinks(projectRoot, absoluteLexical)
 
-  // Lexical check: for absolute paths, use the lexical absolute path; for relative, use lexical
-  const pathForLexicalCheck = isAbsoluteInput ? absoluteLexical : path.join(projectRoot, rawPath)
-  
-  const insideLexically = isInsideRoot(projectRoot, pathForLexicalCheck)
+  // Lexical containment: use lexically normalized paths (consistent 8.3 handling, no symlink following)
+  const insideLexically = isInsideRoot(projectRoot, absoluteLexicalNormalized)
+  // Physical containment: use physically normalized paths (follows symlinks, 8.3 expanded)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
 
   return {
     absolute: absoluteNormalized,
     resolved,
     relative: toPosix(path.relative(projectRoot, resolved)),
-    lexicalRelative: toPosix(path.relative(projectRoot, absoluteLexical)),
+    lexicalRelative: toPosix(path.relative(projectRoot, absoluteLexicalNormalized)),
     symlinks,
     exists,
     insideLexically,
