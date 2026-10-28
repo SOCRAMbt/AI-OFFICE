@@ -146,3 +146,54 @@ describe("Path normalization consistency", () => {
     expect(t.symlinks.length).toBeGreaterThan(0)
   })
 })
+
+describe("Absolute path normalization (critical for GitHub Actions Windows)", () => {
+  // The CI failure: absolute paths passed to checkScope were normalized differently
+  // than the root. The fix ensures BOTH go through normalizePath().
+
+  it("allows absolute path inside project when root is relative", async () => {
+    const absoluteTarget = path.join(root, "src", "components", "Button.tsx")
+    const v = await checkScope(root, absoluteTarget, policy)
+    expect(v.allowed).toBe(true)
+    expect(v.kind).toBe("allowed")
+  })
+
+  it("allows absolute path to .oficina/artifacts (the exact CI failure case)", async () => {
+    const artifactsDir = path.join(root, ".oficina", "artifacts", "T-00")
+    await fs.mkdir(artifactsDir, { recursive: true })
+    
+    const absoluteHandoff = path.join(artifactsDir, "handoff.md")
+    // Pass ABSOLUTE path - this is what the plugin does in CI
+    const v = await checkScope(root, absoluteHandoff, { mayTouch: ["src/**"], forbidden: [] })
+    expect(v.allowed).toBe(true)
+    expect(v.kind).toBe("allowed")
+  })
+
+  it("rejects absolute path outside project", async () => {
+    const outsidePath = path.join(tmp, "fuera.txt")
+    await fs.writeFile(outsidePath, "secret\n")
+    
+    const v = await checkScope(root, outsidePath, policy)
+    expect(v.allowed).toBe(false)
+    expect(v.kind).toBe("outside-project")
+  })
+
+  it("normalizePath works on absolute path with non-existent tail", async () => {
+    const { normalizePath } = await import("../src/core/sandbox.js")
+    const deepAbsolute = path.join(root, ".oficina", "artifacts", "T-00", "handoff.md")
+    // None of .oficina/artifacts/T-00 exist
+    
+    const normalized = await normalizePath(deepAbsolute)
+    expect(normalized).toBe(deepAbsolute) // Should resolve to same logical path
+  })
+
+  it("resolveTarget returns same projectRoot for root and absolute target", async () => {
+    const absoluteTarget = path.join(root, "src", "components", "NewFile.tsx")
+    const t = await resolveTarget(root, absoluteTarget)
+    
+    // The projectRoot returned should be the normalized root
+    expect(t.projectRoot).toBeDefined()
+    expect(t.insideLexically).toBe(true)
+    expect(t.insidePhysically).toBe(true)
+  })
+})

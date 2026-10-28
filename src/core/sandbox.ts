@@ -265,36 +265,51 @@ async function findSymlinks(
  *
  * Devuelve toda la información que `checkScope` necesita para decidir, y
  * no decide: la decision vive en un solo lugar.
+ * 
+ * IMPORTANTE: Tanto root como target (absoluto o relativo) se normalizan con
+ * la MISMA función `normalizePath`. Esto garantiza consistencia en Windows
+ * donde fs.realpath puede devolver aliases 8.3 (RUNNER~1) que deben ser
+ * tratados igual en ambos lados de la comparación.
+ * 
+ * Para detectar symlinks, usamos el path lexicográfico (sin seguir symlinks)
+ * y lo pasamos a findSymlinks. La normalización solo se usa para contención.
+ * 
+ * Si se proporciona `preNormalizedRoot`, se usa directamente (evita normalizar dos veces).
  */
-export async function resolveTarget(root: string, rawPath: string): Promise<ResolvedTarget> {
-  // Normalize the project root with normalizePath (follows symlinks, handles 8.3 for existing dirs)
-  const projectRoot = await normalizePath(root)
+export async function resolveTarget(root: string, rawPath: string, preNormalizedRoot?: string): Promise<ResolvedTarget & { projectRoot: string }> {
+  // Normalize the project root with normalizePath (or use pre-normalized)
+  const projectRoot = preNormalizedRoot ?? await normalizePath(root)
   
-  // For the target, we need to preserve symlinks in the path for detection.
-  // Use realpathBestEffort which resolves the deepest existing ancestor but preserves symlinks in the tail.
+  // Compute the absolute path LEXICALLY (without following symlinks) for symlink detection
   const isAbsoluteInput = path.isAbsolute(rawPath)
-  const absolute = isAbsoluteInput
+  const absoluteLexical = isAbsoluteInput
     ? path.resolve(rawPath)
     : path.join(projectRoot, rawPath)
   
-  const { resolved, exists } = await realpathBestEffort(absolute)
-  const { symlinks, escapes } = await findSymlinks(projectRoot, absolute)
+  // For containment checks, normalize BOTH root and target with the SAME function
+  const absoluteNormalized = isAbsoluteInput
+    ? await normalizePath(rawPath)
+    : await normalizePath(path.join(projectRoot, rawPath))
+  
+  const { resolved, exists } = await realpathBestEffort(absoluteNormalized)
+  const { symlinks, escapes } = await findSymlinks(projectRoot, absoluteLexical)
 
-  // Lexical check: for absolute paths, use the absolute path; for relative, use lexical
-  const pathForLexicalCheck = isAbsoluteInput ? absolute : path.join(projectRoot, rawPath)
+  // Lexical check: for absolute paths, use the lexical absolute path; for relative, use lexical
+  const pathForLexicalCheck = isAbsoluteInput ? absoluteLexical : path.join(projectRoot, rawPath)
   
   const insideLexically = isInsideRoot(projectRoot, pathForLexicalCheck)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
 
   return {
-    absolute,
+    absolute: absoluteNormalized,
     resolved,
     relative: toPosix(path.relative(projectRoot, resolved)),
-    lexicalRelative: toPosix(path.relative(projectRoot, absolute)),
+    lexicalRelative: toPosix(path.relative(projectRoot, absoluteLexical)),
     symlinks,
     exists,
     insideLexically,
     insidePhysically,
+    projectRoot,
   }
 }
 
@@ -425,16 +440,20 @@ export async function checkScope(
   policy: ScopePolicy,
   options: ScopeCheckOptions = {},
 ): Promise<ScopeVerdict> {
-  const projectRoot = path.resolve(root)
-
+  // Normalize root ONCE. This is the single source of truth for all comparisons.
+  // Critical for Windows 8.3: both root and target must go through normalizePath.
   if (typeof rawPath !== "string" || rawPath.length === 0) {
+    const projectRoot = await normalizePath(root)
     return deny("invalid", "Ruta vacía.", projectRoot, "")
   }
   if (rawPath.includes("\0")) {
+    const projectRoot = await normalizePath(root)
     return deny("invalid", "La ruta contiene un byte NUL.", projectRoot, "")
   }
 
-  const target = await resolveTarget(projectRoot, rawPath)
+  // Normalize root first, then resolve target with the pre-normalized root
+  const projectRoot = await normalizePath(root)
+  const target = await resolveTarget(root, rawPath, projectRoot)
 
   // 1. Fuera del proyecto (por `..` o por path absoluto).
   if (!target.insideLexically) {
