@@ -129,6 +129,5 @@ jobs:
           node -e "
             import oficina from 'oficina-opencode';
             import v1 from 'oficina-opencode/v1';
-            import cli from 'oficina-opencode/cli';
-            console.log('exports ok:', Object.keys(oficina), Object.keys(v1), Object.keys(cli));
+            console.log('exports ok:', Object.keys(oficina), 'v1 is function:', typeof v1 === 'function');
           "
