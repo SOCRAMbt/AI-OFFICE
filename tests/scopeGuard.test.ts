@@ -167,13 +167,196 @@ describe("Guard de scope", () => {
 })
 
 /** Construye el hook con la firma que usa el plugin. */
-function createGuard(office: Office) {
+function createGuard(office: Office, options: boolean | { enforce?: boolean; resolveParentSession?: (sessionID: string) => Promise<string | undefined> } = {}) {
+  const opts = typeof options === "boolean" ? { enforce: options } : options
   return async (
     input: { tool: string; sessionID: string; callID: string },
     output: { args: Record<string, unknown> },
   ) => {
     const { createScopeGuardHook } = await import("../src/hooks/scopeGuard.js")
-    const hook = createScopeGuardHook(office, { enforce: true })
+    const hook = createScopeGuardHook(office, { enforce: opts.enforce ?? true, resolveParentSession: opts.resolveParentSession })
     return hook(input, output)
   }
 }
+
+describe("Fail-closed behavior (H1/H2)", () => {
+  async function setupWithFailingLoadState() {
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      {
+        title: "T",
+        type: "implementation",
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["a"],
+        gate: "g",
+      },
+    ])
+    state.cards["T-00"]!.owner = "e-a"
+    state.cards["T-00"]!.reviewer = "e-b"
+    office.bindSession(state, "ses-1", "e-a", "T-00")
+    await office.saveState(state)
+
+    // Override loadState to simulate a failure
+    const originalLoadState = office.loadState.bind(office)
+    office.loadState = async () => {
+      throw new Error("Simulated loadState failure")
+    }
+    return { office, originalLoadState }
+  }
+
+  it("blocks write when loadState fails and enforce=true (fail-closed)", async () => {
+    const { office } = await setupWithFailingLoadState()
+    const hook = createGuard(office, true)
+
+    await expect(
+      hook(
+        { tool: "edit", sessionID: "ses-1", callID: "c1" },
+        { args: { filePath: path.join(tmp, "src", "auth", "login.ts") } },
+      ),
+    ).rejects.toThrow(/Scope guard internal error/)
+  })
+
+  it("allows write when loadState fails and enforce=false (warn only)", async () => {
+    const { office } = await setupWithFailingLoadState()
+    const hook = createGuard(office, false)
+
+    await expect(
+      hook(
+        { tool: "edit", sessionID: "ses-1", callID: "c1" },
+        { args: { filePath: path.join(tmp, "src", "auth", "login.ts") } },
+      ),
+    ).resolves.toBeUndefined()
+  })
+
+  it("blocks write when resolveParentSession fails and enforce=true (no direct binding)", async () => {
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      {
+        title: "T",
+        type: "implementation",
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["a"],
+        gate: "g",
+      },
+    ])
+    state.cards["T-00"]!.owner = "e-a"
+    state.cards["T-00"]!.reviewer = "e-b"
+    // Parent session has the card, child does NOT
+    office.bindSession(state, "ses-parent", "e-a", "T-00")
+    // Child session has no card binding - it will try to resolve parent
+    await office.saveState(state)
+
+    const hook = createGuard(office, { enforce: true, resolveParentSession: async () => { throw new Error("Parent resolution failed") } })
+
+    // resolveParentSession throws
+    await expect(
+      hook(
+        { tool: "edit", sessionID: "ses-child", callID: "c1" },
+        { args: { filePath: path.join(tmp, "src", "auth", "login.ts") } },
+      ),
+    ).rejects.toThrow(/Scope verification failed/)
+  })
+
+  it("allows write when resolveParentSession fails and enforce=false (no direct binding)", async () => {
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      {
+        title: "T",
+        type: "implementation",
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["a"],
+        gate: "g",
+      },
+    ])
+    state.cards["T-00"]!.owner = "e-a"
+    state.cards["T-00"]!.reviewer = "e-b"
+    office.bindSession(state, "ses-parent", "e-a", "T-00")
+    await office.saveState(state)
+
+    const hook = createGuard(office, false)
+
+    await expect(
+      hook(
+        { tool: "edit", sessionID: "ses-child", callID: "c1" },
+        { args: { filePath: path.join(tmp, "src", "auth", "login.ts") } },
+      ),
+    ).resolves.toBeUndefined()
+  })
+})
+
+describe("resolveScopeCard result type", () => {
+  it("returns AUTHORIZED when card bound directly", async () => {
+    const { resolveScopeCard } = await import("../src/hooks/scopeGuard.js")
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      {
+        title: "T",
+        type: "implementation",
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["a"],
+        gate: "g",
+      },
+    ])
+    state.cards["T-00"]!.owner = "e-a"
+    state.cards["T-00"]!.reviewer = "e-b"
+    office.bindSession(state, "ses-1", "e-a", "T-00")
+    await office.saveState(state)
+
+    const result = await resolveScopeCard(state, "ses-1", { enforce: true })
+    expect(result.kind).toBe("AUTHORIZED")
+    if (result.kind === "AUTHORIZED") {
+      expect(result.card.id).toBe("T-00")
+    }
+  })
+
+  it("returns NO_SCOPE_APPLICABLE when session has no card and no parent resolver", async () => {
+    const { resolveScopeCard } = await import("../src/hooks/scopeGuard.js")
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    // No cards, no bindings
+
+    const result = await resolveScopeCard(state, "ses-1", { enforce: true })
+    expect(result.kind).toBe("NO_SCOPE_APPLICABLE")
+  })
+
+  it("returns VERIFICATION_FAILED when parent resolver throws (no direct binding)", async () => {
+    const { resolveScopeCard } = await import("../src/hooks/scopeGuard.js")
+    const office = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
+    await office.init()
+    const state = await office.loadState("Test")
+    await office.savePlan(state, [
+      {
+        title: "T",
+        type: "implementation",
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["a"],
+        gate: "g",
+      },
+    ])
+    state.cards["T-00"]!.owner = "e-a"
+    state.cards["T-00"]!.reviewer = "e-b"
+    // Parent has the card, child does NOT
+    office.bindSession(state, "ses-parent", "e-a", "T-00")
+    await office.saveState(state)
+
+    const result = await resolveScopeCard(state, "ses-child", {
+      enforce: true,
+      resolveParentSession: async () => {
+        throw new Error("Parent resolution failed")
+      },
+    })
+    expect(result.kind).toBe("VERIFICATION_FAILED")
+    if (result.kind === "VERIFICATION_FAILED") {
+      expect(result.reason).toContain("Parent resolution failed")
+    }
+  })
+})

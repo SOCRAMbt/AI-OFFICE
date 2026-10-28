@@ -96,7 +96,7 @@ async function main() {
           agents: agents.length,
           divisions: divisions.length,
           divisionList: divisions,
-          source: root,
+          source: "agency-agents",
           generatedAt: new Date().toISOString(),
           sourceCommit: await readGitCommit(root),
         }

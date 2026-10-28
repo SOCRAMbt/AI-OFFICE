@@ -162,13 +162,14 @@ export async function computeFacts(options: ComputeFactsOptions): Promise<Projec
     try {
       const agents = await scanCatalog({ root: agencyRoot })
       const divisions = [...new Set(agents.map((a) => a.division))].sort()
+      const sourceCommit = await readGitCommit(agencyRoot)
       catalog = {
         agents: agents.length,
         divisions: divisions.length,
         divisionList: divisions,
-        source: agencyRoot,
+        source: "agency-agents",
         generatedAt: new Date().toISOString(),
-        sourceCommit: await readGitCommit(agencyRoot),
+        sourceCommit,
       }
     } catch {
       catalog = null
@@ -210,6 +211,10 @@ export function renderFactsBlock(facts: ProjectFacts): string {
       `| **Catálogo** | ${facts.catalog.agents} agentes resolubles en ${facts.catalog.divisions} divisiones |`,
     )
     rows.push(`| **Divisiones** | ${facts.catalog.divisionList.join(", ")} |`)
+    // Source provenance in comment for traceability
+    if (facts.catalog.sourceCommit) {
+      rows.push(`<!-- Catalog source: ${facts.catalog.source} @ ${facts.catalog.sourceCommit} -->`)
+    }
   } else {
     rows.push(`| **Catálogo** | (no se pudo escanear en esta máquina) |`)
   }

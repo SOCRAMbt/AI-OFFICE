@@ -187,8 +187,15 @@ export default Plugin.define({
     const scopeOf = async (sessionID: string) => {
       try {
         const state = await office.loadState()
-        const card = await resolveScopeCard(state, sessionID, { enforce, resolveParentSession })
-        if (!card) return undefined
+        const result = await resolveScopeCard(state, sessionID, { enforce, resolveParentSession })
+        if (result.kind === "VERIFICATION_FAILED") {
+          log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
+          return undefined
+        }
+        if (result.kind !== "AUTHORIZED") {
+          return undefined
+        }
+        const card = result.card
         const policy: ScopePolicy = {
           mayTouch: card.scope.mayTouch,
           forbidden: card.scope.forbidden,

@@ -131,3 +131,6 @@ jobs:
             import v1 from 'oficina-opencode/v1';
             console.log('exports ok:', Object.keys(oficina), 'v1 is function:', typeof v1 === 'function');
           "
+          # Verify CLI binary works
+          npx oficina --help
+          npx oficina status --json

@@ -155,8 +155,15 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
   /** El scope que aplica a una sesión, si tiene. */
   const scopeOf = async (sessionID: string) => {
     const state = await office.loadState()
-    const card = await resolveScopeCard(state, sessionID, guardOptions)
-    if (!card) return undefined
+    const result = await resolveScopeCard(state, sessionID, guardOptions)
+    if (result.kind === "VERIFICATION_FAILED") {
+      log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
+      return undefined
+    }
+    if (result.kind !== "AUTHORIZED") {
+      return undefined
+    }
+    const card = result.card
     return { card, policy: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden } }
   }
 

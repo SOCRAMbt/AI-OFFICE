@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/oficina-opencode?label=npm&color=cb3837)](https://www.npmjs.com/package/oficina-opencode)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D22-339933.svg)](https://nodejs.org)
-[![tests](https://img.shields.io/badge/tests-419%20passing-22a06b.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/tests)
+[![tests](https://img.shields.io/badge/tests-438%20passing-22a06b.svg)](https://github.com/SOCRAMbt/AI-OFFICE/tree/main/tests)
 [![coverage](https://img.shields.io/badge/coverage-87.76%25-7c3aed.svg)](https://vitest.dev)
 [![types](https://img.shields.io/badge/typescript-strict-3178c6.svg)](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/tsconfig.json)
 
@@ -23,6 +23,7 @@
 | **Node** | >=22 |
 | **Catálogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
+<!-- Catalog source: agency-agents @ 4e3ac3c -->
 | **Límites** | 20 cards · 40 llamadas · 20 spawns · 10 agentes |
 | **Cobertura mínima** | 60% |
 <!-- END GENERATED: facts -->
@@ -815,7 +816,7 @@ en v1 y en v2.
 ## Testing
 
 ```bash
-npm test           # 419 tests, 26 archivos
+npm test           # 438 tests, 27 archivos
 npm run coverage   # cobertura por línea
 npm run docs:check # la documentación coincide con el código
 npm run bench:selection  # el matcher le gana a las alternativas simples
@@ -834,7 +835,7 @@ npm run build      # tsc → dist/
 | `catalogReal.test.ts` | El catálogo real de agency-agents: estructuras, matching, división |
 | `briefing.test.ts` | Orden, mínimo, las 10 secciones, los 4 artefactos, INCOMPLETO |
 | `office.test.ts` | Ciclo completo end-to-end, invariantes, artefactos en disco |
-| `scopeGuard.test.ts` | Globs, extracción de path, enforcement de scope |
+| `scopeGuard.test.ts` | Globs, extracción de path, enforcement de scope, fail-closed |
 | `sandbox.test.ts` | **Adversarial**: symlinks, traversal, absolutos, sensibles, shell |
 | `concurrency.test.ts` | Doble claim simultáneo, seq único, idempotencia atómica |
 | `recovery.test.ts` | Entregas perdidas, invariantes vulnerados, huérfanos, reinicio |

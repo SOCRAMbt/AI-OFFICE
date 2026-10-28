@@ -184,9 +184,15 @@ describe("Absolute path normalization (critical for GitHub Actions Windows)", ()
     // None of .oficina/artifacts/T-00 exist
     
     const normalized = await canonicalizePhysical(deepAbsolute)
-    // canonicalizePhysical uses fs.realpath which expands 8.3 aliases (RUNNER~1 -> runneradmin)
-    // The result should be the normalized long form, not the short form
-    expect(normalized).toBe(deepAbsolute.replace(/RUNNER~1/gi, "runneradmin"))
+    // canonicalizePhysical uses fs.realpath which expands 8.3 aliases on Windows
+    // (RUNNER~1 -> runneradmin). In test environments without 8.3 aliases,
+    // the path remains unchanged. This test documents the expected behavior.
+    if (deepAbsolute.includes("RUNNER~1")) {
+      expect(normalized).toBe(deepAbsolute.replace(/RUNNER~1/gi, "runneradmin"))
+    } else {
+      // No 8.3 alias in test path - verify normalization doesn't break the path
+      expect(normalized).toBe(deepAbsolute)
+    }
   })
 
   it("resolveTarget returns same projectRoot for root and absolute target", async () => {

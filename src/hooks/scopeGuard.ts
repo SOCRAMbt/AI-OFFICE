@@ -251,20 +251,32 @@ export function extractCommand(args: Record<string, unknown>): string | undefine
  * Primero mira el binding directo. Si no hay, sube por la cadena de
  * padres: un subagente es una sesión hija, y su scope es el de quien lo
  * lanzo.
+ *
+ * Devuelve un resultado que distingue:
+ * - NO_SCOPE_APPLICABLE: sesión sin card activa legítima
+ * - AUTHORIZED: card encontrada
+ * - VERIFICATION_FAILED: error resolviendo la cadena de padres
  */
+export type ScopeCardResult =
+  | { kind: "AUTHORIZED"; card: Card }
+  | { kind: "NO_SCOPE_APPLICABLE" }
+  | { kind: "VERIFICATION_FAILED"; reason: string }
+
 export async function resolveScopeCard(
   state: OfficeState,
   sessionID: string,
   options: ScopeGuardOptions,
-): Promise<Card | undefined> {
+): Promise<ScopeCardResult> {
   const direct = state.sessions[sessionID]
   if (direct?.cardId) {
     const card = state.cards[direct.cardId]
-    if (card) return card
+    if (card) return { kind: "AUTHORIZED", card }
   }
 
   const resolveParent = options.resolveParentSession
-  if (!resolveParent) return undefined
+  if (!resolveParent) {
+    return { kind: "NO_SCOPE_APPLICABLE" }
+  }
 
   const maxDepth = options.maxParentDepth ?? 6
   const visited = new Set<string>([sessionID])
@@ -275,8 +287,9 @@ export async function resolveScopeCard(
     try {
       parent = await resolveParent(current)
     } catch (err) {
-      log.debug("no se pudo resolver el padre de la sesion", { sessionID: current, error: String(err) })
-      return undefined
+      const reason = `Error resolving parent session: ${String(err)}`
+      log.error("no se pudo resolver el padre de la sesion", { sessionID: current, error: String(err) })
+      return { kind: "VERIFICATION_FAILED", reason }
     }
     if (!parent || visited.has(parent)) break
     visited.add(parent)
@@ -284,12 +297,12 @@ export async function resolveScopeCard(
     const binding = state.sessions[parent]
     if (binding?.cardId) {
       const card = state.cards[binding.cardId]
-      if (card) return card
+      if (card) return { kind: "AUTHORIZED", card }
     }
     current = parent
   }
 
-  return undefined
+  return { kind: "NO_SCOPE_APPLICABLE" }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -318,68 +331,88 @@ export function createScopeGuardHook(office: Office, options: ScopeGuardOptions 
 
     try {
       const state = await office.loadState()
-      const card = await resolveScopeCard(state, input.sessionID, options)
-      // Sin card activa no hay scope que aplicar: el agente está en
-      // exploración libre o en una operación que no es de la oficina.
-      if (!card) return
+      const scopeResult = await resolveScopeCard(state, input.sessionID, options)
 
-      const policy = { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden }
-      const projectRoot = office.paths.projectRoot
-
-      /* ── Archivos ────────────────────────────────────────────────────── */
-      if (isFileWrite) {
-        const paths = extractPaths(tool, args)
-        if (paths.length === 0) return
-        for (const p of paths) {
-          const verdict = await checkScope(projectRoot, p, policy)
-          if (!verdict.allowed) {
-            log.warn("scope violado (archivo)", { card: card.id, path: p, kind: verdict.kind })
-            if (options.enforce) throw scopeError(verdict, card)
-          }
+      switch (scopeResult.kind) {
+        case "NO_SCOPE_APPLICABLE": {
+          // Sesión sin card activa legítima: no hay scope que aplicar.
+          // El agente está en exploración libre o en una operación que no es de la oficina.
+          return
         }
-        log.debug("scope ok", { card: card.id, tool, paths: paths.length })
-        return
-      }
-
-      /* ── Shell ───────────────────────────────────────────────────────── */
-      if (isShell) {
-        const command = extractCommand(args)
-        if (!command) return
-        const candidates = analyzeShellCommand(command)
-        if (candidates.length === 0) return
-
-        for (const candidate of candidates) {
-          if (candidate.uncertain) {
-            // Hay una escritura que no sabemos interpretar. No se bloquea
-            // (seria inservible) pero se avisa: el tripwire va a vigilar.
-            log.warn("shell con escritura no interpretable", {
-              card: card.id,
-              op: candidate.op,
-              command: command.slice(0, 200),
-            })
-            continue
+        case "VERIFICATION_FAILED": {
+          // No se pudo resolver la autorización: error en la cadena de padres.
+          // Con enforce=true y operación de escritura → DENY (fail-closed).
+          // Con enforce=false → WARN y deja pasar (comportamiento legacy documentado).
+          const reason = scopeResult.reason
+          log.error("verificacion de scope fallida", { reason, tool, enforce: options.enforce })
+          if (options.enforce && (isFileWrite || isShell)) {
+            throw new Error(`[OFICINA] Scope verification failed: ${reason}. Operation blocked (fail-closed).`)
           }
-          const verdict = await checkScope(projectRoot, candidate.target, policy)
-          if (!verdict.allowed) {
-            log.warn("scope violado (shell)", {
-              card: card.id,
-              target: candidate.target,
-              op: candidate.op,
-              kind: verdict.kind,
-            })
-            if (options.enforce && shellPolicy === "block") {
-              throw scopeError(verdict, card)
+          log.warn("verificacion de scope fallida (sin bloquear por enforce=false)", { reason, tool })
+          return
+        }
+        case "AUTHORIZED": {
+          const card = scopeResult.card
+          const policy = { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden }
+          const projectRoot = office.paths.projectRoot
+
+          /* ── Archivos ────────────────────────────────────────────────────── */
+          if (isFileWrite) {
+            const paths = extractPaths(tool, args)
+            if (paths.length === 0) return
+            for (const p of paths) {
+              const verdict = await checkScope(projectRoot, p, policy)
+              if (!verdict.allowed) {
+                log.warn("scope violado (archivo)", { card: card.id, path: p, kind: verdict.kind })
+                if (options.enforce) throw scopeError(verdict, card)
+              }
             }
+            log.debug("scope ok", { card: card.id, tool, paths: paths.length })
+            return
           }
-        }
-        return
-      }
 
-      /* ── Delegacion ──────────────────────────────────────────────────── */
-      // Delegar no escribe, pero crea un actor nuevo. Se registra para que
-      // el subagente herede el scope cuando el motor cree su sesion.
-      if (isDelegate) {
-        log.debug("delegacion dentro de scope", { card: card.id, tool })
+          /* ── Shell ───────────────────────────────────────────────────────── */
+          if (isShell) {
+            const command = extractCommand(args)
+            if (!command) return
+            const candidates = analyzeShellCommand(command)
+            if (candidates.length === 0) return
+
+            for (const candidate of candidates) {
+              if (candidate.uncertain) {
+                // Hay una escritura que no sabemos interpretar. No se bloquea
+                // (seria inservible) pero se avisa: el tripwire va a vigilar.
+                log.warn("shell con escritura no interpretable", {
+                  card: card.id,
+                  op: candidate.op,
+                  command: command.slice(0, 200),
+                })
+                continue
+              }
+              const verdict = await checkScope(projectRoot, candidate.target, policy)
+              if (!verdict.allowed) {
+                log.warn("scope violado (shell)", {
+                  card: card.id,
+                  target: candidate.target,
+                  op: candidate.op,
+                  kind: verdict.kind,
+                })
+                if (options.enforce && shellPolicy === "block") {
+                  throw scopeError(verdict, card)
+                }
+              }
+            }
+            return
+          }
+
+          /* ── Delegacion ──────────────────────────────────────────────────── */
+          // Delegar no escribe, pero crea un actor nuevo. Se registra para que
+          // el subagente herede el scope cuando el motor cree su sesion.
+          if (isDelegate) {
+            log.debug("delegacion dentro de scope", { card: card.id, tool })
+          }
+          break
+        }
       }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("[OFICINA]")) {
@@ -387,7 +420,11 @@ export function createScopeGuardHook(office: Office, options: ScopeGuardOptions 
         log.warn("scope violado (sin bloquear)", { error: err.message })
         return
       }
-      log.error("fallo en el guard de scope", { error: String(err) })
+      // Errores inesperados durante la verificación: fail-closed en enforce=true + escritura
+      log.error("fallo inesperado en el guard de scope", { error: String(err) })
+      if (options.enforce && (isFileWrite || isShell)) {
+        throw new Error(`[OFICINA] Scope guard internal error: ${String(err)}. Operation blocked (fail-closed).`)
+      }
     }
   }
 }
