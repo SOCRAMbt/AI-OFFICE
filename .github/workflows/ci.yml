@@ -124,6 +124,8 @@ jobs:
           cd "$RUNNER_TEMP/test-install"
           echo '{"name":"test","type":"module"}' > package.json
           npm install "$OLDPWD/$PKG"
+          # Install optional peer dependency for v1 entry point
+          npm install @opencode-ai/plugin@^1.15.11
           node -e "
             import oficina from 'oficina-opencode';
             import v1 from 'oficina-opencode/v1';
