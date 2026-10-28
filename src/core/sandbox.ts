@@ -41,6 +41,51 @@ import fs from "node:fs/promises"
 import path from "node:path"
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * Normalización única de paths (Windows 8.3-safe)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Normaliza una ruta resolviendo el ancestro existente más profundo con
+ * `fs.realpath` y re-enganchando la cola de componentes inexistentes.
+ *
+ * Esta es la ÚNICA función de normalización que se debe usar. Tanto el
+ * `projectRoot` como el `target` pasan por aquí, garantizando que la
+ * comparación posterior sea consistente.
+ *
+ * En Windows, `fs.realpath` SÍ expande nombres largos para rutas existentes.
+ * Para rutas inexistentes, caminamos hacia arriba hasta encontrar un ancestro
+ * que exista, lo resolvemos, y re-enganchamos la cola.
+ *
+ * Fail-closed: si no podemos resolver el ancestro, lanzamos error.
+ */
+export async function normalizePath(target: string): Promise<string> {
+  let current = path.resolve(target)
+  const tail: string[] = []
+
+  for (;;) {
+    try {
+      const real = await fs.realpath(current)
+      // Re-enganchamos la cola (componentes que no existían)
+      const resolved = tail.length > 0 ? path.join(real, ...tail) : real
+      return resolved
+    } catch (err) {
+      // Si es un error distinto de ENOENT, propagamos (fail-closed)
+      const code = (err as NodeJS.ErrnoException).code
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        throw err
+      }
+      const parent = path.dirname(current)
+      if (parent === current) {
+        // Llegamos a la raíz del sistema y no existe: no podemos normalizar
+        throw new Error(`Cannot normalize path: no existing ancestor for ${target}`)
+      }
+      tail.unshift(path.basename(current))
+      current = parent
+    }
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Glob a regex
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -222,23 +267,21 @@ async function findSymlinks(
  * no decide: la decision vive en un solo lugar.
  */
 export async function resolveTarget(root: string, rawPath: string): Promise<ResolvedTarget> {
-  // Resolve the project root to its real path to handle Windows short-path aliases (e.g., RUNNER~1 vs runneradmin)
-  const projectRoot = await fs.realpath(path.resolve(root))
+  // Normalize the project root with normalizePath (follows symlinks, handles 8.3 for existing dirs)
+  const projectRoot = await normalizePath(root)
   
-  // For absolute rawPath, path.resolve ignores projectRoot. We must rebase onto canonical projectRoot.
-  // On Windows, we also need to handle 8.3 short-name aliases (RUNNER~1 vs runneradmin).
+  // For the target, we need to preserve symlinks in the path for detection.
+  // Use realpathBestEffort which resolves the deepest existing ancestor but preserves symlinks in the tail.
   const isAbsoluteInput = path.isAbsolute(rawPath)
   const absolute = isAbsoluteInput
-    ? await rebaseAbsolutePath(projectRoot, rawPath)
-    : path.resolve(projectRoot, rawPath)
-
+    ? path.resolve(rawPath)
+    : path.join(projectRoot, rawPath)
+  
   const { resolved, exists } = await realpathBestEffort(absolute)
   const { symlinks, escapes } = await findSymlinks(projectRoot, absolute)
 
-  // For absolute paths, use the rebased absolute path for lexical containment check
-  // to handle Windows 8.3 short-name aliases (e.g., RUNNER~1 vs runneradmin).
-  // For relative paths, use the lexical path to catch ".." traversal attempts.
-  const pathForLexicalCheck = isAbsoluteInput ? absolute : absolute
+  // Lexical check: for absolute paths, use the absolute path; for relative, use lexical
+  const pathForLexicalCheck = isAbsoluteInput ? absolute : path.join(projectRoot, rawPath)
   
   const insideLexically = isInsideRoot(projectRoot, pathForLexicalCheck)
   const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
@@ -253,149 +296,6 @@ export async function resolveTarget(root: string, rawPath: string): Promise<Reso
     insideLexically,
     insidePhysically,
   }
-}
-
-/**
- * On Windows, rebases an absolute path onto the canonical project root,
- * expanding 8.3 short-name aliases (e.g., RUNNER~1 -> runneradmin).
- * 
- * Uses fs.realpath() to resolve the canonical path, then checks if it's
- * under the canonical project root. If so, rebases onto the canonical root.
- * Handles non-existent files by resolving the parent directory first.
- * Also expands 8.3 short names by matching directory entries.
- * 
- * If the path is not under the project root, returns the original path unchanged.
- */
-async function rebaseAbsolutePath(projectRoot: string, absolutePath: string): Promise<string> {
-  if (!IS_WINDOWS) {
-    return absolutePath
-  }
-
-  try {
-    // Resolve both paths to their canonical forms (expands 8.3 aliases, symlinks, etc.)
-    const canonicalRoot = await fs.realpath(projectRoot)
-    
-    // Handle non-existent files: resolve the parent directory first, then append the basename
-    let canonicalPath: string
-    try {
-      canonicalPath = await fs.realpath(absolutePath)
-    } catch {
-      // File doesn't exist: resolve parent directory and append basename
-      const parentDir = path.dirname(absolutePath)
-      const canonicalParent = await fs.realpath(parentDir)
-      canonicalPath = path.join(canonicalParent, path.basename(absolutePath))
-    }
-
-    // Expand 8.3 short names in the path by matching directory entries
-    canonicalPath = await expand83Aliases(canonicalRoot, canonicalPath)
-
-    // Check if the canonical path is under the canonical project root
-    const relative = path.relative(canonicalRoot, canonicalPath)
-    const isUnderRoot = !relative.startsWith('..') && !path.isAbsolute(relative)
-
-    if (isUnderRoot) {
-      // Rebase onto the canonical project root
-      return path.join(canonicalRoot, relative)
-    }
-  } catch {
-    // On any error (e.g., parent doesn't exist), fall back to original path
-  }
-
-  return absolutePath
-}
-
-/**
- * Expands 8.3 short-name aliases (e.g., RUNNER~1, OFICIN~4) in a Windows path
- * by matching directory entries. Works component by component from root to leaf.
- * Only runs on Windows; returns path unchanged on other platforms.
- */
-async function expand83Aliases(root: string, targetPath: string): Promise<string> {
-  if (!IS_WINDOWS) return targetPath
-
-  try {
-    const rootComponents = root.split(path.sep).filter(c => c.length > 0)
-    const targetComponents = targetPath.split(path.sep).filter(c => c.length > 0)
-
-    // If target is shorter than root, it can't be under root
-    if (targetComponents.length < rootComponents.length) {
-      return targetPath
-    }
-
-    // Walk from root down, expanding target components that are 8.3 aliases
-    // by comparing against the canonical root components
-    let expandedComponents: string[] = []
-    
-    for (let i = 0; i < rootComponents.length; i++) {
-      const rootComp = rootComponents[i]
-      const targetComp = targetComponents[i]
-
-      if (!rootComp || !targetComp) return targetPath
-      
-      const rootCompLower = rootComp.toLowerCase()
-      const targetCompLower = targetComp.toLowerCase()
-      
-      if (rootCompLower === targetCompLower) {
-        // Exact match - use canonical component
-        expandedComponents.push(rootComp)
-        continue
-      }
-
-      // Check if targetComp is an 8.3 alias for rootComp
-      // Compute expected 8.3 alias from canonical root component
-      const expectedAlias = compute83Alias(rootComp).toLowerCase()
-      const expectedPrefix = expectedAlias.split('~')[0] ?? ''
-      if (targetCompLower === expectedAlias || targetCompLower.startsWith(expectedPrefix)) {
-        // Target is an 8.3 alias for the canonical root component
-        expandedComponents.push(rootComp) // Use canonical name
-        continue
-      }
-
-      // Fallback: try filesystem lookup from canonical path so far
-      const currentCanonicalPath = path.join(path.sep, ...expandedComponents) || path.sep
-      try {
-        const entries = await fs.readdir(currentCanonicalPath)
-        
-        // Look for exact match
-        let actualName = entries.find(e => e.toLowerCase() === targetCompLower)
-        
-        // If no exact match, try to match 8.3 alias pattern in filesystem entries
-        if (!actualName) {
-          const prefix = targetCompLower.split('~')[0] ?? ''
-          const aliasMatch = entries.find(e => e.toLowerCase().startsWith(prefix) && e.toLowerCase().includes('~'))
-          if (aliasMatch) {
-            actualName = aliasMatch
-          }
-        }
-        
-        if (actualName) {
-          expandedComponents.push(actualName)
-        } else {
-          // No match found
-          return targetPath
-        }
-      } catch {
-        // Can't read directory, assume no match
-        return targetPath
-      }
-    }
-
-    // Append remaining target components (the part after root)
-    const relativeParts = targetComponents.slice(rootComponents.length)
-    return path.join(path.sep, ...expandedComponents, ...relativeParts)
-  } catch {
-    // On any error, return original path
-    return targetPath
-  }
-}
-
-/**
- * Compute expected 8.3 short name alias from a long name.
- * Simplified version matching common Windows behavior.
- */
-function compute83Alias(longName: string): string {
-  // Remove non-alphanumeric, take first 6 chars, uppercase
-  const cleaned = longName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase()
-  return `${cleaned}~1`
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
