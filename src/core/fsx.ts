@@ -32,30 +32,39 @@ export async function writeJsonAtomic(filePath: string, value: unknown): Promise
 }
 
 /**
- * Lee JSON. Devuelve `undefined` si el archivo no existe o está corrupto.
+ * Lee JSON. Devuelve un resultado que distingue:
+ * - { ok: true, value: T } si el archivo existe y es JSON válido
+ * - { ok: false, kind: "not-found" } si el archivo no existe
+ * - { ok: false, kind: "corrupt", error: Error } si el archivo existe pero es JSON inválido
+ * - { ok: false, kind: "error", error: Error } para otros errores de I/O
  *
  * Un archivo corrupto no debe tumbar la corrida: se loguea y se sigue con lo
  * que hubiera. Perder un artefacto es malo; perder la oficina entera es peor.
  */
-export async function readJson<T>(filePath: string): Promise<T | undefined> {
+export async function readJson<T>(filePath: string): Promise<
+  | { ok: true; value: T }
+  | { ok: false; kind: "not-found" }
+  | { ok: false; kind: "corrupt"; error: Error }
+  | { ok: false; kind: "error"; error: Error }
+> {
   try {
     const raw = await fs.readFile(filePath, "utf8")
-    return JSON.parse(raw) as T
+    return { ok: true, value: JSON.parse(raw) as T }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code
-    if (code === "ENOENT") return undefined
+    if (code === "ENOENT") return { ok: false, kind: "not-found" }
     if (err instanceof SyntaxError) {
       // Un archivo vacio casi siempre es una escritura en curso (otro
       // proceso lo esta creando), no corrupcion. Ponerlo en cuarentena
       // lo destruye: el escritor que estaba en medio pierde su archivo.
       // Un archivo con contenido que no parsea SI es corrupcion.
       const raw = await fs.readFile(filePath, "utf8").catch(() => "")
-      if (raw.trim().length === 0) return undefined
+      if (raw.trim().length === 0) return { ok: false, kind: "not-found" }
       const quarantine = `${filePath}.corrupt-${Date.now()}`
       await fs.rename(filePath, quarantine).catch(() => {})
-      return undefined
+      return { ok: false, kind: "corrupt", error: new Error(`JSON corrupto en ${filePath}: ${String(err)}`) }
     }
-    throw err
+    return { ok: false, kind: "error", error: err as Error }
   }
 }
 

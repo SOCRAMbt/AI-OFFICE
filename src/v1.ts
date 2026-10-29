@@ -154,17 +154,28 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
 
   /** El scope que aplica a una sesión, si tiene. */
   const scopeOf = async (sessionID: string) => {
-    const state = await office.loadState()
-    const result = await resolveScopeCard(state, sessionID, guardOptions)
-    if (result.kind === "VERIFICATION_FAILED") {
-      log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
+    try {
+      const state = await office.loadState()
+      const result = await resolveScopeCard(state, sessionID, guardOptions)
+      if (result.kind === "VERIFICATION_FAILED") {
+        log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
+        if (guardOptions.enforce) {
+          throw new Error(`[OFICINA] Scope verification failed: ${result.reason}. Operation blocked (fail-closed).`)
+        }
+        return undefined
+      }
+      if (result.kind !== "AUTHORIZED") {
+        return undefined
+      }
+      const card = result.card
+      return { card, policy: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden } }
+    } catch (err) {
+      log.debug("no se pudo resolver el scope de la sesion", { sessionID, error: String(err) })
+      if (guardOptions.enforce) {
+        throw new Error(`[OFICINA] Scope verification failed: ${String(err)}. Operation blocked (fail-closed).`)
+      }
       return undefined
     }
-    if (result.kind !== "AUTHORIZED") {
-      return undefined
-    }
-    const card = result.card
-    return { card, policy: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden } }
   }
 
   log.info("plugin inicializado", {
@@ -249,8 +260,8 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
     "tool.execute.after": async (hookInput) => {
       const scope = await scopeOf(hookInput.sessionID)
       if (!scope) return
-      const { changes: cambios, incomplete, errors } = await tripwire.check(hookInput.callID, scope.policy.mayTouch)
-      if (cambios.length === 0 && !incomplete && errors.length === 0) return
+      const { changes: cambios, incomplete, errors, armFailed } = await tripwire.check(hookInput.callID, scope.policy.mayTouch)
+      if (cambios.length === 0 && !incomplete && errors.length === 0 && !armFailed) return
 
       const detalle = cambios.map((c) => `  - ${c.kind}: ${c.path}`).join("\n")
       log.warn("escrituras fuera del scope detectadas", {
@@ -259,6 +270,7 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
         cambios: cambios.length,
         incomplete,
         errors: errors.length,
+        armFailed,
       })
       log.warn(`\n${detalle}`)
 
@@ -277,6 +289,7 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
               `durante \`${hookInput.tool}\`:\n${detalle}\n\n` +
               `${incomplete ? "⚠️ Inspección incompleta (límite de archivos alcanzado). " : ""}` +
               `${errors.length > 0 ? `⚠️ ${errors.length} error(es) durante la inspección. ` : ""}` +
+              `${armFailed ? "⚠️ No se pudo tomar la instantánea inicial (arm falló). " : ""}` +
               `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })

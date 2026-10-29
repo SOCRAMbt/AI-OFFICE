@@ -18,7 +18,7 @@ import os from "node:os"
 import fs from "node:fs/promises"
 import { Office } from "../src/core/office.js"
 import { reconcile, inferCardStateFromDisk } from "../src/core/recovery.js"
-import { DEFAULT_LIMITS, type OfficeState } from "../src/core/types.js"
+import { DEFAULT_LIMITS, type OfficeState, StateCorruptionError } from "../src/core/types.js"
 
 let tmp: string
 let office: Office
@@ -309,14 +309,20 @@ describe("Reinicio a mitad de una transicion", () => {
     expect(recargado.cards["T-00"]!.owner).toBe("e-trabajador")
   })
 
-  it("un JSON corrupto se pone en cuarentena y no tumba la corrida", async () => {
+  it("un JSON corrupto se pone en cuarentena y lanza StateCorruptionError", async () => {
     const state = await planOneCard()
     await office.saveState(state)
     await fs.writeFile(path.join(tmp, ".oficina", "state.json"), "{ esto no es json")
 
     const otra = new Office({ cwd: tmp, limits: DEFAULT_LIMITS })
     await otra.init()
-    const recargado = await otra.loadState("Objetivo de prueba")
-    expect(recargado.runId).toBeTruthy()
+    
+    // Debe lanzar StateCorruptionError, no crear una corrida nueva silenciosamente
+    await expect(otra.loadState("Objetivo de prueba")).rejects.toThrow(StateCorruptionError)
+    
+    // Verificar que el archivo corrupto fue puesto en cuarentena
+    const quarantineFiles = await fs.readdir(path.join(tmp, ".oficina"))
+    const corruptFiles = quarantineFiles.filter(f => f.startsWith("state.json.corrupt-"))
+    expect(corruptFiles.length).toBe(1)
   })
 })

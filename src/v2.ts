@@ -190,6 +190,9 @@ export default Plugin.define({
         const result = await resolveScopeCard(state, sessionID, { enforce, resolveParentSession })
         if (result.kind === "VERIFICATION_FAILED") {
           log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
+          if (enforce) {
+            throw new Error(`[OFICINA] Scope verification failed: ${result.reason}. Operation blocked (fail-closed).`)
+          }
           return undefined
         }
         if (result.kind !== "AUTHORIZED") {
@@ -203,6 +206,9 @@ export default Plugin.define({
         return { card, policy }
       } catch (err) {
         log.debug("no se pudo resolver el scope de la sesion", { sessionID, error: String(err) })
+        if (enforce) {
+          throw new Error(`[OFICINA] Scope verification failed: ${String(err)}. Operation blocked (fail-closed).`)
+        }
         return undefined
       }
     }
@@ -346,8 +352,8 @@ export default Plugin.define({
     await ctx.tool.hook("execute.after", async (event) => {
       const scope = await scopeOf(event.sessionID)
       if (!scope) return
-      const { changes: cambios, incomplete, errors } = await tripwire.check(String(event.id), scope.policy.mayTouch)
-      if (cambios.length === 0 && !incomplete && errors.length === 0) return
+      const { changes: cambios, incomplete, errors, armFailed } = await tripwire.check(String(event.id), scope.policy.mayTouch)
+      if (cambios.length === 0 && !incomplete && errors.length === 0 && !armFailed) return
 
       const detalle = cambios.map((c) => `  - ${c.kind}: ${c.path}`).join("\n")
       log.warn("escrituras fuera del scope detectadas", {
@@ -356,6 +362,7 @@ export default Plugin.define({
         cambios: cambios.length,
         incomplete,
         errors: errors.length,
+        armFailed,
       })
 
       await office.bus
@@ -371,6 +378,7 @@ export default Plugin.define({
               `durante \`${event.tool}\`:\n${detalle}\n\n` +
               `${incomplete ? "⚠️ Inspección incompleta (límite de archivos alcanzado). " : ""}` +
               `${errors.length > 0 ? `⚠️ ${errors.length} error(es) durante la inspección. ` : ""}` +
+              `${armFailed ? "⚠️ No se pudo tomar la instantánea inicial (arm falló). " : ""}` +
               `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })

@@ -99,7 +99,7 @@ describe("Ciclo completo de la oficina", () => {
     await office.deploy(reviewerFicha)
 
     // Re-planificar para que el routing vea el roster.
-    const state2 = await office.loadState("Implementar login")
+    let state2 = await office.loadState("Implementar login")
     await office.savePlan(state2, [
       {
         title: "Implementar login",
@@ -116,6 +116,7 @@ describe("Ciclo completo de la oficina", () => {
     // 1. Reclamar.
     const claimed = await office.claimNext(state2, ownerFicha.id)
     expect(claimed.card?.id).toBe("T-00")
+    state2 = claimed.state
     expect(state2.cards["T-00"]!.state).toBe("in_progress")
 
     // 2. Entregar trabajo.
@@ -124,6 +125,7 @@ describe("Ciclo completo de la oficina", () => {
       evidence: "# Evidencia\n\n```\n$ npm test\n# pass 3\n```",
     })
     expect(submitted.ok).toBe(true)
+    state2 = await office.loadState()
     expect(state2.cards["T-00"]!.state).toBe("review")
 
     // 3. Revisar.

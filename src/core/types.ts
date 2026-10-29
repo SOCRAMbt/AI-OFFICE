@@ -489,3 +489,15 @@ export interface CatalogMatch {
   matched: string[]
   missing: string[]
 }
+
+/** Error lanzado cuando el estado de la oficina está corrupto y no se puede recuperar automáticamente. */
+export class StateCorruptionError extends Error {
+  constructor(
+    message: string,
+    public readonly path: string,
+    public readonly originalError?: Error
+  ) {
+    super(message)
+    this.name = "StateCorruptionError"
+  }
+}

@@ -22,7 +22,7 @@ import type {
   Roster,
   RosterEntry,
 } from "./types.js"
-import { DEFAULT_LIMITS } from "./types.js"
+import { DEFAULT_LIMITS, StateCorruptionError } from "./types.js"
 import { Bus, CHANNELS } from "./bus.js"
 import { RosterStore } from "./roster.js"
 import { LeaseStore } from "./leases.js"
@@ -37,10 +37,11 @@ import {
 import { routeCard, routeHelp, ownerStreak, type RouteResult } from "./router.js"
 import { decideRetry, recordRejection, recordApproval, consumeAgentCall } from "./retry.js"
 import { detectTooling, runTechnicalGates, runSecurityGate, consolidate, type CommandRunner, type Tooling } from "./gates.js"
-import { ensureDir, exists, nowIso, readJson, shortId, writeJsonAtomic, writeAtomic } from "./fsx.js"
+import { ensureDir, exists, nowIso, readJson, readText, shortId, writeJsonAtomic, writeAtomic } from "./fsx.js"
 import { cardDir, resolvePaths, type ResolvedPaths } from "./paths.js"
 import { createStores, EvidenceStore, CostStore } from "./stores.js"
 import { logger } from "./log.js"
+import { withLock } from "./atomic.js"
 
 const log = logger("oficina")
 
@@ -185,17 +186,32 @@ export class Office {
 
   /** Carga o crea el estado de la corrida. Migra v1 → v2 si hace falta. */
   async loadState(objective?: string): Promise<OfficeState> {
-    const existing = await readJson<unknown>(this.paths.statePath)
-    if (existing) {
-      const migrated = migrateState(existing, this.limits)
+    const result = await readJson<unknown>(this.paths.statePath)
+    if (result.ok) {
+      const migrated = migrateState(result.value, this.limits)
       if (migrated) {
         // Si venía de v1, se persiste en v2 para no migrar cada vez.
-        if (migrated.version !== 2 || (existing as { version?: number }).version !== 2) {
+        if (migrated.version !== 2 || (result.value as { version?: number }).version !== 2) {
           await this.saveState(migrated)
         }
         return migrated
       }
     }
+    if (!result.ok && result.kind === "corrupt") {
+      // Estado corrupto: NO crear uno nuevo silenciosamente.
+      // El archivo corrupto ya fue puesto en cuarentena por readJson.
+      // Lanzamos un error tipado para que el llamador decida qué hacer.
+      throw new StateCorruptionError(
+        `Estado corrupto en ${this.paths.statePath}: ${result.error.message}. ` +
+        `El archivo original fue movido a cuarentena. Use --force-new-run para crear uno nuevo.`,
+        this.paths.statePath,
+        result.error
+      )
+    }
+    if (!result.ok && result.kind === "error") {
+      throw result.error
+    }
+    // No existe: crear estado nuevo
     const state = createRun(objective ?? "", shortId("run"), this.limits)
     await this.saveState(state)
     return state
@@ -628,36 +644,58 @@ export class Office {
     state: OfficeState,
     agentId: string,
     sessionId?: string,
-  ): Promise<{ card: Card | null; reason: string }> {
+  ): Promise<{ card: Card | null; reason: string; state: OfficeState }> {
     if (state.halt) {
-      return { card: null, reason: `la corrida está detenida: ${state.halt.reason}` }
+      return { card: null, reason: `la corrida está detenida: ${state.halt.reason}`, state }
     }
-    const next = selectNextCard(state)
-    if (!next.card) return { card: null, reason: next.reason }
 
-    const card = next.card
-    const lease = await this.leases.acquire(card.id, agentId)
-    if (!lease) return { card: null, reason: `la card ${card.id} ya está tomada por otro agente` }
+    // Usar un lock por corrida para serializar la selección y el claim.
+    // Esto evita la carrera entre selectNextCard y leases.acquire.
+    const runLockPath = path.join(this.paths.leasesDir, `.run-${state.runId}.lock`)
 
-    const roster = await this.loadRoster(state.runId)
-    this.rosterStore.assign(roster, agentId, card.id)
-    await this.saveRoster(roster)
+    return withLock(runLockPath, async () => {
+      // Recargar estado dentro del lock para tener la vista más fresca
+      const freshState = await this.loadState()
+      if (freshState.halt) {
+        return { card: null, reason: `la corrida está detenida: ${freshState.halt.reason}`, state: freshState }
+      }
 
-    transitionCard(state, card.id, "in_progress", { owner: agentId })
-    consumeAgentCall(state)
-    if (sessionId) this.bindSession(state, sessionId, agentId, card.id)
-    await this.saveState(state)
+      const next = selectNextCard(freshState)
+      if (!next.card) return { card: null, reason: next.reason, state: freshState }
 
-    await this.bus.send(CHANNELS.flow, {
-      from: agentId,
-      to: ["integrator"],
-      kind: "CLAIM",
-      subject: card.id,
-      body: { card: card.id, title: card.title },
-      idempotencyKey: `claim:${card.id}:${agentId}:${card.attempts}`,
+      const card = next.card
+
+      // Revalidar que la card sigue elegible (estado, dependencias, owner)
+      if (card.state !== "todo" && card.state !== "rework" && card.state !== "in_progress") {
+        return { card: null, reason: `la card ${card.id} ya no es elegible (estado: ${card.state})`, state: freshState }
+      }
+      if (card.dependsOn.some((dep) => freshState.cards[dep]?.state !== "done")) {
+        return { card: null, reason: `la card ${card.id} tiene dependencias no satisfechas`, state: freshState }
+      }
+
+      const lease = await this.leases.acquire(card.id, agentId)
+      if (!lease) return { card: null, reason: `la card ${card.id} ya está tomada por otro agente`, state: freshState }
+
+      const roster = await this.loadRoster(freshState.runId)
+      this.rosterStore.assign(roster, agentId, card.id)
+      await this.saveRoster(roster)
+
+      transitionCard(freshState, card.id, "in_progress", { owner: agentId })
+      consumeAgentCall(freshState)
+      if (sessionId) this.bindSession(freshState, sessionId, agentId, card.id)
+      await this.saveState(freshState)
+
+      await this.bus.send(CHANNELS.flow, {
+        from: agentId,
+        to: ["integrator"],
+        kind: "CLAIM",
+        subject: card.id,
+        body: { card: card.id, title: card.title },
+        idempotencyKey: `claim:${card.id}:${agentId}:${card.attempts}`,
+      })
+
+      return { card, reason: next.reason, state: freshState }
     })
-
-    return { card, reason: next.reason }
   }
 
   /** Asocia una sesión con un agente y una card. Lo usa el guard de scope. */
@@ -743,7 +781,7 @@ export class Office {
     if (payload.evidence) {
       await writeAtomic(path.join(dir, "evidence.md"), payload.evidence)
     } else {
-      const hasEvidence = await readJson<unknown>(path.join(dir, "evidence.md"))
+      const hasEvidence = await readText(path.join(dir, "evidence.md"))
       if (!hasEvidence) {
         // Sin evidencia no hay hecho. Pero no bloqueamos el handoff: el
         // reviewer va a marcarlo.

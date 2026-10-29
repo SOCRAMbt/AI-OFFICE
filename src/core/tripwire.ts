@@ -206,13 +206,14 @@ export function diffSnapshots(
 }
 
 /**
- * Tripwire: guarda las fotos entre el "antes" y el "después" de una tool.
- *
- * Se indexa por `callID` porque el hook `tool.execute.before` y el
- * `tool.execute.after` reciben el mismo identificador de llamada.
- */
+   * Tripwire: guarda las fotos entre el "antes" y el "después" de una tool.
+   *
+   * Se indexa por `callID` porque el hook `tool.execute.before` y el
+   * `tool.execute.after` reciben el mismo identificador de llamada.
+   */
 export class Tripwire {
-  private readonly snapshots = new Map<string, TripwireSnapshot>()
+  private readonly snapshots = new Map<string, { snapshot: TripwireSnapshot; armedAt: number }>()
+  private readonly armErrors = new Map<string, string>()
 
   constructor(
     private readonly root: string,
@@ -222,10 +223,13 @@ export class Tripwire {
   /** Toma la foto "antes" de una llamada. */
   async arm(callID: string, scope: string[]): Promise<void> {
     try {
-      this.snapshots.set(callID, await snapshotTree(this.root, scope, this.options))
-    } catch {
-      // Un fallo al fotografiar no debe impedir la operacion: el tripwire
+      const snapshot = await snapshotTree(this.root, scope, this.options)
+      this.snapshots.set(callID, { snapshot, armedAt: Date.now() })
+      this.armErrors.delete(callID)
+    } catch (err) {
+      // Registrar el error pero no impedir la operacion: el tripwire
       // es deteccion, no control.
+      this.armErrors.set(callID, String(err))
     }
   }
 
@@ -235,33 +239,56 @@ export class Tripwire {
    * Devuelve los cambios que estan FUERA del scope: los que estan adentro
    * son el trabajo esperado del agente.
    *
-   * El resultado incluye metadatos sobre completitud y errores.
+   * El resultado incluye metadatos sobre completitud, errores y si el arm fallo.
    */
   async check(callID: string, scope: string[]): Promise<{
     changes: TripwireChange[]
     incomplete: boolean
     errors: string[]
+    armFailed: boolean
   }> {
-    const before = this.snapshots.get(callID)
+    const entry = this.snapshots.get(callID)
+    const armError = this.armErrors.get(callID)
     this.snapshots.delete(callID)
-    if (!before) return { changes: [], incomplete: false, errors: [] }
+    this.armErrors.delete(callID)
+
+    if (!entry && !armError) return { changes: [], incomplete: false, errors: [], armFailed: false }
+
+    if (armError) {
+      // El arm fallo: no hay linea base valida
+      return { changes: [], incomplete: true, errors: [armError], armFailed: true }
+    }
+
+    if (!entry) return { changes: [], incomplete: false, errors: [], armFailed: false }
 
     try {
       const after = await snapshotTree(this.root, scope, this.options)
-      const { changes, incomplete, errors } = diffSnapshots(before, after, scope)
-      return { changes: changes.filter((c) => c.outsideScope), incomplete, errors }
+      const { changes, incomplete, errors } = diffSnapshots(entry.snapshot, after, scope)
+      return { changes: changes.filter((c) => c.outsideScope), incomplete, errors, armFailed: false }
     } catch (err) {
-      return { changes: [], incomplete: true, errors: [String(err)] }
+      return { changes: [], incomplete: true, errors: [String(err)], armFailed: false }
     }
   }
 
-  /** Libera las fotos que nunca se compararon. */
+  /** Libera las fotos que nunca se compararon, usando maxAge para antigüedad. */
   prune(maxAge = 60_000): void {
-    // El mapa se limpia solo en `check`. Este metodo existe para que el
-    // llamador pueda limitar el tamaño en corridas largas.
-    if (this.snapshots.size > 200) {
-      const claves = [...this.snapshots.keys()].slice(0, 100)
-      for (const clave of claves) this.snapshots.delete(clave)
+    if (!Number.isFinite(maxAge) || maxAge <= 0) return
+    const now = Date.now()
+    for (const [callID, entry] of this.snapshots.entries()) {
+      if (now - entry.armedAt > maxAge) {
+        this.snapshots.delete(callID)
+        this.armErrors.delete(callID)
+      }
+    }
+    // Protección adicional: límite duro por cantidad para evitar crecimiento ilimitado
+    const HARD_LIMIT = 500
+    if (this.snapshots.size > HARD_LIMIT) {
+      const toDelete = this.snapshots.size - HARD_LIMIT
+      const keys = [...this.snapshots.keys()].slice(0, toDelete)
+      for (const key of keys) {
+        this.snapshots.delete(key)
+        this.armErrors.delete(key)
+      }
     }
   }
 }

@@ -331,3 +331,208 @@ describe("Spawn de subagentes", () => {
     expect(await officeWithClient.spawnAgent("ses-1", "a", "p", "d")).toBe(false)
   })
 })
+
+describe("DISP-001: IDs de agente no colisionan entre tarjetas del mismo rol", () => {
+  it("dos tarjetas con el mismo rol obtienen agentIds distintos", async () => {
+    const state = await office.loadState("Test DISP-001")
+    await office.savePlan(state, [
+      {
+        title: "Card A",
+        type: "implementation",
+        requiredCapabilities: ["react"],
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["A done"],
+        gate: "npm test",
+      },
+      {
+        title: "Card B",
+        type: "implementation",
+        requiredCapabilities: ["react"],
+        scope: { mayTouch: ["src/**"], forbidden: [] },
+        acceptance: ["B done"],
+        gate: "npm test",
+      },
+    ])
+
+    const roster = await office.loadRoster(state.runId)
+
+    const result = await dispatchOffice(office, state, {
+      projectRoot: tmp,
+      catalog,
+      objective: state.objective,
+      maxAgents: 10,
+      maxComplements: 2,
+      minCoverage: 0.3,
+      existing: Object.values(roster.agents),
+    })
+
+    const owners = result.dispatched.filter((a) => !a.isPeer)
+    expect(owners.length).toBe(2)
+    
+    // Verificar que los agentIds son distintos
+    const agentIds = owners.map(a => a.agentId)
+    expect(new Set(agentIds).size).toBe(2)
+    
+    // Verificar que ambos IDs contienen el sufijo hash de la card
+    expect(agentIds[0]!).toMatch(/e-frontend-developer-[a-f0-9]{8}$/)
+    expect(agentIds[1]!).toMatch(/e-frontend-developer-[a-f0-9]{8}$/)
+    expect(agentIds[0]).not.toBe(agentIds[1])
+    
+    // Verificar que en el roster ambos agentes existen
+    const after = await office.loadRoster(state.runId)
+    expect(after.agents[agentIds[0]!]).toBeDefined()
+    expect(after.agents[agentIds[1]!]).toBeDefined()
+  })
+
+  it("tres o más tarjetas del mismo rol no colisionan", async () => {
+    const state = await office.loadState("Test DISP-001 three cards")
+    await office.savePlan(state, [
+      { title: "Card 1", type: "implementation", requiredCapabilities: ["react"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["1"], gate: "npm test" },
+      { title: "Card 2", type: "implementation", requiredCapabilities: ["react"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["2"], gate: "npm test" },
+      { title: "Card 3", type: "implementation", requiredCapabilities: ["react"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["3"], gate: "npm test" },
+      { title: "Card 4", type: "implementation", requiredCapabilities: ["react"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["4"], gate: "npm test" },
+    ])
+
+    const roster = await office.loadRoster(state.runId)
+
+    const result = await dispatchOffice(office, state, {
+      projectRoot: tmp,
+      catalog,
+      objective: state.objective,
+      maxAgents: 10,
+      maxComplements: 2,
+      minCoverage: 0.3,
+      existing: Object.values(roster.agents),
+    })
+
+    const owners = result.dispatched.filter((a) => !a.isPeer)
+    expect(owners.length).toBe(4)
+    
+    const agentIds = owners.map(a => a.agentId)
+    expect(new Set(agentIds).size).toBe(4)
+  })
+
+  it("despacho repetido de la misma tarjeta NO crea un nuevo agente (la card ya tiene owner)", async () => {
+    const state = await office.loadState("Test idempotencia")
+    await office.savePlan(state, [
+      { title: "Card única", type: "implementation", requiredCapabilities: ["react"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["done"], gate: "npm test" },
+    ])
+
+    const roster = await office.loadRoster(state.runId)
+
+    // Primer despacho
+    const result1 = await dispatchOffice(office, state, {
+      projectRoot: tmp,
+      catalog,
+      objective: state.objective,
+      maxAgents: 10,
+      maxComplements: 2,
+      minCoverage: 0.3,
+      existing: Object.values(roster.agents),
+    })
+
+    const ownerId1 = result1.dispatched.find(a => !a.isPeer)!.agentId
+    expect(state.cards["T-00"]!.owner).toBe(ownerId1)
+
+    // Segundo despacho - la card ya tiene owner, no se debe despachar de nuevo
+    const state2 = await office.loadState()
+    const roster2 = await office.loadRoster(state2.runId)
+
+    const result2 = await dispatchOffice(office, state2, {
+      projectRoot: tmp,
+      catalog,
+      objective: state2.objective,
+      maxAgents: 10,
+      maxComplements: 2,
+      minCoverage: 0.3,
+      existing: Object.values(roster2.agents),
+    })
+
+    // No se debe despachar ningún agente nuevo porque la card ya tiene owner
+    expect(result2.dispatched.length).toBe(0)
+    expect(result2.unassigned.length).toBe(0)
+    
+    // El owner original se mantiene
+    expect(state2.cards["T-00"]!.owner).toBe(ownerId1)
+  })
+
+  it("role slug largo + card id largo no truncan el sufijo hash", async () => {
+    // Crear un catálogo SOLO con el rol largo para que el matcher lo elija
+    const longRoleDir = path.join(tmp, "agency", "engineering")
+    await fs.rm(path.join(tmp, "agency"), { recursive: true, force: true })
+    await fs.mkdir(longRoleDir, { recursive: true })
+    await fs.writeFile(
+      path.join(longRoleDir, "this-is-a-very-long-role-name-that-exceeds-normal-length-limits.md"),
+      [
+        "---",
+        "name: Very Long Role Name",
+        "description: Test role with very long slug",
+        "vibe: Test.",
+        "---",
+        "",
+        "# Very Long Role",
+        "",
+        "## Your Core Mission",
+        "",
+        "### Implement Testing",
+        "",
+        "### Write Unit Tests",
+        "",
+        "## Critical Rules You Must Follow",
+        "",
+        "1. Always write tests first.",
+        "",
+        "## Technical Deliverables",
+        "",
+        "- Test suites",
+        "- Coverage reports",
+        "",
+        "## Advanced Capabilities",
+        "",
+        "- testing",
+        "- jest",
+        "- vitest",
+        "",
+      ].join("\n"),
+    )
+    
+    const longCatalog = await scanCatalog({ root: path.join(tmp, "agency") })
+    const officeWithLongRole = new Office({ cwd: tmp, limits: DEFAULT_LIMITS, catalog: longCatalog })
+    await officeWithLongRole.init()
+
+    const state = await officeWithLongRole.loadState("Test long role")
+    await officeWithLongRole.savePlan(state, [
+      { title: "Card 1", type: "implementation", requiredCapabilities: ["testing"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["1"], gate: "npm test" },
+      { title: "Card 2", type: "implementation", requiredCapabilities: ["testing"], scope: { mayTouch: ["src/**"], forbidden: [] }, acceptance: ["2"], gate: "npm test" },
+    ])
+
+    const roster = await officeWithLongRole.loadRoster(state.runId)
+
+    const result = await dispatchOffice(officeWithLongRole, state, {
+      projectRoot: tmp,
+      catalog: longCatalog,
+      objective: state.objective,
+      maxAgents: 10,
+      maxComplements: 2,
+      minCoverage: 0.3,
+      existing: Object.values(roster.agents),
+    })
+
+    const owners = result.dispatched.filter((a) => !a.isPeer)
+    expect(owners.length).toBe(2)
+    
+    const agentIds = owners.map(a => a.agentId)
+    expect(new Set(agentIds).size).toBe(2)
+    
+    // Verificar que el sufijo hash de 8 chars está presente y el ID no supera 40 chars
+    for (const id of agentIds) {
+      expect(id).toMatch(/^e-.+-[a-f0-9]{8}$/) // Formato: e-{role-truncado}-{hash8}
+      expect(id.length).toBeLessThanOrEqual(40)
+      // Verificar que termina con hash de 8 chars
+      expect(id.slice(-8)).toMatch(/^[a-f0-9]{8}$/)
+    }
+    
+    // Verificar que los hashes son diferentes (diferentes cards)
+    expect(agentIds[0]!.slice(-8)).not.toBe(agentIds[1]!.slice(-8))
+  })
+})

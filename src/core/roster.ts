@@ -16,8 +16,8 @@ export class RosterStore {
 
   /** Lee el roster. Si no existe, uno vacío. */
   async load(runId: string): Promise<Roster> {
-    const existing = await readJson<Roster>(this.rosterPath)
-    if (existing) return existing
+    const result = await readJson<Roster>(this.rosterPath)
+    if (result.ok) return result.value
     return {
       version: 2,
       runId,

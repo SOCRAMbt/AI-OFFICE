@@ -152,7 +152,9 @@ export class LeaseStore {
   /** Lee un lease. */
   async get(taskId: string): Promise<Lease | undefined> {
     try {
-      return await readJson<Lease>(this.file(taskId))
+      const result = await readJson<Lease>(this.file(taskId))
+      if (result.ok) return result.value
+      return undefined
     } catch (err) {
       if (err instanceof UnsafeTaskIdError) return undefined
       throw err

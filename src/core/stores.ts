@@ -55,8 +55,9 @@ export class EvidenceStore {
 
   /** Lee los nodos de evidencia de una card. */
   async nodes(cardId: string): Promise<EvidenceNode[]> {
-    const stored = await readJson<{ nodes?: EvidenceNode[] }>(this.file(cardId))
-    return Array.isArray(stored?.nodes) ? stored.nodes : []
+    const result = await readJson<{ nodes?: EvidenceNode[] }>(this.file(cardId))
+    if (!result.ok || !result.value) return []
+    return Array.isArray(result.value.nodes) ? result.value.nodes : []
   }
 
   /** Guarda los nodos de evidencia de una card. */
@@ -102,9 +103,9 @@ export class CostStore {
   constructor(private readonly file: string) {}
 
   async load(runId: string): Promise<CostLedger> {
-    const stored = await readJson<CostLedger>(this.file)
-    if (!stored || stored.version === undefined) return createLedger(runId)
-    return stored
+    const result = await readJson<CostLedger>(this.file)
+    if (!result.ok || !result.value || result.value.version === undefined) return createLedger(runId)
+    return result.value
   }
 
   async save(ledger: CostLedger): Promise<void> {

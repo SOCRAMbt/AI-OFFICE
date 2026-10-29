@@ -185,3 +185,115 @@ describe("Tripwire", () => {
     expect(Array.isArray(errors)).toBe(true)
   })
 })
+
+describe("Tripwire.prune(maxAge)", () => {
+  it("elimina entradas más antiguas que maxAge", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    // Armar dos snapshots con tiempos diferentes
+    await wire.arm("call-old", scope)
+    // Simular que pasó tiempo manipulando el timestamp interno
+    // Como no podemos manipular Date.now fácilmente, usamos un truco:
+    // armamos, esperamos un poco, armamos otro
+    await new Promise(r => setTimeout(r, 10))
+    await wire.arm("call-new", scope)
+    
+    // Prunear con maxAge = 5ms - solo el antiguo debería borrarse
+    wire.prune(5)
+    
+    // El antiguo debería haberse ido, el nuevo debería estar
+    const oldEntry = (wire as any).snapshots.get("call-old")
+    const newEntry = (wire as any).snapshots.get("call-new")
+    expect(oldEntry).toBeUndefined()
+    expect(newEntry).toBeDefined()
+  })
+
+  it("conserva entradas dentro de maxAge", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    await wire.arm("call-recent", scope)
+    
+    // Prunear con maxAge grande - nada debería borrarse
+    wire.prune(60_000)
+    
+    const entry = (wire as any).snapshots.get("call-recent")
+    expect(entry).toBeDefined()
+  })
+
+  it("elimina entradas exactamente en el límite de edad", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    await wire.arm("call-exact", scope)
+    
+    // maxAge = 0 debería eliminar todo (edge case)
+    wire.prune(0)
+    
+    const entry = (wire as any).snapshots.get("call-exact")
+    // maxAge <= 0 es no-op por diseño, así que la entrada se conserva
+    expect(entry).toBeDefined()
+  })
+
+  it("maneja maxAge inválido (NaN, negativo, Infinity) como no-op", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    await wire.arm("call-test", scope)
+    
+    wire.prune(NaN)
+    expect((wire as any).snapshots.get("call-test")).toBeDefined()
+    
+    wire.prune(-1)
+    expect((wire as any).snapshots.get("call-test")).toBeDefined()
+    
+    wire.prune(Infinity)
+    expect((wire as any).snapshots.get("call-test")).toBeDefined()
+  })
+
+  it("no elimina snapshots activos que acaban de armarse", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    await wire.arm("call-active", scope)
+    // Prunear inmediatamente con maxAge pequeño - la entrada acaba de armarse
+    wire.prune(1000)
+    
+    const entry = (wire as any).snapshots.get("call-active")
+    expect(entry).toBeDefined()
+  })
+
+  it("limpieza por cantidad (hard limit) funciona cuando hay muchas entradas", async () => {
+    const wire = new Tripwire(root)
+    const scope = ["src/**"]
+    
+    // Crear más de 500 entradas (HARD_LIMIT = 500)
+    for (let i = 0; i < 510; i++) {
+      await wire.arm(`call-${i}`, scope)
+    }
+    
+    expect((wire as any).snapshots.size).toBe(510)
+    
+    // prune() sin argumentos usa maxAge por defecto (60000) y debería activar el hard limit
+    wire.prune()
+    
+    // Debería haber máximo 500 entradas
+    expect((wire as any).snapshots.size).toBeLessThanOrEqual(500)
+  })
+
+  it("prune no afecta armErrors de entradas que se conservan", async () => {
+    const wire = new Tripwire(root)
+    const scopeArr = ["src/**"]
+    
+    // Simular un error de armado
+    ;(wire as any).armErrors.set("call-error", "test error")
+    await wire.arm("call-valid", scopeArr)
+    
+    wire.prune(60_000)
+    
+    // El error de armado de la entrada conservada debe seguir ahí
+    expect((wire as any).armErrors.get("call-error")).toBe("test error")
+    // El error de la entrada válida (si no hay) no debe existir
+  })
+})

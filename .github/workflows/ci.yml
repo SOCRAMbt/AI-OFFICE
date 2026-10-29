@@ -69,6 +69,8 @@ jobs:
       - name: Benchmark de seleccion de agentes
         run: |
           git clone --depth 1 https://github.com/msitarzewski/agency-agents.git "$RUNNER_TEMP/agency-agents"
+          cd "$RUNNER_TEMP/agency-agents"
+          git checkout 4e3ac3ca6604c75113f52c695dbddcc7af928b46
           AGENCY_ROOT="$RUNNER_TEMP/agency-agents" npx tsx benchmarks/selection/run.ts
 
       # Y se sube el diff, para que el PR muestre que cambi�.
@@ -106,13 +108,18 @@ jobs:
 
   install-verify:
     name: instalacion real del paquete
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -134,3 +141,4 @@ jobs:
           # Verify CLI binary works
           npx oficina --help
           npx oficina status --json
+        shell: bash

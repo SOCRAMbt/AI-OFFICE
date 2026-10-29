@@ -127,7 +127,12 @@ export async function resolvePaths(cwd: string): Promise<ResolvedPaths> {
     await fs.writeFile(probe, "ok")
     await fs.rm(probe, { force: true })
   } catch {
-    const slug = path.basename(projectRoot).replace(/[^a-zA-Z0-9._-]/g, "-") || "proyecto"
+    // Usar un hash del path canónico para evitar colisiones entre proyectos
+    // con el mismo nombre en directorios distintos.
+    const crypto = await import("node:crypto")
+    const canonicalPath = path.resolve(projectRoot)
+    const hash = crypto.createHash("sha256").update(canonicalPath).digest("hex").slice(0, 12)
+    const slug = `${path.basename(projectRoot).replace(/[^a-zA-Z0-9._-]/g, "-") || "proyecto"}-${hash}`
     officeDir = path.join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".oficina", slug)
     await fs.mkdir(officeDir, { recursive: true })
     fallback = true

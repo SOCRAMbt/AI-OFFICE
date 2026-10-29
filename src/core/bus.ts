@@ -207,8 +207,8 @@ export class Bus {
     const files = (await this.listChannelFiles(channel)).sort()
     const out: BusMessage[] = []
     for (const f of files) {
-      const message = await readJson<BusMessage>(path.join(this.channelDir(channel), f))
-      if (message) out.push(message)
+      const result = await readJson<BusMessage>(path.join(this.channelDir(channel), f))
+      if (result.ok && result.value) out.push(result.value)
     }
     return out.sort((a, b) => a.seq - b.seq)
   }

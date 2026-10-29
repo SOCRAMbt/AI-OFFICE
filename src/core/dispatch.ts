@@ -34,7 +34,7 @@ import type { Card, CatalogAgent, Ficha, OfficeState, Roster, RosterEntry } from
 import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
 import { createFicha } from "./factory.js"
-import { ensureDir, nowIso, writeAtomic } from "./fsx.js"
+import { ensureDir, nowIso, stableHash, writeAtomic } from "./fsx.js"
 import type { Office } from "./office.js"
 
 export interface DispatchOptions {
@@ -321,7 +321,7 @@ export async function dispatchOffice(
       panel.primary.agent.capabilities,
       [],
       false,
-      alreadyDeployed.get(panel.primary.agent.slug),
+      undefined, // No reutilizar primarios entre tarjetas: cada card tiene su owner único
     )
     if (!primary) {
       result.unassigned.push(cardId)
@@ -357,6 +357,9 @@ export async function dispatchOffice(
       if (!peer) continue
       budget -= 1
       result.dispatched.push(peer)
+      // Actualizar alreadyDeployed para que las siguientes tarjetas reutilicen este peer
+      const peerEntry = roster.agents[peer.agentId]
+      if (peerEntry) alreadyDeployed.set(complement.agent.slug, peerEntry)
       // Lo que aporta el complemento ya no es un hueco.
       for (const cap of contributes) {
         const idx = result.uncovered.indexOf(cap)
@@ -460,7 +463,22 @@ async function instantiate(
   reused: RosterEntry | undefined,
 ): Promise<DispatchedAgent | undefined> {
   const role = catalogAgent.slug
-  const agentId = reused?.id ?? `e-${role}`.slice(0, 40)
+  // Usar cardId en el ID para evitar colisiones cuando el mismo rol sirve a múltiples cards.
+  // Usamos un hash corto del card.id (8 chars) y nos aseguramos de que no se pierda por truncamiento.
+  // El formato es: e-${role}-${hash} (máx 40 chars). Si el role es muy largo, lo truncamos
+  // dejando espacio para el prefijo "e-", el separador "-" y el hash de 8 chars.
+  const MAX_ID_LEN = 40
+  const CARD_SUFFIX_LEN = 8
+  const PREFIX_LEN = 2 // "e-"
+  const SEPARATOR_LEN = 1 // "-"
+  const MAX_ROLE_LEN = MAX_ID_LEN - PREFIX_LEN - SEPARATOR_LEN - CARD_SUFFIX_LEN // 29
+  
+  const baseRole = reused?.id?.replace(/^e-/, '').split('-')[0] ?? role
+  const truncatedRole = baseRole.length > MAX_ROLE_LEN ? baseRole.slice(0, MAX_ROLE_LEN) : baseRole
+  const cardSuffix = stableHash(card.id).slice(0, CARD_SUFFIX_LEN)
+  const agentId = isPeer 
+    ? `e-${truncatedRole}`.slice(0, MAX_ID_LEN)
+    : `e-${truncatedRole}-${cardSuffix}`
 
   const ficha: Ficha = {
     id: agentId,

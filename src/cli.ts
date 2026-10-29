@@ -17,10 +17,11 @@ import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
 import { Office } from "./core/office.js"
 import { logger, configureLogging } from "./core/log.js"
-import { listFiles, readJson, ensureDir, writeJsonAtomic } from "./core/fsx.js"
+import { listFiles, readJson, readText, ensureDir, writeJsonAtomic } from "./core/fsx.js"
 import { cardDir } from "./core/paths.js"
 import { scanCatalog } from "./core/catalog.js"
 import type { OfficeState } from "./core/types.js"
+import { StateCorruptionError } from "./core/types.js"
 
 const log = logger("oficina:cli")
 
@@ -52,11 +53,12 @@ Comandos:
   reset [--force]      Borra el estado de la corrida
 
 Opciones:
-  --directory <path>   Directorio del proyecto (default: cwd)
-  --agency-root <path> Raíz del repo agency-agents
-  --target <path>      Destino de install (default: ~/.config/opencode)
-  --json               Salida en JSON
-  --force              No pedir confirmación
+  --directory <path>     Directorio del proyecto (default: cwd)
+  --agency-root <path>   Raíz del repo agency-agents
+  --target <path>        Destino de install (default: ~/.config/opencode)
+  --json                 Salida en JSON
+  --force                No pedir confirmación (para reset)
+  --force-new-run        Crear nueva corrida aunque exista estado corrupto (para init)
 `)
 }
 
@@ -81,23 +83,58 @@ async function main(): Promise<number> {
   switch (command) {
     case "init": {
       const objective = process.argv.slice(3).filter((a) => !a.startsWith("--")).join(" ")
-      const state = await office.loadState(objective || "(sin objetivo)")
+      const forceNewRun = flag("force-new-run")
+      let state: OfficeState
+      try {
+        state = await office.loadState(objective || "(sin objetivo)")
+      } catch (err) {
+        if (err instanceof StateCorruptionError && forceNewRun) {
+          // El usuario solicita explícitamente crear una nueva corrida
+          const { createRun } = await import("./core/state.js")
+          const { DEFAULT_LIMITS } = await import("./core/types.js")
+          const { shortId } = await import("./core/fsx.js")
+          state = createRun(objective ?? "", shortId("run"), DEFAULT_LIMITS)
+          await office.saveState(state)
+        } else {
+          throw err
+        }
+      }
       state.objective = objective || state.objective
       await office.saveState(state)
       const roster = await office.loadRoster(state.runId)
       await office.saveRoster(roster)
-      emit(json, {
+      const payload = {
         ok: true,
         officeDir: office.paths.officeDir,
         projectRoot: office.paths.projectRoot,
         runId: state.runId,
         fallback: office.paths.fallback,
-      })
+      }
+      if (json) {
+        emit(true, payload)
+      } else {
+        process.stdout.write(`\n✅ Oficina inicializada\n\n`)
+        process.stdout.write(`  Directorio: ${payload.officeDir}\n`)
+        process.stdout.write(`  Proyecto:   ${payload.projectRoot}\n`)
+        process.stdout.write(`  Run ID:     ${payload.runId}\n`)
+        if (payload.fallback) process.stdout.write(`  Fallback:   SÍ (proyecto de solo lectura)\n`)
+        process.stdout.write(`\n`)
+      }
       return 0
     }
 
     case "status": {
-      const state = await office.loadState()
+      let state: OfficeState
+      try {
+        state = await office.loadState()
+      } catch (err) {
+        if (err instanceof StateCorruptionError) {
+          if (json) emit(true, { ok: false, error: "STATE_CORRUPT", message: err.message })
+          else process.stderr.write(`\n❌ ${err.message}\n\n`)
+          return 1
+        }
+        throw err
+      }
       const roster = await office.loadRoster(state.runId)
       const cards = Object.values(state.cards)
       const done = cards.filter((c) => c.state === "done")
@@ -159,7 +196,17 @@ async function main(): Promise<number> {
     }
 
     case "board": {
-      const state = await office.loadState()
+      let state: OfficeState
+      try {
+        state = await office.loadState()
+      } catch (err) {
+        if (err instanceof StateCorruptionError) {
+          if (json) emit(true, { ok: false, error: "STATE_CORRUPT", message: err.message })
+          else process.stderr.write(`\n❌ ${err.message}\n\n`)
+          return 1
+        }
+        throw err
+      }
       const lines: string[] = [`# Tablero — ${state.objective}`, ""]
       const groups: Record<string, typeof state.order> = {
         TODO: [],
@@ -222,7 +269,17 @@ async function main(): Promise<number> {
         process.stderr.write("Falta el id de la card.\n")
         return 1
       }
-      const state = await office.loadState()
+      let state: OfficeState
+      try {
+        state = await office.loadState()
+      } catch (err) {
+        if (err instanceof StateCorruptionError) {
+          if (json) emit(true, { ok: false, error: "STATE_CORRUPT", message: err.message })
+          else process.stderr.write(`\n❌ ${err.message}\n\n`)
+          return 1
+        }
+        throw err
+      }
       const card = state.cards[cardId]
       if (!card) {
         process.stderr.write(`No existe la card ${cardId}.\n`)
@@ -230,7 +287,7 @@ async function main(): Promise<number> {
       }
       const dir = cardDir(office.paths, cardId)
       const files = await listFiles(dir)
-      const gates = await readJson<unknown>(path.join(dir, "gates.md"))
+      const gatesText = await readText(path.join(dir, "gates.md"))
       const payload = {
         card: {
           id: card.id,
@@ -247,7 +304,7 @@ async function main(): Promise<number> {
         hasEvidence: files.includes("evidence.md"),
         hasReview: files.includes("review.md"),
         hasGates: files.includes("gates.md"),
-        gates: gates ?? null,
+        gates: gatesText ?? null,
       }
       if (json) emit(true, payload)
       else {
@@ -263,7 +320,17 @@ async function main(): Promise<number> {
     }
 
     case "verify": {
-      const state = await office.loadState()
+      let state: OfficeState
+      try {
+        state = await office.loadState()
+      } catch (err) {
+        if (err instanceof StateCorruptionError) {
+          if (json) emit(true, { ok: false, error: "STATE_CORRUPT", message: err.message })
+          else process.stderr.write(`\n❌ ${err.message}\n\n`)
+          return 1
+        }
+        throw err
+      }
       const inReview = state.order.filter((id) => state.cards[id]?.state === "review")
       const results: Record<string, unknown> = {}
       for (const id of inReview) {
@@ -391,7 +458,20 @@ async function main(): Promise<number> {
         )
         return 1
       }
-      const state = await office.loadState()
+      let state: OfficeState
+      try {
+        state = await office.loadState()
+      } catch (err) {
+        if (err instanceof StateCorruptionError) {
+          // Si el estado está corrupto, creamos uno nuevo abandonado directamente
+          const { createRun } = await import("./core/state.js")
+          const { DEFAULT_LIMITS } = await import("./core/types.js")
+          const { shortId } = await import("./core/fsx.js")
+          state = createRun("(corrupto - reiniciado)", shortId("run"), DEFAULT_LIMITS)
+        } else {
+          throw err
+        }
+      }
       await writeJsonAtomic(office.paths.statePath, {
         ...state,
         status: "abandoned",
@@ -400,7 +480,11 @@ async function main(): Promise<number> {
         sessions: {},
       })
       await ensureDir(office.paths.officeDir)
-      emit(json, { ok: true, reset: true })
+      if (json) {
+        emit(true, { ok: true, reset: true })
+      } else {
+        process.stdout.write(`\n🗑️  Estado reiniciado (corrida abandonada)\n\n`)
+      }
       return 0
     }
 
@@ -411,12 +495,9 @@ async function main(): Promise<number> {
   }
 }
 
-function emit(json: boolean, payload: unknown): void {
-  if (json) {
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`)
-  } else {
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`)
-  }
+function emit(_json: boolean, payload: unknown): void {
+  // Only called with json=true now. Text output is handled per-command.
+  process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`)
 }
 
 main()
