@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (para acceso a GH_TOKEN)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Fetch traffic views
         id: views
