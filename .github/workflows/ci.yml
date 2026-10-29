@@ -66,11 +66,13 @@ jobs:
       # El benchmark de seleccion mide si el matcher le gana a las
       # alternativas simples. Si deja de ganar, el CI lo dice: la
       # complejidad del matcher tiene que justificarse con numeros.
+      # Pin del catálogo por SHA. No se usa `clone --depth 1` + checkout:
+      # fetch por SHA trae exactamente la revisión fijada sin historial extra.
       - name: Benchmark de seleccion de agentes
         run: |
-          git clone --depth 1 https://github.com/msitarzewski/agency-agents.git "$RUNNER_TEMP/agency-agents"
-          cd "$RUNNER_TEMP/agency-agents"
-          git checkout 4e3ac3ca6604c75113f52c695dbddcc7af928b46
+          git init "$RUNNER_TEMP/agency-agents"
+          git -C "$RUNNER_TEMP/agency-agents" fetch --depth 1 https://github.com/msitarzewski/agency-agents.git 4e3ac3ca6604c75113f52c695dbddcc7af928b46
+          git -C "$RUNNER_TEMP/agency-agents" checkout FETCH_HEAD
           AGENCY_ROOT="$RUNNER_TEMP/agency-agents" npx tsx benchmarks/selection/run.ts
 
       # Y se sube el diff, para que el PR muestre que cambi�.
