@@ -225,14 +225,18 @@ export async function runTechnicalGates(
   }
 
   // 4. Tests
+  //
+  // Esta fase pasa por el guard anti-gate-verde-vacio: exit 0 no alcanza si
+  // el runner no ejecuto un solo test (script vacio, vitest sin archivos,
+  // `go test` sin tests). Un verde sin tests no demuestra nada.
   if (tooling.hasTest && pm) {
-    results.push(await runPhase("test", pm, ["run", "test"], projectRoot, runner))
+    results.push(await runTestPhase(pm, ["run", "test"], projectRoot, runner))
   } else if (tooling.isPython) {
-    results.push(await runPhase("test", "python", ["-m", "pytest", "-q"], projectRoot, runner))
+    results.push(await runTestPhase("python", ["-m", "pytest", "-q"], projectRoot, runner))
   } else if (tooling.isGo) {
-    results.push(await runPhase("test", "go", ["test", "./..."], projectRoot, runner))
+    results.push(await runTestPhase("go", ["test", "./..."], projectRoot, runner))
   } else if (tooling.isRust) {
-    results.push(await runPhase("test", "cargo", ["test"], projectRoot, runner))
+    results.push(await runTestPhase("cargo", ["test"], projectRoot, runner))
   } else {
     results.push(na("test", "el proyecto no define script `test`"))
   }
@@ -480,16 +484,86 @@ export function consolidate(
   }
 }
 
+/** Motivo canónico de un gate de tests verde pero vacío. */
+export const EMPTY_TEST_GATE_REASON =
+  "Gate verde vacío: la fase test salió con exit 0 pero no ejecutó ningún test (no hay conteo legible en la salida)."
+
+/**
+ * Degrada una fase de test `pass` a `not_run` si no corrió ningún test.
+ *
+ * Por qué `not_run` y no `fail`: no falló nada, pero tampoco se probó nada.
+ * Decir PASS sería mentir y decir FAIL inventaría un rojo. `not_run` es la
+ * única etiqueta honesta, y `consolidate` la propaga como veredicto no verde.
+ *
+ * Se conserva el `exitCode` real (0) y la `output` real: la evidencia de lo
+ * que pasó no se reescribe, solo se corrige la clasificación.
+ */
+export function guardEmptyTestPhase(result: GatePhaseResult): GatePhaseResult {
+  if (result.phase !== "test") return result
+  if (result.outcome !== "pass") return result
+  if (testsActuallyRan([result])) return result
+
+  return {
+    ...result,
+    outcome: "not_run",
+    detail: `exit 0 sin tests ejecutados — ${EMPTY_TEST_GATE_REASON}`,
+    reason: EMPTY_TEST_GATE_REASON,
+  }
+}
+
+/**
+ * Corre una fase de tests aplicando el guard anti-gate-verde-vacío.
+ *
+ * Único punto de entrada para ejecutar tests en los gates técnicos: la
+ * oficina (`Office.runGates`) hereda el guard sin duplicar lógica.
+ */
+export async function runTestPhase(
+  command: string,
+  args: string[],
+  cwd: string,
+  runner: CommandRunner = defaultRunner,
+): Promise<GatePhaseResult> {
+  return guardEmptyTestPhase(await runPhase("test", command, args, cwd, runner))
+}
+
+/**
+ * Reconocimiento Go: ¿la salida de `go test` muestra que corrieron tests?
+ *
+ * `go test ./...` nunca imprime un conteo "N tests/passed": imprime una línea
+ * `ok <paquete> <duración>` por cada paquete cuya suite corrió y pasó. La
+ * distinción que importa:
+ *
+ *   ok  m/pkg 0.084s            → corrieron tests del paquete y pasaron → ran
+ *   ok  m/pkg [no test files]   → el paquete no tiene tests: corrió CERO
+ *                                 tests → sigue siendo "no ran"
+ *
+ * Cualquier otra línea `ok` sin el marcador `[no test files]` cuenta como
+ * evidencia de tests ejecutados.
+ */
+function goTestsActuallyRan(output: string): boolean {
+  for (const line of output.split(/\r?\n/)) {
+    if (!line.trim().startsWith("ok")) continue
+    if (line.includes("[no test files]")) continue
+    return true
+  }
+  return false
+}
+
 /**
  * ¿La fase de tests corrió y pasó con al menos un test?
  *
  * Un gate que pasa con cero tests es un gate verde vacío. Los runners
  * imprimen el conteo en formatos distintos ("# tests 5", "5 passed",
- * "Tests: 5"), así que se buscan ambos órdenes.
+ * "Tests: 5"), así que se buscan ambos órdenes. Para `go test` se reconoce
+ * el formato por ecosistema (líneas `ok <paquete>`), porque no hay conteo
+ * numérico: ver `goTestsActuallyRan`.
  */
 export function testsActuallyRan(technical: GatePhaseResult[]): boolean {
   const test = technical.find((r) => r.phase === "test")
   if (!test || test.outcome !== "pass") return false
+
+  // Ecosistema Go: el reconocimiento propio de `go test` es el árbitro.
+  if (test.command?.startsWith("go test")) return goTestsActuallyRan(test.output)
 
   // "5 tests" / "5 passed" / "5 test"
   const before = /\b(\d+)\s+(?:tests?|passed|pass)\b/i.exec(test.output)
@@ -503,6 +577,11 @@ export function testsActuallyRan(technical: GatePhaseResult[]): boolean {
   return false
 }
 
+/** Escapa una celda de tabla markdown: el `|` rompería la fila. */
+function escapeCell(text: string): string {
+  return text.replace(/\r?\n/g, " ").replace(/\|/g, "\\|").trim() || "—"
+}
+
 /** Renderiza el gate como markdown para el artefacto. */
 export function renderGate(result: GateResult): string {
   const lines: string[] = []
@@ -514,11 +593,14 @@ export function renderGate(result: GateResult): string {
   const table = (title: string, rows: GatePhaseResult[]) => {
     lines.push(`## ${title}`)
     lines.push("")
-    lines.push("| # | Fase | Comando | Resultado | Detalle |")
-    lines.push("|---|------|---------|-----------|---------|")
+    lines.push("| # | Fase | Comando | Resultado | Detalle | Motivo |")
+    lines.push("|---|------|---------|-----------|---------|--------|")
     rows.forEach((r, i) => {
+      // El motivo no puede quedar escondido: un `not_run` por gate verde
+      // vacío tiene que leerse en el artefacto, no solo en el exit code.
+      const reason = escapeCell(r.reason ?? "—")
       lines.push(
-        `| ${i + 1} | ${r.phase} | \`${r.command ?? "—"}\` | ${r.outcome.toUpperCase()} | ${r.detail} |`,
+        `| ${i + 1} | ${r.phase} | \`${r.command ?? "—"}\` | ${r.outcome.toUpperCase()} | ${escapeCell(r.detail)} | ${reason} |`,
       )
     })
     lines.push("")

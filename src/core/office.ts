@@ -871,6 +871,9 @@ export class Office {
     const runner = this.options.runner
 
     const technical = await runTechnicalGates(this.paths.projectRoot, this.toolingCache, runner, scope)
+    // El guard anti-gate-verde-vacío vive en `runTechnicalGates` (fase test):
+    // la oficina lo hereda por acá a propósito. No se reimplementa ni se
+    // re-clasifica el resultado en este nivel, o habría dos verdades.
     const security = await runSecurityGate(this.paths.projectRoot, scope, runner)
     const requirements = await this.runRequirementGate(card)
     const result = consolidate(cardId, technical, security, requirements)
