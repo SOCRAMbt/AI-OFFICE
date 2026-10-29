@@ -1,0 +1,9 @@
+# Propietarios de código. Todo el árbol requiere revisión de @SOCRAMbt.
+# GitHub aplica esto cuando la branch protection habilita
+# "Require review from Code Owners" (ver docs/SEGURIDAD-REPO.md).
+*                 @SOCRAMbt
+
+# Superficie sensible: CI, seguridad y empaquetado, explícitamente del owner.
+.github/          @SOCRAMbt
+SECURITY.md       @SOCRAMbt
+package.json      @SOCRAMbt

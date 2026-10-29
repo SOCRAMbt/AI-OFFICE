@@ -1,0 +1,57 @@
+# Publicación a npm, cerrada a maldades:
+#
+#   1. Solo el owner puede dispararla (environment "npm" protegido en la repo,
+#      con revisión manual obligatoria — ver docs/SEGURIDAD-REPO.md).
+#   2. Sin token de larga vida: autenticación OIDC de GitHub Actions
+#      (`id-token: write`) → npm valida la procedencia y firma los artefactos.
+#   3. `prepublishOnly` vuelve a correr typecheck + tests + build + docs:check.
+#   4. Concurrency: aunque se dispare dos veces, solo una publicación corre.
+#
+# Disparadores: release publicada (flujo normal) o manual desde Actions.
+name: Publish (npm)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Requerido para npm provenance (SLSA) vía OIDC.
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publicar con provenance
+    runs-on: ubuntu-latest
+    environment: npm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verificaciones (prepublishOnly los vuelve a correr igual)
+        run: |
+          npm run typecheck
+          npm run docs:check
+          npm run test
+
+      - name: Publicar
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # NPM_TOKEN solo se usa si el paquete no tiene granular-tokenless
+        # provenance disponible; preferimos trusted publishers de npm
+        # configurados contra este workflow (npmjs.com → Settings →
+        # Trusted publishing). Con provenance OIDC habilitada en npm,
+        # no hace falta ningún secret.
