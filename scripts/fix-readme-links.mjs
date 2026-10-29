@@ -6,10 +6,11 @@
  */
 import fs from "node:fs"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const REPO = "https://github.com/SOCRAMbt/AI-OFFICE"
 const BRANCH = "main"
-const file = "C:/Users/Marcos/oficina-plugin/README.md"
+const file = fileURLToPath(new URL("../README.md", import.meta.url))
 let content = fs.readFileSync(file, "utf8")
 
 /** Un destino sin extensión es un directorio: va por /tree/, no /blob/. */

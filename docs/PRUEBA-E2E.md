@@ -16,12 +16,12 @@ Nivel 7, que corre un solo comando.
 
 > **Abrí OpenCode en `C:\prueba-oficina`.**
 
-No en `C:\Users\Marcos`. El motivo es concreto y no es obvio:
+No en la **carpeta personal del usuario** (p. ej. `%USERPROFILE%`). El motivo es concreto y no es obvio:
 
-`C:\Users\Marcos` **no** es un proyecto (no tiene `package.json` ni `.git`), pero tiene
+La carpeta personal **no** es un proyecto (no tiene `package.json` ni `.git`), pero tiene
 **14 subdirectorios que sí lo son**. `resolveProjectRoot` busca en los subdirectorios y,
 como hay varios candidatos, elige por peso de fuentes. El resultado es aleatorio: podés
-terminar en `C:\Users\Marcos\oficina-plugin` escribiendo la corrida en el repo.
+terminar escribiendo la corrida en un checkout cualquiera del plugin.
 
 Verificá dónde estás antes de abrir OpenCode:
 
@@ -35,7 +35,7 @@ Copiá esto en la terminal y dejalo abierto:
 
 ```powershell
 $OFICINA = "$env:USERPROFILE\.config\opencode\node_modules\.bin\oficina.cmd"
-$REPO    = "C:\Users\Marcos\oficina-plugin"
+$REPO    = "<checkout local del plugin AI-OFFICE>"
 $PROY    = "C:\prueba-oficina"
 ```
 

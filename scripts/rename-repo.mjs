@@ -9,15 +9,16 @@
  * doble-codifica y rompe los acentos.
  */
 import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const VIEJO = "El-ltimoTPP"
 const NUEVO = "AI-OFFICE"
 
-const archivos = [
-  "C:/Users/Marcos/oficina-plugin/README.md",
-  "C:/Users/Marcos/oficina-plugin/package.json",
-  "C:/Users/Marcos/oficina-plugin/scripts/fix-readme-links.mjs",
-]
+const base = fileURLToPath(new URL("..", import.meta.url))
+const archivos = ["README.md", "package.json", "scripts/fix-readme-links.mjs"].map((p) =>
+  path.join(base, p),
+)
 
 let total = 0
 for (const file of archivos) {
@@ -26,7 +27,7 @@ for (const file of archivos) {
   const n = antes.split(VIEJO).length - 1
   if (n > 0) {
     fs.writeFileSync(file, despues, "utf8")
-    console.log(`  ${file.split("/").pop()}: ${n} referencias actualizadas`)
+    console.log(`  ${path.basename(file)}: ${n} referencias actualizadas`)
     total += n
   }
 }

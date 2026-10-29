@@ -5,7 +5,7 @@
 **Commit auditado:** `13b9e353b05cfef3213094a37438de5f16cbe258` (`13b9e35`)  
 **Rama:** `main`  
 **Entorno de evaluación:** Windows 11 / Node.js v22+ / PowerShell  
-**Repositorio local:** `C:\Users\Marcos\oficina-plugin`  
+**Repositorio local:** checkout local de AI-OFFICE (ruta de máquina del auditor omitida)  
 **Repositorio remoto oficial:** `https://github.com/SOCRAMbt/AI-OFFICE`  
 
 ---
