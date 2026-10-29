@@ -160,30 +160,6 @@ export function assertInvariants(ctx: InvariantContext): void {
       )
     }
   }
-
-  // Invariante duro: el presupuesto de cards no se excede.
-  if (state.budget.cardsUsed > state.budget.maxCards) {
-    throw new InvariantViolationError(
-      "max-cards",
-      `Presupuesto de cards excedido: ${state.budget.cardsUsed} > ${state.budget.maxCards}`,
-    )
-  }
-
-  // Invariante duro: el presupuesto de invocaciones no se excede.
-  if (state.budget.agentCallsUsed > state.budget.maxAgentCalls) {
-    throw new InvariantViolationError(
-      "max-agent-calls",
-      `Presupuesto de agentes excedido: ${state.budget.agentCallsUsed} > ${state.budget.maxAgentCalls}`,
-    )
-  }
-
-  // Invariante duro: el presupuesto de spawns no se excede.
-  if (state.budget.spawnsUsed > state.budget.maxSpawnsTotal) {
-    throw new InvariantViolationError(
-      "max-spawns-total",
-      `Presupuesto de spawns excedido: ${state.budget.spawnsUsed} > ${state.budget.maxSpawnsTotal}`,
-    )
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,8 +170,8 @@ export function assertInvariants(ctx: InvariantContext): void {
  * Migra un estado v1 (el que escribía el skill de OFICINA v1) al schema v2.
  *
  * Sin esto, una corrida empezada con el skill queda ilegible para el
- * plugin: los budgets vienen con nombres distintos, el `scope` era un array
- * en vez de un objeto, y las cards no tienen los campos de malla.
+ * plugin: el `scope` era un array en vez de un objeto, y las cards no tienen
+ * los campos de malla.
  *
  * La migración es aditiva y no destructiva: el objetivo, las cards y sus
  * resultados se conservan. Lo que se completa son los campos nuevos con
@@ -205,9 +181,9 @@ export function migrateState(raw: unknown, limits: Limits = DEFAULT_LIMITS): Off
   if (!raw || typeof raw !== "object") return undefined
   const input = raw as Record<string, unknown>
 
-  // Ya es v2: tiene `budget.maxCards`.
-  const budgetRaw = (input.budget ?? {}) as Record<string, unknown>
-  if (typeof budgetRaw.maxCards === "number") {
+  // Ya es v2: tiene `budget.maxCards` (campo removido, pero la version 2 ya no lo usa).
+  // Si el estado ya tiene version 2, asumimos que es compatible.
+  if ((input as { version?: number }).version === 2) {
     return raw as OfficeState
   }
 
@@ -262,14 +238,6 @@ export function migrateState(raw: unknown, limits: Limits = DEFAULT_LIMITS): Off
     halt: (input.halt as OfficeState["halt"]) ?? null,
     cards,
     order,
-    budget: {
-      cardsUsed: num(budgetRaw.cardsUsed ?? budgetRaw.cards_used, Object.keys(cards).length),
-      maxCards: num(budgetRaw.maxCards ?? budgetRaw.max_cards, limits.maxCards),
-      agentCallsUsed: num(budgetRaw.agentCallsUsed ?? budgetRaw.agent_calls_used, 0),
-      maxAgentCalls: num(budgetRaw.maxAgentCalls ?? budgetRaw.max_agent_calls, limits.maxAgentCalls),
-      spawnsUsed: num(budgetRaw.spawnsUsed ?? budgetRaw.spawns_used, 0),
-      maxSpawnsTotal: num(budgetRaw.maxSpawnsTotal ?? budgetRaw.max_spawns_total, limits.maxSpawnsTotal),
-    },
     decisions: (input.decisions as OfficeState["decisions"]) ?? [],
     escalations: [],
     context: {
@@ -297,14 +265,6 @@ export function createRun(objective: string, runId: string, limits: Limits = DEF
     status: "planning",
     cards: {},
     order: [],
-    budget: {
-      cardsUsed: 0,
-      maxCards: limits.maxCards,
-      agentCallsUsed: 0,
-      maxAgentCalls: limits.maxAgentCalls,
-      spawnsUsed: 0,
-      maxSpawnsTotal: limits.maxSpawnsTotal,
-    },
     decisions: [],
     escalations: [],
     context: { decisions: [], constraints: [], pieces: [], traps: [], open: [] },

@@ -26,7 +26,6 @@ import {
   type EvidenceOptions,
   type VerificationLevel,
 } from "./evidence.js"
-import { createLedger, recordUsage, type CostLedger, type UsageInput } from "./cost.js"
 import type { Card, OfficeState } from "./types.js"
 import { logger } from "./log.js"
 
@@ -96,49 +95,23 @@ export class EvidenceStore {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * Costo
- * ──────────────────────────────────────────────────────────────────────────── */
-
-export class CostStore {
-  constructor(private readonly file: string) {}
-
-  async load(runId: string): Promise<CostLedger> {
-    const result = await readJson<CostLedger>(this.file)
-    if (!result.ok || !result.value || result.value.version === undefined) return createLedger(runId)
-    return result.value
-  }
-
-  async save(ledger: CostLedger): Promise<void> {
-    await writeJsonAtomic(this.file, ledger)
-  }
-
-  /** Registra el uso de un agente y persiste. */
-  async record(runId: string, input: UsageInput, clock?: () => number): Promise<CostLedger> {
-    const ledger = recordUsage(await this.load(runId), input, clock)
-    await this.save(ledger)
-    return ledger
-  }
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
  * Integracion
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Crea los stores de una corrida.
+ * Crea el store de evidencia de una corrida.
  *
- * Se separan del `Office` para no mezclarlos con la logica de cards: son
- * dos concerns distintos.
+ * Se separa del `Office` para no mezclarlo con la logica de cards: son
+ * concerns distintos.
  */
 export function createStores(
   officeDir: string,
   state: OfficeState,
   options: EvidenceStoreOptions = {},
-): { evidence: EvidenceStore; cost: CostStore } {
+): { evidence: EvidenceStore } {
   const evidence = new EvidenceStore(path.join(officeDir, "evidence"), options)
-  const cost = new CostStore(path.join(officeDir, "cost.json"))
   log.debug("stores creados", { runId: state.runId })
-  return { evidence, cost }
+  return { evidence }
 }
 
 /** Opciones de evidencia derivadas de un nodo. */

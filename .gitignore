@@ -11,3 +11,5 @@ coverage/
 
 # agentes materializados por corridas de oficina en este repo
 .opencode/
+# PERO los agentes fabricados se guardan para el catálogo vivo:
+!.opencode/agents/

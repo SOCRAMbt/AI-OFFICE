@@ -389,6 +389,80 @@ export async function scanCatalog(options: CatalogScanOptions): Promise<CatalogA
   return out
 }
 
+/**
+ * Carga agentes dinámicos creados por la factory desde `.opencode/agents/`.
+ *
+ * Estos agentes fueron fabricados en corridas previas y tienen la plantilla
+ * completa de 10 secciones de Agency-Agents. Se parsean igual que los del
+ * catálogo principal para que el matching funcione.
+ */
+export async function loadDynamicAgents(projectRoot: string): Promise<CatalogAgent[]> {
+  const agentsDir = path.join(projectRoot, ".opencode", "agents")
+  const out: CatalogAgent[] = []
+
+  try {
+    const files = await listFiles(agentsDir)
+    for (const file of files) {
+      if (!file.endsWith(".md")) continue
+
+      const full = path.join(agentsDir, file)
+      const content = await readText(full)
+      if (!content) continue
+
+      const { data, body } = parseFrontmatter(content)
+      const sections = parseSections(body)
+
+      const slug = file.replace(/\.md$/, "")
+      const displayName = data.name || titleize(slug)
+      const description = data.description || firstParagraph(body)
+
+      // Extraer capabilities de la sección "Advanced Capabilities" del cuerpo
+      // (el frontmatter parser simple no maneja arrays YAML)
+      const advancedSection = findSection(sections, "Advanced Capabilities", "Advanced")
+      let capabilities: string[] = []
+      if (advancedSection) {
+        // La sección Advanced Capabilities tiene los tokens separados por espacios
+        capabilities = advancedSection.trim().split(/\s+/).filter(Boolean)
+      }
+      // Fallback: extraer del displayName/description como en el catálogo principal
+      if (capabilities.length === 0) {
+        const partial = { displayName, description, missions: [], deliverables: [], advanced: [] }
+        capabilities = extractCapabilities(partial)
+      }
+
+      const missions = extractMissionLabels(findSection(sections, "Core Mission", "Mission"))
+      const deliverables = extractMissionLabels(
+        findSection(sections, "Technical Deliverables", "Deliverables"),
+      )
+      const advanced = extractMissionLabels(
+        findSection(sections, "Advanced Capabilities", "Advanced"),
+      )
+      const rules = extractListItems(findSection(sections, "Critical Rules", "Rules"))
+
+      out.push({
+        slug,
+        displayName,
+        description,
+        vibe: data.vibe ?? "",
+        division: "factory",
+        path: path.join(".opencode", "agents", file),
+        capabilities,
+        missions,
+        deliverables,
+        advanced,
+        rules,
+        sections,
+        sourcePrompt: body.trim(),
+        searchText: `${displayName} ${description} ${body}`.toLowerCase(),
+      })
+    }
+  } catch {
+    // Directorio no existe o error de lectura: devolver array vacío
+  }
+
+  return out
+}
+
 /** Primer párrafo no vacío del body, como descripción de respaldo. */
 function firstParagraph(body: string): string {
   for (const para of body.split(/\n\s*\n/)) {

@@ -141,24 +141,6 @@ describe("Invariantes duros", () => {
       assertInvariants({ card: state.cards["T-00"], state, limits: DEFAULT_LIMITS }),
     ).toThrow(/max-help-chain-hops/)
   })
-
-  it("rechaza exceder el presupuesto de cards", () => {
-    const state = makeState([])
-    state.budget.cardsUsed = 21
-    expect(() => assertInvariants({ state, limits: DEFAULT_LIMITS })).toThrow(/max-cards/)
-  })
-
-  it("rechaza exceder el presupuesto de invocaciones", () => {
-    const state = makeState([])
-    state.budget.agentCallsUsed = 41
-    expect(() => assertInvariants({ state, limits: DEFAULT_LIMITS })).toThrow(/max-agent-calls/)
-  })
-
-  it("rechaza exceder el presupuesto de spawns", () => {
-    const state = makeState([])
-    state.budget.spawnsUsed = 21
-    expect(() => assertInvariants({ state, limits: DEFAULT_LIMITS })).toThrow(/max-spawns-total/)
-  })
 })
 
 describe("Selección de la próxima card", () => {

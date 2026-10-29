@@ -26,8 +26,6 @@ export interface Limits {
   maxConcurrentAgents: number
   /** Niveles de spawn bajo un coordinador. */
   maxSpawnDepth: number
-  /** Spawns totales por corrida. */
-  maxSpawnsTotal: number
   /** Saltos máximos en una cadena de ayuda (anti-deadlock). */
   maxHelpChainHops: number
   /** Mensajes por agente (anti-spam). */
@@ -40,10 +38,6 @@ export interface Limits {
   heartbeatSec: number
   /** Rechazos de review antes de escalar. */
   maxReviewRejections: number
-  /** Cards por corrida. */
-  maxCards: number
-  /** Invocaciones de subagente por corrida. */
-  maxAgentCalls: number
   /** Cobertura mínima (0..1) para aceptar un match del catálogo. */
   minCatalogCoverage: number
   /** Invariante duro: sin gates en PASS no hay DONE. */
@@ -63,15 +57,12 @@ export interface Limits {
 export const DEFAULT_LIMITS: Limits = {
   maxConcurrentAgents: 10,
   maxSpawnDepth: 2,
-  maxSpawnsTotal: 20,
   maxHelpChainHops: 2,
   maxMessagesPerAgent: 150,
   msgTtlSec: 900,
   leaseTtlSec: 1800,
   heartbeatSec: 60,
   maxReviewRejections: 3,
-  maxCards: 20,
-  maxAgentCalls: 40,
   minCatalogCoverage: 0.6,
   gateRequiredBeforeDone: true,
   evidenceRequiredBeforeDone: true,
@@ -376,14 +367,6 @@ export interface OfficeState {
   cards: Record<string, Card>
   /** Orden de ejecución. */
   order: string[]
-  budget: {
-    cardsUsed: number
-    maxCards: number
-    agentCallsUsed: number
-    maxAgentCalls: number
-    spawnsUsed: number
-    maxSpawnsTotal: number
-  }
   /** Bitácora de decisiones. */
   decisions: DecisionRecord[]
   /** Escalaciones al usuario. */

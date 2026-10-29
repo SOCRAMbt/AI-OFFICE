@@ -35,7 +35,7 @@ export async function buildSystemPrompt(office: Office, state: OfficeState): Pro
     "## 🏢 OFICINA — estado de la corrida",
     "",
     `**Objetivo:** ${state.objective}`,
-    `**Estado:** ${state.status} · iteración ${state.iteration} · presupuesto ${state.budget.cardsUsed}/${state.budget.maxCards} cards, ${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls} agentes`,
+    `**Estado:** ${state.status} · iteración ${state.iteration} · cards: ${Object.keys(state.cards).length}`,
     "",
     "### Cards",
     "",

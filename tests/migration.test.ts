@@ -61,16 +61,6 @@ describe("Migración v1 → v2", () => {
     expect(state.version).toBe(2)
   })
 
-  it("migra el budget de snake_case a camelCase", () => {
-    const state = migrateState(v1)!
-    expect(state.budget.cardsUsed).toBe(5)
-    expect(state.budget.maxCards).toBe(20)
-    expect(state.budget.agentCallsUsed).toBe(22)
-    expect(state.budget.maxAgentCalls).toBe(40)
-    expect(state.budget.spawnsUsed).toBe(0)
-    expect(state.budget.maxSpawnsTotal).toBe(DEFAULT_LIMITS.maxSpawnsTotal)
-  })
-
   it("migra el scope array al objeto con may_touch/forbidden", () => {
     const state = migrateState(v1)!
     const card = state.cards["T-00"]!

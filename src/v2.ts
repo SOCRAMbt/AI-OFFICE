@@ -477,52 +477,6 @@ export default Plugin.define({
             continue
           }
 
-          /* ── Costo ── */
-          //
-          // El evento trae el numero REAL que reporto el motor. No se estima.
-          //
-          // El tipo del stream publicado no incluye los eventos de usage (el
-          // union tipado es mas angosto que el manifiesto del schema), asi
-          // que se lee de forma laxa y a mano: si la forma no coincide, se
-          // ignora en vez de romper.
-          const raw = event as unknown as { type?: string; data?: unknown }
-          if (raw.type === "session.usage.recorded" || raw.type === "session.usage.updated") {
-            const data = raw.data as
-              | {
-                  sessionID?: string
-                  cost?: number
-                  tokens?: {
-                    input?: number
-                    output?: number
-                    reasoning?: number
-                    cache?: { read?: number; write?: number }
-                  }
-                }
-              | undefined
-            if (!data?.sessionID) continue
-            try {
-              const state = await office.loadState()
-              const binding = state.sessions[data.sessionID]
-              await office.recordUsage({
-                agentId: binding?.agentId ?? data.sessionID,
-                role: binding?.agentId ?? "agente",
-                cardId: binding?.cardId ?? null,
-                phase: binding?.cardId ? "implementation" : "exploration",
-                model: "desconocido",
-                provider: "desconocido",
-                cost: data.cost ?? 0,
-                tokens: {
-                  input: data.tokens?.input ?? 0,
-                  output: data.tokens?.output ?? 0,
-                  reasoning: data.tokens?.reasoning ?? 0,
-                  cache: { read: data.tokens?.cache?.read ?? 0, write: data.tokens?.cache?.write ?? 0 },
-                },
-                latencyMs: 0,
-              })
-            } catch (err) {
-              log.debug("no se pudo registrar el uso", { error: String(err) })
-            }
-          }
         }
       } catch (err) {
         if (!controller.signal.aborted) {

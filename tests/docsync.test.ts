@@ -77,7 +77,8 @@ describe("Hechos del proyecto", () => {
     expect(bloque).toContain("**Tools**")
     expect(bloque).toContain("**Hooks**")
     expect(bloque).toContain("**API de plugin**")
-    expect(bloque).toContain("**Límites**")
+    expect(bloque).toContain("**Catálogo**")
+    expect(bloque).toContain("**Divisiones**")
   })
 })
 

@@ -28,18 +28,18 @@ import { RosterStore } from "./roster.js"
 import { LeaseStore } from "./leases.js"
 import { createRun, transitionCard, transitionRun, assertInvariants, selectNextCard, migrateState } from "./state.js"
 import { createFicha, CandidateRegistry } from "./factory.js"
-import { scanCatalog, resolveRole, rankCandidates, type RolePanel } from "./catalog.js"
+import { scanCatalog, loadDynamicAgents, resolveRole, rankCandidates, type RolePanel } from "./catalog.js"
 import {
   buildBriefing as buildBriefingContext,
   renderBriefing,
   type Briefing,
 } from "./briefing.js"
 import { routeCard, routeHelp, ownerStreak, type RouteResult } from "./router.js"
-import { decideRetry, recordRejection, recordApproval, consumeAgentCall } from "./retry.js"
+import { decideRetry, recordRejection, recordApproval } from "./retry.js"
 import { detectTooling, runTechnicalGates, runSecurityGate, consolidate, type CommandRunner, type Tooling } from "./gates.js"
 import { ensureDir, exists, nowIso, readJson, readText, shortId, writeJsonAtomic, writeAtomic } from "./fsx.js"
 import { cardDir, resolvePaths, type ResolvedPaths } from "./paths.js"
-import { createStores, EvidenceStore, CostStore } from "./stores.js"
+import { createStores, EvidenceStore } from "./stores.js"
 import { logger } from "./log.js"
 import { withLock } from "./atomic.js"
 
@@ -119,8 +119,6 @@ export class Office {
    * tiene sentido reescribirlo entero cada vez que cambia una card.
    */
   evidence!: EvidenceStore
-  /** Ledger de costo de la corrida. */
-  cost!: CostStore
 
   private catalogCache: CatalogAgent[] | null = null
   private toolingCache: Tooling | null = null
@@ -177,7 +175,6 @@ export class Office {
     // Los stores se arman despues de resolver los paths definitivos.
     const stores = createStores(this.paths.officeDir, { runId: "pending" } as OfficeState)
     this.evidence = stores.evidence
-    this.cost = stores.cost
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -233,7 +230,7 @@ export class Office {
   // Catálogo y fichas
   // ───────────────────────────────────────────────────────────────────────────
 
-  /** Catálogo de agency-agents (cacheado). */
+  /** Catálogo de agency-agents (cacheado) + agentes dinámicos de factory. */
   async catalog(): Promise<CatalogAgent[]> {
     if (this.catalogCache) return this.catalogCache
     if (this.options.catalog) {
@@ -241,16 +238,17 @@ export class Office {
       return this.catalogCache
     }
     const root = this.options.agencyRoot ?? this.defaultAgencyRoot()
-    if (!root) {
-      this.catalogCache = []
-      return this.catalogCache
+    let baseCatalog: CatalogAgent[] = []
+    if (root) {
+      try {
+        baseCatalog = await scanCatalog({ root })
+      } catch (err) {
+        log.warn("no se pudo escanear el catálogo", { root, error: String(err) })
+      }
     }
-    try {
-      this.catalogCache = await scanCatalog({ root })
-    } catch (err) {
-      log.warn("no se pudo escanear el catálogo", { root, error: String(err) })
-      this.catalogCache = []
-    }
+    // Cargar agentes dinámicos creados por la factory
+    const dynamicAgents = await loadDynamicAgents(this.paths.projectRoot)
+    this.catalogCache = [...baseCatalog, ...dynamicAgents]
     return this.catalogCache
   }
 
@@ -383,23 +381,11 @@ export class Office {
     const client = this.options.client
     if (!client) return false
 
-    // El presupuesto de spawns se consume ACA. Antes el contador
-    // `spawnsUsed` nunca se incrementaba en ningun lado, asi que el
-    // invariante `max-spawns-total` no podia dispararse nunca: era una
-    // regla de papel.
     const state = await this.loadState()
     if (state.halt) {
       log.warn("spawn rechazado: la corrida esta detenida", { reason: state.halt.reason })
       return false
     }
-    if (state.budget.spawnsUsed >= state.budget.maxSpawnsTotal) {
-      log.warn("spawn rechazado: presupuesto de spawns agotado", {
-        used: state.budget.spawnsUsed,
-        max: state.budget.maxSpawnsTotal,
-      })
-      return false
-    }
-    state.budget.spawnsUsed += 1
     await this.saveState(state)
 
     try {
@@ -460,37 +446,6 @@ export class Office {
   /** ¿La corrida esta detenida? */
   isHalted(state: OfficeState): boolean {
     return state.halt !== null
-  }
-
-  /**
-   * Registra el uso de un agente (tokens y costo).
-   *
-   * Lo llama el hook de eventos, que ve cada mensaje del modelo. El costo
-   * real viene del motor: no lo estimamos.
-   */
-  async recordUsage(input: {
-    agentId: string
-    role?: string
-    cardId: string | null
-    phase: "implementation" | "review" | "repair" | "exploration" | "verification"
-    model: string
-    provider: string
-    cost: number
-    tokens: { input: number; output: number; reasoning: number; cache?: { read: number; write: number } }
-    latencyMs: number
-  }): Promise<void> {
-    const state = await this.loadState()
-    await this.cost.record(state.runId, {
-      agentId: input.agentId,
-      role: input.role ?? "agente",
-      cardId: input.cardId,
-      phase: input.phase,
-      model: input.model,
-      provider: input.provider,
-      cost: input.cost,
-      tokens: input.tokens,
-      latencyMs: input.latencyMs,
-    }, this.options.clock)
   }
 
   /**
@@ -617,17 +572,6 @@ export class Office {
       }
     }
 
-    state.budget.cardsUsed = assigned.length
-    // El limite de cards se valida ACA, no al cerrar. Antes se seteaba el
-    // contador sin comparar: un plan de 50 cards pasaba con maxCards = 20 y
-    // el invariante `max-cards` solo se evaluaba en closeCard, cuando ya
-    // era tarde.
-    if (state.budget.cardsUsed > this.limits.maxCards) {
-      throw new Error(
-        `[OFICINA] El plan tiene ${state.budget.cardsUsed} cards y el máximo es ${this.limits.maxCards}. ` +
-          `Partí el objetivo en corridas más chicas o subí el límite.`,
-      )
-    }
     // El status de corrida pasa por la tabla de transiciones, no por
     // mutación directa: `planning -> running` es una transición válida, pero
     // saltarse la tabla hace que el invariante no sirva para nada.
@@ -681,7 +625,6 @@ export class Office {
       await this.saveRoster(roster)
 
       transitionCard(freshState, card.id, "in_progress", { owner: agentId })
-      consumeAgentCall(freshState)
       if (sessionId) this.bindSession(freshState, sessionId, agentId, card.id)
       await this.saveState(freshState)
 
@@ -753,7 +696,6 @@ export class Office {
     } else {
       card.owner = agentId
     }
-    consumeAgentCall(state)
     if (sessionId) this.bindSession(state, sessionId, agentId, cardId)
     await this.saveState(state)
     return { ok: true, reason: `card ${cardId} reclamada` }

@@ -67,40 +67,7 @@ export function recordApproval(card: Card, note: string): Card {
   return card
 }
 
-/** Suma el presupuesto de llamadas a subagentes. */
-export function consumeAgentCall(state: OfficeState, calls = 1): void {
-  state.budget.agentCallsUsed += calls
-  state.updatedAt = nowIso()
-}
-
-/** Suma el presupuesto de cards. */
-export function consumeCard(state: OfficeState): void {
-  state.budget.cardsUsed += 1
-  state.updatedAt = nowIso()
-}
-
-/** Suma el presupuesto de spawns. */
-export function consumeSpawn(state: OfficeState): void {
-  state.budget.spawnsUsed += 1
-  state.updatedAt = nowIso()
-}
-
-/** ¿Queda presupuesto? */
-export function hasBudget(state: OfficeState, limits: Limits): { ok: boolean; reason: string } {
-  if (state.budget.cardsUsed >= state.budget.maxCards) {
-    return { ok: false, reason: `presupuesto de cards agotado (${state.budget.cardsUsed}/${state.budget.maxCards})` }
-  }
-  if (state.budget.agentCallsUsed >= state.budget.maxAgentCalls) {
-    return {
-      ok: false,
-      reason: `presupuesto de invocaciones agotado (${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls})`,
-    }
-  }
-  if (state.budget.spawnsUsed >= state.budget.maxSpawnsTotal) {
-    return {
-      ok: false,
-      reason: `presupuesto de spawns agotado (${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal})`,
-    }
-  }
-  return { ok: true, reason: "presupuesto disponible" }
+/** ¿Queda presupuesto? (siempre true tras eliminación del sistema de presupuesto) */
+export function hasBudget(_state: OfficeState, _limits: Limits): { ok: boolean; reason: string } {
+  return { ok: true, reason: "sin límites de presupuesto" }
 }

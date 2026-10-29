@@ -139,14 +139,13 @@ async function arrancar(options: { enforceScope?: boolean } = {}): Promise<Regis
 }
 
 describe("Plugin OFICINA (v2, OpenCode 2.x)", () => {
-  it("se inicializa y registra las 16 tools", async () => {
+  it("se inicializa y registra las 15 tools", async () => {
     const registro = await arrancar()
     const names = [...registro.tools.keys()].sort()
-    expect(names).toHaveLength(16)
+    expect(names).toHaveLength(15)
     expect(names).toContain("oficina_dispatch")
     expect(names).toContain("oficina_mesa")
     expect(names).toContain("oficina_evidence")
-    expect(names).toContain("oficina_cost")
     expect(names).toContain("oficina_stop")
   })
 

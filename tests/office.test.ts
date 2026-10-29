@@ -70,7 +70,6 @@ describe("Ciclo completo de la oficina", () => {
     ])
 
     expect(state.order).toEqual(["T-00", "T-01"])
-    expect(state.budget.cardsUsed).toBe(2)
     expect(state.status).toBe("running")
 
     const card = state.cards["T-00"]!

@@ -24,6 +24,8 @@
 import type { Ficha, FichaSource, CoordinatorId } from "./types.js"
 import { capabilityTokens } from "./catalog.js"
 import { shortId } from "./fsx.js"
+import { ensureDir, writeAtomic } from "./fsx.js"
+import path from "node:path"
 
 export interface FactoryInput {
   role: string
@@ -330,4 +332,171 @@ export class CandidateRegistry {
   all(): AgentCandidate[] {
     return [...this.candidates.values()].sort((a, b) => b.uses - a.uses)
   }
+}
+
+/**
+ * Genera el slug para el archivo de agente.
+ * Ej: "implementador-jwt-auth" -> "implementador-jwt-auth"
+ * (el prefijo "oficina-" lo añade agentNameFor al registrar en OpenCode)
+ */
+export function agentSlugFromRole(role: string): string {
+  return role.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
+/**
+ * Genera el frontmatter YAML para el archivo de agente.
+ */
+function generateAgentFrontmatter(displayName: string, description: string, vibe: string, capabilities: string[]): string {
+  const capsYaml = capabilities.length > 0
+    ? "\n  " + capabilities.map(c => `- ${c}`).join("\n  ")
+    : ""
+  return [
+    "---",
+    `name: ${displayName}`,
+    `description: ${description}`,
+    `vibe: ${vibe}`,
+    `mode: subagent`,
+    `permission:`,
+    `  edit: allow`,
+    `  shell: allow`,
+    `  task: allow`,
+    `capabilities:${capsYaml}`,
+    "---",
+    ""
+  ].join("\n")
+}
+
+/**
+ * Genera el cuerpo del agente usando la plantilla de 10 secciones de Agency-Agents.
+ */
+function generateAgentBody(
+  displayName: string,
+  role: string,
+  capabilities: string[],
+  mission: string,
+  failureModes: string[],
+  objective?: string
+): string {
+  const capabilitiesList = capabilities.join(", ") || role
+  const primaryDomain = capabilities[0] || role
+  const keyTechnologies = capabilities.slice(0, 5).join(", ")
+  const capabilityTokensStr = capabilities.join(" ")
+
+  const missionTitle = `### ${titleize(role)}`
+  const missionDesc = `- Ejecutá la card asignada con foco en: ${capabilitiesList}\n- Dejá el resultado en el formato que el briefing pide: handoff y evidencia\n- Pedí ayuda en el bus en cuanto detectes que la tarea se sale de tu dominio`
+
+  const failureModesList = failureModes.map(f => `- ${f}`).join("\n")
+
+  const objectiveSection = objective
+    ? `**Objetivo de la corrida:** ${objective}\n\n**Misión de tu card:** ${mission}\n`
+    : `**Misión de tu card:** ${mission}\n`
+
+  const sections = [
+    `# ${displayName} Agent Personality`,
+    "",
+    `You are **${displayName}**, a specialist in ${capabilitiesList} focused on ${mission.toLowerCase()}.`,
+    "",
+    "## Your Identity & Memory",
+    "",
+    `- **Role**: Specialist in ${primaryDomain} with deep expertise in ${keyTechnologies}.`,
+    `- **Personality**: Direct, pragmatic, and detail-oriented. You prefer the simplest robust solution and state explicitly when a rule or pattern does not apply.`,
+    `- **Memory**: You maintain state through durable disk artifacts and communication logs. You never rely on hidden session memory.`,
+    `- **Experience**: Seasoned implementer with strong instincts for edge cases, error handling, and security boundaries.`,
+    "",
+    "## Your Core Mission",
+    "",
+    missionTitle,
+    missionDesc,
+    "",
+    "## Critical Rules You Must Follow",
+    "",
+    "1. **Scope is a hard boundary, not a suggestion.** Touch only authorized files. The engine blocks unauthorized paths.",
+    "2. **No evidence, no work.** A claim without real command output (`evidence.md`) is only a hypothesis.",
+    "3. **Never review or approve your own work.** An independent reviewer audits your code.",
+    "4. **Ask before guessing.** If required context is missing, request it via the office bus (`oficina_bus`).",
+    "5. **Acknowledge gaps explicitly.** A handoff that hides omissions is worse than one that names them.",
+    "",
+    "## Your Technical Deliverables",
+    "",
+    "- Clean, tested code strictly within the assigned scope.",
+    "- `handoff.md`: Clear technical summary of what was implemented, decisions made, and remaining work.",
+    "- `evidence.md`: Verbatim terminal output showing exit codes from tests, builds, and verification commands.",
+    "",
+    "## Your Workflow Process",
+    "",
+    "### Step 1: Understand the Terrain",
+    "Inspect existing codebase, read your briefing, and check dependencies and constraints before modifying any file.",
+    "",
+    "### Step 2: Decide the Approach",
+    "Plan the minimal changes required to satisfy acceptance criteria. Ensure backward compatibility and strict type safety.",
+    "",
+    "### Step 3: Execute Within Scope",
+    "Implement code incrementally. Run tests and type checks after every logical change.",
+    "",
+    "### Step 4: Verify and Hand Off",
+    "Execute technical gates (build, lint, test, security scan). Generate `evidence.md` and `handoff.md`, then submit with `oficina_submit`.",
+    "",
+    "## Your Communication Style",
+    "",
+    "- **Direct and concise:** State facts, decisions, and blockers without conversational filler.",
+    "- **Structured triage:** When receiving help requests, evaluate scope, capacity, and context before accepting or declining.",
+    "- **Zero ambiguity:** Always cite exact file paths and error messages.",
+    "",
+    "## Learning & Memory",
+    "",
+    "Remember and build rigor in:",
+    ...failureModesList.split("\n"),
+    "",
+    "## Your Success Metrics",
+    "",
+    "You are successful when:",
+    "1. All assigned card acceptance criteria are satisfied with verifiable evidence.",
+    "2. The project compiles, typechecks, and passes all tests with exit code 0.",
+    "3. No out-of-scope files or secrets are touched.",
+    "",
+    "## Advanced Capabilities",
+    "",
+    capabilityTokensStr,
+    "",
+    "## Context of This Run",
+    "",
+    objectiveSection,
+  ]
+
+  return sections.join("\n")
+}
+
+/**
+ * Crea un archivo de agente persistente en `.opencode/agents/<slug>.md`.
+ *
+ * Este archivo es directamente usable por OpenCode como subagent (`@oficina-<slug>`)
+ * y es descubierto por el catálogo dinámico para matching futuro.
+ */
+export async function createPersistentAgent(
+  projectRoot: string,
+  input: FactoryInput
+): Promise<{ slug: string; filePath: string }> {
+  const displayName = input.displayName ?? titleize(input.role)
+  const capabilities = input.capabilities.length > 0
+    ? input.capabilities
+    : [...capabilityTokens(input.role)]
+
+  const mission = input.mission ?? `Resolver el trabajo que se te asigne en esta corrida.`
+  const failureModes = input.failureModes ?? defaultFailureModes(input.role)
+
+  const slug = agentSlugFromRole(input.role)
+  const agentsDir = path.join(projectRoot, ".opencode", "agents")
+  await ensureDir(agentsDir)
+
+  const filePath = path.join(agentsDir, `${slug}.md`)
+
+  const description = `${displayName} — ${capabilities.slice(0, 5).join(", ") || "especialista de la oficina"}`
+  const vibe = `Rol fabricado para esta corrida: ${capabilities.slice(0, 3).join(", ")}.`
+
+  const frontmatter = generateAgentFrontmatter(displayName, description, vibe, capabilities)
+  const body = generateAgentBody(displayName, input.role, capabilities, mission, failureModes, input.objective)
+
+  await writeAtomic(filePath, `${frontmatter}${body}\n`)
+
+  return { slug, filePath }
 }

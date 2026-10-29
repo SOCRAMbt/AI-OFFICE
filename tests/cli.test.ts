@@ -71,7 +71,7 @@ describe("CLI", () => {
     const { stdout, code } = await cli(["status", "--directory", tmp])
     expect(code).toBe(0)
     expect(stdout).toContain("OFICINA")
-    expect(stdout).toContain("Presupuesto")
+    expect(stdout).toContain("Estado:")
   })
 
   it("board muestra el tablero", async () => {

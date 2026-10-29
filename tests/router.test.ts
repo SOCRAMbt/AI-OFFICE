@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { routeCard, routeHelp, ownerStreak, ROLE_BY_CARD_TYPE } from "../src/core/router.js"
-import { decideRetry, recordRejection, hasBudget, consumeAgentCall } from "../src/core/retry.js"
+import { decideRetry, recordRejection, hasBudget } from "../src/core/retry.js"
 import { DEFAULT_LIMITS, type Card, type OfficeState, type Roster, type RosterEntry } from "../src/core/types.js"
 
 function entry(overrides: Partial<RosterEntry> = {}): RosterEntry {
@@ -186,27 +186,8 @@ describe("Política de 3 golpes", () => {
     expect(decideRetry(card(), DEFAULT_LIMITS).action).toBe("approve")
   })
 
-  it("el presupuesto se agota y se reporta el motivo", () => {
-    const base = {
-      budget: { cardsUsed: 0, maxCards: 20, agentCallsUsed: 0, maxAgentCalls: 40, spawnsUsed: 0, maxSpawnsTotal: 20 },
-    } as unknown as OfficeState
+  it("hasBudget siempre devuelve ok (sin sistema de presupuesto)", () => {
+    const base = {} as unknown as OfficeState
     expect(hasBudget(base, DEFAULT_LIMITS).ok).toBe(true)
-
-    const exhausted = {
-      ...base,
-      budget: { ...base.budget, cardsUsed: 20 },
-    }
-    const result = hasBudget(exhausted, DEFAULT_LIMITS)
-    expect(result.ok).toBe(false)
-    expect(result.reason).toContain("cards")
-  })
-
-  it("consumeAgentCall suma al presupuesto", () => {
-    const state = {
-      budget: { cardsUsed: 0, maxCards: 20, agentCallsUsed: 0, maxAgentCalls: 40, spawnsUsed: 0, maxSpawnsTotal: 20 },
-      updatedAt: "",
-    } as unknown as OfficeState
-    consumeAgentCall(state, 3)
-    expect(state.budget.agentCallsUsed).toBe(3)
   })
 })

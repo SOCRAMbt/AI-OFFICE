@@ -147,7 +147,6 @@ async function main(): Promise<number> {
         status: state.status,
         iteration: state.iteration,
         progress: `${done.length}/${cards.length}`,
-        budget: state.budget,
         pending: pending.map((c) => `${c.id} [${c.state}] ${c.title}`),
         blocked: blocked.map((c) => `${c.id}: ${c.result ?? "sin motivo"}`),
         deadAgents: dead.map((a) => `${a.id} (${a.role})`),
@@ -168,9 +167,7 @@ async function main(): Promise<number> {
       process.stdout.write(`\n🏢 OFICINA — ${state.objective}\n\n`)
       process.stdout.write(`Estado:    ${state.status}\n`)
       process.stdout.write(`Progreso:  ${payload.progress} cards DONE\n`)
-      process.stdout.write(
-        `Presupuesto: ${state.budget.cardsUsed}/${state.budget.maxCards} cards · ${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls} agentes · ${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal} spawns\n\n`,
-      )
+      process.stdout.write(`Cards:     ${Object.keys(state.cards).length} total\n\n`)
       if (payload.pending.length) {
         process.stdout.write("Pendientes:\n")
         for (const p of payload.pending) process.stdout.write(`  - ${p}\n`)

@@ -57,9 +57,8 @@ export interface MesaSnapshot {
   }[]
   /** Preguntas abiertas al equipo. */
   preguntasAbiertas: { messageId: string; from: string; question: string }[]
-  /** Iteración y presupuesto. */
+  /** Iteración. */
   iteracion: number
-  presupuesto: { cards: string; agentes: string; spawns: string }
 }
 
 /** Construye la foto de la mesa. */
@@ -134,11 +133,6 @@ export async function snapshotMesa(office: Office): Promise<MesaSnapshot> {
     ayudaAbierta,
     preguntasAbiertas,
     iteracion: state.iteration,
-    presupuesto: {
-      cards: `${state.budget.cardsUsed}/${state.budget.maxCards}`,
-      agentes: `${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls}`,
-      spawns: `${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal}`,
-    },
   }
 }
 
@@ -151,7 +145,7 @@ function isExpired(message: BusMessage): boolean {
 export function renderMesa(snapshot: MesaSnapshot): string {
   const lines: string[] = ["# Mesa de la oficina", ""]
 
-  lines.push(`**Iteración:** ${snapshot.iteracion} · **Presupuesto:** ${snapshot.presupuesto.cards} cards, ${snapshot.presupuesto.agentes} agentes, ${snapshot.presupuesto.spawns} spawns`)
+  lines.push(`**Iteración:** ${snapshot.iteracion}`)
   lines.push("")
 
   lines.push("## Quién está trabajando")

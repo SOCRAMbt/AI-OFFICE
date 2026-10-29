@@ -193,51 +193,7 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
         return
       }
 
-      // ── Contabilidad de costo ──
-      //
-      // El motor ya sabe cuanto costo cada llamada (`AssistantMessage.cost`)
-      // y cuantos tokens consumio. La oficina lo anota, lo desglosa por
-      // card, agente y fase, y lo presupuesta. No estimamos nada: el
-      // numero real es el que llega.
-      if (event.type === "message.updated") {
-        const info = event.properties?.info as
-          | {
-              role?: string
-              sessionID?: string
-              cost?: number
-              tokens?: {
-                input: number
-                output: number
-                reasoning: number
-                cache?: { read: number; write: number }
-              }
-              modelID?: string
-              providerID?: string
-              time?: { created?: number; completed?: number }
-            }
-          | undefined
-        if (info?.role === "assistant" && info.cost !== undefined) {
-          try {
-            const state = await office.loadState()
-            const binding = info.sessionID ? state.sessions[info.sessionID] : undefined
-            const cardId = binding?.cardId ?? null
-            await office.recordUsage({
-              agentId: binding?.agentId ?? info.sessionID ?? "desconocido",
-              role: binding?.agentId ?? "agente",
-              cardId,
-              phase: cardId ? "implementation" : "exploration",
-              model: info.modelID ?? "desconocido",
-              provider: info.providerID ?? "desconocido",
-              cost: info.cost,
-              tokens: info.tokens ?? { input: 0, output: 0, reasoning: 0 },
-              latencyMs: (info.time?.completed ?? 0) - (info.time?.created ?? 0),
-            })
-          } catch (err) {
-            log.debug("no se pudo registrar el uso", { error: String(err) })
-          }
-        }
-      }
-    },
+      },
 
     "tool.execute.before": async (hookInput, hookOutput) => {
       await onScopeGuard(

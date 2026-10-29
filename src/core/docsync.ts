@@ -30,7 +30,6 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { scanCatalog } from "./catalog.js"
 import { buildTools } from "../tools/index.js"
-import { DEFAULT_LIMITS } from "./types.js"
 
 export const FACTS_BEGIN = "<!-- BEGIN GENERATED: facts -->"
 export const FACTS_END = "<!-- END GENERATED: facts -->"
@@ -68,15 +67,6 @@ export interface ProjectFacts {
   pluginApi: { version: string; range: string }
   /** Requisitos de runtime. */
   runtime: { node: string }
-  /** Limites por defecto. */
-  limits: {
-    maxCards: number
-    maxAgentCalls: number
-    maxSpawnsTotal: number
-    maxConcurrentAgents: number
-    leaseTtlSec: number
-    minCatalogCoverage: number
-  }
   /** Catalogo, si se pudo escanear. */
   catalog: CatalogFacts | null
 }
@@ -184,14 +174,6 @@ export async function computeFacts(options: ComputeFactsOptions): Promise<Projec
     hooks: 7,
     pluginApi: await readPluginApiVersion(projectRoot),
     runtime: { node: `>=${nodeVersion}` },
-    limits: {
-      maxCards: DEFAULT_LIMITS.maxCards,
-      maxAgentCalls: DEFAULT_LIMITS.maxAgentCalls,
-      maxSpawnsTotal: DEFAULT_LIMITS.maxSpawnsTotal,
-      maxConcurrentAgents: DEFAULT_LIMITS.maxConcurrentAgents,
-      leaseTtlSec: DEFAULT_LIMITS.leaseTtlSec,
-      minCatalogCoverage: DEFAULT_LIMITS.minCatalogCoverage,
-    },
     catalog,
   }
 }
@@ -218,13 +200,6 @@ export function renderFactsBlock(facts: ProjectFacts): string {
   } else {
     rows.push(`| **Catálogo** | (no se pudo escanear en esta máquina) |`)
   }
-  rows.push(
-    `| **Límites** | ${facts.limits.maxCards} cards · ${facts.limits.maxAgentCalls} llamadas · ` +
-      `${facts.limits.maxSpawnsTotal} spawns · ${facts.limits.maxConcurrentAgents} agentes |`,
-  )
-  rows.push(
-    `| **Cobertura mínima** | ${(facts.limits.minCatalogCoverage * 100).toFixed(0)}% |`,
-  )
   return rows.join("\n")
 }
 

@@ -43,7 +43,7 @@ function mockHost() {
 }
 
 describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
-  it("se inicializa y registra las 16 tools", async () => {
+  it("se inicializa y registra las 15 tools", async () => {
     const { input } = mockHost()
     const hooks = await OficinaPlugin(input)
 
@@ -54,7 +54,6 @@ describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
       "oficina_board",
       "oficina_brief",
       "oficina_bus",
-      "oficina_cost",
       "oficina_dispatch",
       "oficina_escalate",
       "oficina_evidence",

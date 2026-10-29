@@ -33,7 +33,7 @@ import path from "node:path"
 import type { Card, CatalogAgent, Ficha, OfficeState, Roster, RosterEntry } from "./types.js"
 import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
-import { createFicha } from "./factory.js"
+import { createFicha, createPersistentAgent } from "./factory.js"
 import { ensureDir, nowIso, stableHash, writeAtomic } from "./fsx.js"
 import type { Office } from "./office.js"
 
@@ -44,7 +44,7 @@ export interface DispatchOptions {
   catalog: CatalogAgent[]
   /** Objetivo de la corrida, para los prompts de factory. */
   objective: string
-  /** Máximo de agentes a materializar. */
+  /** Máximo de agentes a materializar en este despacho (límite de concurrencia). */
   maxAgents: number
   /** Tope de complementos por card. */
   maxComplements: number
@@ -254,7 +254,8 @@ export async function dispatchOffice(
   const roster = await office.loadRoster(state.runId)
   const alreadyDeployed = new Map(options.existing.map((e) => [e.role, e]))
 
-  let budget = options.maxAgents
+  let agentsDispatched = 0
+  const maxAgents = options.maxAgents
 
   for (const cardId of state.order) {
     const card = state.cards[cardId]
@@ -266,9 +267,9 @@ export async function dispatchOffice(
       minCoverage: options.minCoverage,
     })
 
-    if (budget <= 0) {
+    if (agentsDispatched >= maxAgents) {
       result.unassigned.push(cardId)
-      result.notes.push(`Sin presupuesto de agentes: ${cardId} quedó sin owner.`)
+      result.notes.push(`Límite de agentes alcanzado (${maxAgents}): ${cardId} quedó sin owner.`)
       continue
     }
 
@@ -290,7 +291,7 @@ export async function dispatchOffice(
         )
         continue
       }
-      budget -= 1
+      agentsDispatched += 1
       result.dispatched.push(fabricando)
       card.owner = fabricando.agentId
       card.reviewer = null
@@ -327,7 +328,7 @@ export async function dispatchOffice(
       result.unassigned.push(cardId)
       continue
     }
-    budget -= 1
+    agentsDispatched += 1
     result.dispatched.push(primary)
     card.owner = primary.agentId
     card.reviewer = null // el Integrador lo asigna después
@@ -336,9 +337,9 @@ export async function dispatchOffice(
     // complementos. El hueco real se calcula al final, cuando ya sabemos
     // quién cubre qué.
     for (const complement of panel.complements) {
-      if (budget <= 0) {
+      if (agentsDispatched >= maxAgents) {
         result.notes.push(
-          `Sin presupuesto para materializar el complemento ${complement.agent.slug} de ${cardId}.`,
+          `Límite de agentes alcanzado (${maxAgents}): no se pudo materializar complemento ${complement.agent.slug} de ${cardId}.`,
         )
         break
       }
@@ -355,7 +356,7 @@ export async function dispatchOffice(
         alreadyDeployed.get(complement.agent.slug),
       )
       if (!peer) continue
-      budget -= 1
+      agentsDispatched += 1
       result.dispatched.push(peer)
       // Actualizar alreadyDeployed para que las siguientes tarjetas reutilicen este peer
       const peerEntry = roster.agents[peer.agentId]
@@ -386,6 +387,9 @@ export async function dispatchOffice(
  * Un rol fabricado con el contexto de la card es peor en充电 y mejor en
  * todo lo demás: conoce el objetivo, el scope y los modos de fallo, y su
  * briefing tiene las mismas 10 secciones que el de un agente del catálogo.
+ *
+ * AHORA: el agente se crea como archivo persistente en `.opencode/agents/`
+ * y se añade al catálogo dinámico para que futuras cards lo puedan usar.
  */
 async function instantiateFactory(
   office: Office,
@@ -395,6 +399,47 @@ async function instantiateFactory(
 ): Promise<DispatchedAgent | undefined> {
   const capabilities = card.requiredCapabilities.length > 0 ? card.requiredCapabilities : ["implementacion"]
   const role = `implementador-${capabilities.slice(0, 2).join("-")}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()
+
+  // Crear agente persistente (archivo .md en .opencode/agents/)
+  const persistent = await createPersistentAgent(options.projectRoot, {
+    role,
+    displayName: `Implementador (${capabilities.slice(0, 3).join(", ")})`,
+    capabilities,
+    scope: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden },
+    canDelegate: true,
+    objective: options.objective,
+    mission: `Entregar ${card.title} cumpliendo exactamente: ${card.acceptance.join("; ")}.`,
+    failureModes: [
+      "El entregable no compila o el gate falla",
+      "Se escribio fuera del scope de la card",
+      "La evidencia no demuestra los criterios de aceptacion",
+    ],
+  })
+
+  // Añadir al catálogo dinámico para que futuras cards lo matchen
+  const dynamicAgent: CatalogAgent = {
+    slug: persistent.slug,
+    displayName: `Implementador (${capabilities.slice(0, 3).join(", ")})`,
+    description: `Especialista fabricado para ${capabilities.join(", ")}`,
+    vibe: `Rol fabricado para esta corrida: ${capabilities.slice(0, 3).join(", ")}.`,
+    division: "factory",
+    path: `.opencode/agents/${persistent.slug}.md`,
+    capabilities,
+    missions: [`Entregar ${card.title} cumpliendo exactamente: ${card.acceptance.join("; ")}.`],
+    deliverables: ["handoff.md", "evidence.md"],
+    advanced: capabilities,
+    rules: [
+      "Scope is a hard boundary, not a suggestion.",
+      "No evidence, no work.",
+      "Never review your own work.",
+      "Ask before guessing via oficina_bus.",
+      "Acknowledge gaps explicitly.",
+    ],
+    sections: {},
+    sourcePrompt: "",
+    searchText: `${persistent.slug} ${capabilities.join(" ")} ${card.title} ${card.acceptance.join(" ")}`,
+  }
+  options.catalog.push(dynamicAgent)
 
   const ficha = createFicha({
     role,

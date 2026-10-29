@@ -197,7 +197,7 @@ export function buildTools(office: Office): Record<string, OficinaTool> {
         const lines: string[] = [
           `# OFICINA — ${state.objective}`,
           "",
-          `**Estado:** ${state.status} · **iteración:** ${state.iteration} · **presupuesto:** ${state.budget.cardsUsed}/${state.budget.maxCards} cards, ${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls} agentes, ${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal} spawns`,
+          `**Estado:** ${state.status} · **iteración:** ${state.iteration} · **cards:** ${Object.keys(state.cards).length}`,
           "",
           "## Cards",
           "",
@@ -215,11 +215,11 @@ export function buildTools(office: Office): Record<string, OficinaTool> {
         ]
 
         return {
-          title: `Oficina: ${state.status} · ${state.budget.cardsUsed} cards`,
+          title: `Oficina: ${state.status} · ${Object.keys(state.cards).length} cards`,
           output: lines.join("\n"),
           metadata: {
             status: state.status,
-            cards: state.budget.cardsUsed,
+            cards: Object.keys(state.cards).length,
             idle: idle.length,
             dead: dead.length,
           },
@@ -577,10 +577,6 @@ export function buildTools(office: Office): Record<string, OficinaTool> {
             requested_role: args.requestedRole,
             capabilities: args.capabilities,
             reason: args.reason,
-            budget: {
-              spawns_used: state.budget.spawnsUsed,
-              spawns_remaining: state.budget.maxSpawnsTotal - state.budget.spawnsUsed,
-            },
           },
           idempotencyKey: `spawn:${args.requestedRole}:${args.agentId}`,
         })
@@ -1084,66 +1080,7 @@ export function buildTools(office: Office): Record<string, OficinaTool> {
       },
     }),
 
-    /**
-     * El costo de la corrida.
-     */
-    oficina_cost: tool({
-      description:
-        "El costo real de la corrida: tokens y USD por card, por agente y por fase de trabajo, " +
-        "con los presupuestos y cuánto falta para cada límite. También mide trabajo redundante " +
-        "(releer el mismo contexto, repetir el mismo comando). Usá `estimate` antes de arrancar " +
-        "una corrida grande.",
-      args: {
-        action: z.enum(["report", "estimate", "redundancy"]).default("report"),
-        cards: z.number().int().min(1).max(100).default(10).describe("Para estimate: cards estimadas."),
-        agentsPerCard: z.number().int().min(1).max(10).default(2).describe("Para estimate: agentes por card."),
-        callsPerAgent: z.number().int().min(1).max(100).default(10).describe("Para estimate: llamadas por agente."),
-        usdPerCall: z.number().min(0).default(0.02).describe("Para estimate: USD por llamada."),
-      },
-      async execute(args, ctx) {
-        const { checkBudget, estimateRun, renderCostReport, DEFAULT_COST_LIMITS } = await import(
-          "../core/cost.js"
-        )
-        const state = await officeOf(ctx).loadState()
-        const ledger = await officeOf(ctx).cost.load(state.runId)
-
-        if (args.action === "estimate") {
-          const est = estimateRun(args.cards, args.agentsPerCard, args.callsPerAgent, args.usdPerCall)
-          return {
-            title: `Estimación: ~$${est.usd.toFixed(2)}`,
-            output:
-              `**Estimación previa**\n\n` +
-              `- Cards: ${args.cards}\n` +
-              `- Agentes por card: ${args.agentsPerCard}\n` +
-              `- Llamadas por agente: ${args.callsPerAgent}\n` +
-              `- USD por llamada: $${args.usdPerCall}\n\n` +
-              `**Costo estimado: ~$${est.usd.toFixed(2)}** · ~${est.tokens.toLocaleString("es-AR")} tokens\n\n` +
-              `_${est.note}_`,
-            metadata: { usd: est.usd, tokens: est.tokens },
-          }
-        }
-
-        if (args.action === "redundancy") {
-          const { detectRedundantWork } = await import("../core/cost.js")
-          const report = detectRedundantWork([])
-          return {
-            title: "Trabajo redundante",
-            output: report.summary,
-            metadata: { wasted: report.wastedFraction },
-          }
-        }
-
-        const decision = checkBudget(ledger, DEFAULT_COST_LIMITS)
-        return {
-          title: `Costo: $${ledger.total.usd.toFixed(4)} · ${ledger.total.calls} llamadas`,
-          output:
-            renderCostReport(ledger, DEFAULT_COST_LIMITS) +
-            `\n\n**Veredicto de presupuesto:** ${decision.allowed ? "dentro de los límites" : `EXCEDIDO (${decision.breached})`}\n` +
-            `${decision.reason}`,
-          metadata: { usd: ledger.total.usd, allowed: decision.allowed, breached: decision.breached },
-        }
-      },
-    }),
+    
 
     /**
      * El freno de emergencia.
