@@ -35,6 +35,7 @@ import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
 import { createFicha, createPersistentAgent } from "./factory.js"
 import { ensureDir, nowIso, stableHash, writeAtomic } from "./fsx.js"
+import { renderEnvironmentSheet } from "./environment.js"
 import type { Office } from "./office.js"
 
 export interface DispatchOptions {
@@ -106,6 +107,11 @@ export function agentNameFor(role: string): string {
  */
 export function buildAgentPrompt(ficha: Ficha, briefing: Briefing): string {
   const sections: string[] = []
+
+  // La hoja de entorno va PRIMERO: antes de que el agente toque shell o
+  // execute, tiene que saber qué runtime tiene enfrente. Va primero para
+  // que el modelo lo lea antes que cualquier instrucción de trabajo.
+  sections.push(renderEnvironmentSheet())
 
   if (ficha.source.sourcePrompt) {
     sections.push(
@@ -202,6 +208,12 @@ export async function materializeAgent(
     `# ${ficha.displayName}`,
     "",
     "> Agente generado por la OFICINA. Su especialidad viene del catálogo de agency-agents.",
+    "",
+    "## Tu entorno de ejecución",
+    "",
+    "```markdown",
+    renderEnvironmentSheet(),
+    "```",
     "",
     "## Tu especialidad (prompt de origen)",
     "",

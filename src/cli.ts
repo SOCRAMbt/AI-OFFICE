@@ -44,6 +44,7 @@ Uso: oficina <comando> [opciones]
 Comandos:
   init [objetivo]      Crea la estructura .oficina/ en el proyecto
   status               Muestra el estado de la corrida
+  dashboard            Abre el dashboard visual en tiempo real (http://localhost:7333)
   board                Muestra el tablero Kanban
   bus                  Muestra estadísticas del bus
   audit [cardId]       Audita una card: artefactos, gates, review
@@ -59,6 +60,8 @@ Opciones:
   --json                 Salida en JSON
   --force                No pedir confirmación (para reset)
   --force-new-run        Crear nueva corrida aunque exista estado corrupto (para init)
+  --port <n>             Puerto del dashboard (default 7333; negocia el siguiente si está ocupado)
+  --no-open              No abrir el navegador al arrancar el dashboard
 `)
 }
 
@@ -258,6 +261,23 @@ async function main(): Promise<number> {
         process.stdout.write("\n")
       }
       return 0
+    }
+
+    case "dashboard": {
+      const { startDashboard, openBrowser } = await import("./core/dashboard.js")
+      const portArg = arg("port")
+      const info = await startDashboard(office.paths.projectRoot, office.paths.officeDir, {
+        port: portArg ? Number(portArg) : undefined,
+      })
+      if (info) {
+        if (!flag("no-open")) openBrowser(info.url)
+        if (json) emit(true, { ok: true, url: info.url, port: info.port })
+        else process.stdout.write(`\n✅ Dashboard en vivo: ${info.url}\n`)
+        return 0
+      }
+      if (json) emit(true, { ok: false, error: "DASHBOARD_UNAVAILABLE" })
+      else process.stderr.write("\n❌ No se pudo arrancar el dashboard (¿falta el paquete instalado?).\n")
+      return 1
     }
 
     case "audit": {

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Debate · Oficina de Agents</title>
+    <meta
+      name="description"
+      content="Panel de debate/brainstorming trazable: pedidos de ayuda broadcast (HELP_REQUEST a '*') y sus respuestas anidadas."
+    />
+    <link rel="stylesheet" href="lib/debate.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#threads">Saltar al debate</a>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">◍</span>
+        <div class="brand-text">
+          <h1>Debate</h1>
+          <p class="sub">HELP_REQUEST broadcast · respuestas anidadas · trazabilidad</p>
+        </div>
+      </div>
+      <div class="topbar-tools">
+        <span id="conn" class="conn conn-live" role="status">en vivo</span>
+        <span id="updated" class="muted">sin datos</span>
+        <button type="button" class="ghost" data-action="pause" aria-pressed="false" title="Pausar/reanudar la lectura (p)">Pausar</button>
+        <button type="button" class="ghost" data-action="reload" title="Refrescar ahora (r)">Refrescar</button>
+        <button type="button" class="ghost icon" data-action="theme" aria-label="Cambiar tema claro/oscuro" title="Tema claro/oscuro">◐</button>
+        <button type="button" class="ghost icon" data-action="help" aria-label="Ayuda y atajos" title="Ayuda y atajos (?)">?</button>
+      </div>
+    </header>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <section class="stats" aria-label="Resumen de hilos">
+      <div class="stat">
+        <span class="stat-label">Hilos</span>
+        <strong id="stat-all">0</strong>
+      </div>
+      <div class="stat stat-pending">
+        <span class="stat-label">Esperando</span>
+        <strong id="stat-pending">0</strong>
+      </div>
+      <div class="stat stat-progress">
+        <span class="stat-label">En curso</span>
+        <strong id="stat-progress">0</strong>
+      </div>
+      <div class="stat stat-done">
+        <span class="stat-label">Completados</span>
+        <strong id="stat-done">0</strong>
+      </div>
+      <div class="stat stat-declined">
+        <span class="stat-label">Rechazados</span>
+        <strong id="stat-declined">0</strong>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="search">
+        <label class="sr-only" for="filter-q">Buscar en hilos y respuestas</label>
+        <input
+          id="filter-q"
+          type="search"
+          autocomplete="off"
+          placeholder="Buscar agente, card o texto  ( / )"
+        />
+      </div>
+      <label class="sr-only" for="filter-status">Filtrar por estado</label>
+      <select id="filter-status">
+        <option value="all">Todos (0)</option>
+        <option value="pending">Esperando (0)</option>
+        <option value="accepted">Aceptados (0)</option>
+        <option value="partial">Parciales (0)</option>
+        <option value="declined">Rechazados (0)</option>
+        <option value="completed">Completados (0)</option>
+      </select>
+      <label class="sr-only" for="filter-agent">Filtrar por agente</label>
+      <select id="filter-agent">
+        <option value="">Todos los agentes</option>
+      </select>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" data-action="expand-all" title="Abrir todos los hilos (e)">Expandir todo</button>
+      <button type="button" class="ghost" data-action="collapse-all" title="Cerrar todos los hilos (x)">Colapsar todo</button>
+    </div>
+
+    <p id="count-label" class="count-label">0 hilos</p>
+
+    <main id="threads" class="threads" aria-busy="true" aria-label="Hilos de debate"></main>
+    <div id="empty" class="empty"></div>
+
+    <footer id="footer-meta" class="footer"></footer>
+
+    <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <dialog id="help" class="help" aria-labelledby="help-title">
+      <h2 id="help-title">Cómo usar el panel de debate</h2>
+      <ul class="help-list">
+        <li><strong>Qué muestra:</strong> cada <code>HELP_REQUEST</code> dirigido a <code>["*"]</code> (o a varios agentes) abre un hilo. Debajo se anidan las respuestas: <code>HELP_ACCEPT</code>, <code>HELP_DECLINE</code>, <code>HELP_PARTIAL</code> y <code>HELP_QUESTION</code>, más el <code>STATUS</code>/<code>ANSWER</code> con el que se cierra.</li>
+        <li><strong>Estado:</strong> esperando → aceptado / parcial / rechazado → completado. Se completa cuando el hilo recibe una señal de cierre o el TTL del pedido vence.</li>
+        <li><strong>Datos en vivo:</strong> corré <code>node dashboard/server.mjs</code> y abrí <code>http://127.0.0.1:7788/debate.html</code>. El server lee <code>.oficina/bus/</code> en modo sólo lectura.</li>
+        <li><strong>Sin server:</strong> arrastrá los JSON de <code>.oficina/bus/peer/</code> sobre la página, o usá <code>?demo=1</code> para ver datos sintéticos.</li>
+      </ul>
+      <h3>Atajos</h3>
+      <dl class="keys">
+        <dt><kbd>/</kbd></dt><dd>Buscar</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Moverse entre hilos</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Abrir / cerrar el hilo enfocado</dd>
+        <dt><kbd>e</kbd> / <kbd>x</kbd></dt><dd>Expandir / colapsar todo</dd>
+        <dt><kbd>p</kbd></dt><dd>Pausar / reanudar actualización</dd>
+        <dt><kbd>r</kbd></dt><dd>Refrescar</dd>
+        <dt><kbd>?</kbd></dt><dd>Esta ayuda</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cerrar ayuda / salir del buscador</dd>
+      </dl>
+      <form method="dialog" class="help-actions">
+        <button type="button" class="ghost" data-action="pick-files">Cargar JSON del bus</button>
+        <button type="button" class="ghost" data-action="demo">Ver demo</button>
+        <button value="close" type="submit">Cerrar</button>
+      </form>
+    </dialog>
+
+    <div id="dropzone" class="dropzone" hidden>
+      <p>Soltá los JSON del bus (peer/, coord-flow/…) para construir el debate</p>
+    </div>
+
+    <label class="sr-only" for="file-input">Archivos JSON del bus</label>
+    <input id="file-input" class="sr-only" type="file" accept="application/json,.json" multiple />
+
+    <script src="lib/debate-core.js"></script>
+    <script src="lib/debate-data.js"></script>
+    <script src="lib/debate-demo.js"></script>
+    <script src="lib/debate-app.js"></script>
+  </body>
+</html>

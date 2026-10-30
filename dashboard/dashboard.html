@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oficina &#183; Sala de Operaciones</title>
+<meta name="description" content="Dashboard visual en tiempo real de la Oficina de Agents: mesa, bus de mensajes, kanban de cards y gates de calidad.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<a class="skip-link" href="#main-content">Saltar al contenido</a>
+<div class="app">
+
+  <!-- ================= HEADER ================= -->
+  <header class="topbar">
+    <div class="brand">
+      <h1>Oficina</h1>
+      <span class="run-id" id="run-id">sin corrida</span>
+    </div>
+    <span class="conn" id="conn" data-state="offline" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="conn-label">Conectando&#8230;</span>
+    </span>
+    <div class="spacer"></div>
+    <button class="btn" id="btn-replay" aria-pressed="false" title="Reproducir la sesi&oacute;n paso a paso (R)">Replay</button>
+    <button class="btn" id="btn-theme" title="Cambiar tema (T)">Tema</button>
+  </header>
+
+  <div class="demo-banner" id="demo-banner" hidden>
+    Modo demo: no hay corrida activa en <code>.oficina/</code>. Los datos que ves son simulados.
+  </div>
+
+  <!-- ================= METRICAS ================= -->
+  <section class="metrics" aria-label="M&eacute;tricas de la corrida">
+    <div class="metric"><b id="m-cards">0</b><span>cards</span></div>
+    <div class="metric"><b id="m-active">0</b><span>trabajando</span></div>
+    <div class="metric"><b id="m-free">0</b><span>libres</span></div>
+    <div class="metric"><b id="m-msgs">0</b><span>mensajes bus</span></div>
+    <div class="metric" data-hot="true"><b id="m-blocked">0</b><span>bloqueadas</span></div>
+    <div class="metric"><b id="m-done">0</b><span>done</span></div>
+  </section>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main" id="main-content">
+
+    <!-- IZQUIERDA: mesa + gates -->
+    <section class="panel" aria-labelledby="h-mesa">
+      <header>
+        <h2 id="h-mesa">Mesa</h2>
+        <span class="count" id="mesa-count"></span>
+      </header>
+      <div class="panel-body">
+        <div class="mesa-wrap">
+          <svg id="mesa-svg" viewBox="0 0 360 360" role="img" aria-label="Mesa de la oficina: agentes y su estado"></svg>
+        </div>
+        <div class="mesa-legend">
+          <span><i style="background:var(--accent)"></i>trabajando</span>
+          <span><i style="background:var(--ok)"></i>libres</span>
+          <span><i style="background:var(--err)"></i>sin heartbeat</span>
+          <span><i style="background:var(--card-escalated)"></i>card sin owner</span>
+        </div>
+        <div class="gates-panel" id="gates" aria-label="Gates de calidad">
+          <div class="gates-links">
+            <a href="#" id="link-evidence" hidden>evidence.md</a>
+            <a href="#" id="link-handoff" hidden>handoff.md</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTRO: bus -->
+    <section class="panel" aria-labelledby="h-bus">
+      <header>
+        <h2 id="h-bus">Bus de mensajes</h2>
+        <span class="count" id="bus-count"></span>
+      </header>
+      <div class="panel-body">
+        <div class="bus-stream" id="bus-stream" role="log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- DERECHA: jefe -->
+    <section class="panel panel-right" aria-labelledby="h-chief">
+      <header>
+        <h2 id="h-chief">Decisiones del jefe</h2>
+        <span class="count" id="chief-count"></span>
+      </header>
+      <div class="panel-body">
+        <div class="chief-feed" id="chief-feed" aria-live="polite"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= KANBAN ================= -->
+  <section class="board-section" aria-labelledby="h-board">
+    <h2 id="h-board" class="board-title">Cards</h2>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- ================= REPLAY ================= -->
+  <footer class="replay" id="replay" hidden>
+    <button class="btn" id="btn-play" aria-label="Reproducir replay" aria-pressed="false">
+      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>
+    </button>
+    <input type="range" id="replay-range" min="0" max="0" value="0" aria-label="Posici&oacute;n de replay">
+    <span class="clock" id="replay-clock">00:00:00</span>
+  </footer>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+
+<script type="module" src="dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,671 @@
+{
+  "meta": {
+    "runId": "run-87fc0537",
+    "objective": "",
+    "status": "running",
+    "iteration": 0,
+    "updatedAt": "2026-10-29T17:39:24.040Z",
+    "generatedAt": "2026-10-29T17:42:05.317Z",
+    "generator": "dashboard/build-kanban-data.mjs"
+  },
+  "agents": {
+    "e-testing-api-tester": {
+      "id": "e-testing-api-tester",
+      "displayName": "API Tester",
+      "role": "testing-api-tester",
+      "state": "idle_available",
+      "currentCard": null
+    },
+    "e-design-ui-finish-gate-reviewer": {
+      "id": "e-design-ui-finish-gate-reviewer",
+      "displayName": "UI Finish-Gate Reviewer",
+      "role": "design-ui-finish-gate-reviewer",
+      "state": "idle_available",
+      "currentCard": null
+    },
+    "e-xr-immersive-developer": {
+      "id": "e-xr-immersive-developer",
+      "displayName": "XR Immersive Developer",
+      "role": "xr-immersive-developer",
+      "state": "working",
+      "currentCard": "T-07"
+    }
+  },
+  "cards": [
+    {
+      "id": "T-00",
+      "title": "Cablear el guard anti-gate-verde-vacío en el runner de gates",
+      "type": "bugfix",
+      "state": "done",
+      "owner": "e-testing-api-tester",
+      "reviewer": null,
+      "requiredCapabilities": [
+        "typescript",
+        "testing",
+        "vitest",
+        "node"
+      ],
+      "scope": {
+        "mayTouch": [
+          "src/core/gates.ts",
+          "src/core/office.ts",
+          "tests/gates.test.ts"
+        ],
+        "forbidden": [
+          "src/hooks/**",
+          "src/cli.ts",
+          "dist/**",
+          "node_modules/**",
+          ".oficina/**"
+        ]
+      },
+      "acceptance": [
+        "runTechnicalGates participa del guard: si la fase test sale con exit 0 pero testsActuallyRan es false, la fase test se reporta como not_run con reason explícita de gate verde vacío (no PASS silencioso ni silencioso en otros campos)",
+        "si testsActuallyRan es true (p. ej. conteo legible '5 passed' o 'Tests: 5'), la fase test sigue en PASS sin regresión",
+        "consolidate con ese resultado produce technicalOutcome fail/not_run (passed=false) y renderGate muestra el motivo de forma legible",
+        "pmOfficeOffice.runGates / flujo Office.runGates queda cableado al guard vía runTechnicalGates (sin duplicar lógica)",
+        "regresión cubierta por tests vitest nuevos en tests/gates.test.ts (existen ya tests de testsActuallyRan; se agregan los del cableado)",
+        "npm run typecheck sin errores y npm test todo en verde (las 456 existentes + nuevas)"
+      ],
+      "gate": "npm run typecheck && npm test (exit 0, 0 tests fallidos)",
+      "dependsOn": [],
+      "attempts": 1,
+      "rejections": 1,
+      "artifacts": ".oficina\\artifacts\\T-00",
+      "result": "APROBADO: REWORK 2 verificado (secuencia post-gate FAIL de secrecy): fixtures literales de secretos en tests/gates.test.ts neutralizados por concatenación — runtime byte-a-byte idéntico (evaluado directo: FAKE_SK_LIVE ≡ sk_live_abcdef123456, FAKE_AKIA ≡ AKIAIOSFODNN7EXAMPLE), los tests de comportamiento de runSecurityGate siguen detectando secretos reales (29/29 en el archivo). Scanner sin cambios (decisión correcta: no excluir tests/** — no oculta secretos reales). Escaneo real del revisor: tests/gates.test.ts → [], src/core/gates.ts → [], src/core/office.ts → [], repositorio entero → []. C-001 sigue resuelto (sin deltas en gates.ts/office.ts desde mi aprobación previa). Findings ≥80: ninguno. Verificación independiente: typecheck exit 0; npm test 27 archivos / 466 passed, exit 0. Review completo en .oficina/artifacts/T-00/review-rework2.md.",
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-01",
+      "title": "Explorar estructura .oficina/ y definir schema de datos para el dashboard",
+      "type": "exploration",
+      "state": "todo",
+      "owner": "e-design-ui-finish-gate-reviewer",
+      "reviewer": "e-testing-api-tester",
+      "requiredCapabilities": [
+        "typescript",
+        "node",
+        "filesystem"
+      ],
+      "scope": {
+        "mayTouch": [
+          ".oficina/**"
+        ],
+        "forbidden": [
+          "src/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Mapear todos los archivos en .oficina/ (state.json, roster.json, bus/*, evidence/*, leases/*, context.md, cost.json)",
+        "Definir TypeScript interfaces para cada tipo de dato que el dashboard consumira",
+        "Identificar que archivos cambian en tiempo real y frecuencia de actualizacion",
+        "Documentar estructura de mensajes en bus/ y formato de envelopes"
+      ],
+      "gate": "TypeScript interfaces validadas y documentadas en artifacts/T-01/handoff.md",
+      "dependsOn": [],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-01",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-02",
+      "title": "Arquitectura del dashboard: single-page app con polling/WebSocket sobre archivos",
+      "type": "design",
+      "state": "todo",
+      "owner": "e-design-ui-finish-gate-reviewer",
+      "reviewer": "e-testing-api-tester",
+      "requiredCapabilities": [
+        "frontend-architecture",
+        "typescript",
+        "real-time-systems"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Diseno de arquitectura: HTML unico + CSS + JS vanilla/Alpine.js sin build step",
+        "Estrategia de polling: intervalos adaptativos por tipo de dato (state.json: 500ms, bus: 1s, roster: 2s)",
+        "WebSocket fallback si se detecta servidor (opcional, documentar)",
+        "Tema oscuro/claro con design tokens consistentes (OKLCH)",
+        "Responsive: desktop paneles lado a lado, mobile tabs/accordion",
+        "Accesibilidad: ARIA live regions, keyboard navigation, WCAG AA contrast"
+      ],
+      "gate": "Architecture decision document en artifacts/T-02/handoff.md con decisiones y trade-offs",
+      "dependsOn": [
+        "T-01"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-02",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-03",
+      "title": "Implementar mesa visual en vivo (panel principal)",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-design-ui-finish-gate-reviewer",
+      "reviewer": "e-testing-api-tester",
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "svg-canvas",
+        "real-time-ui"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Panel que lee roster.json y state.json y muestra agentes con estado visual (working/idle/no-heartbeat/dead)",
+        "Cards sin owner visibles con badge de 'unassigned'",
+        "Avatares de agentes con iniciales, color por rol, indicador de heartbeat (pulse animation)",
+        "Tooltip con capabilities, currentCard, idleSince, helpGiven/Received",
+        "Actualizacion en tiempo real via polling (500ms)",
+        "Keyboard navigation entre agentes, Enter para ver detalle"
+      ],
+      "gate": "dashboard/mesa.html funcional + npm run typecheck + npm test pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-03",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-04",
+      "title": "Implementar bus de mensajes visible con threading y prioridades",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-design-ui-finish-gate-reviewer",
+      "reviewer": "e-testing-api-tester",
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "data-visualization",
+        "real-time-ui"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Panel que lee bus/peer/ y canales de coordinadores (coord-command, coord-arch, coord-flow)",
+        "Visualizacion tipo sequence diagram: flechas entre avatares, colores por prioridad (critical=red, high=orange, normal=blue, low=gray)",
+        "Threading visual: inReplyTo agrupa mensajes en hilos colapsables/expandibles",
+        "Filtros por kind (HELP_REQUEST, HELP_ACCEPT, CLAIM, RELEASE, SPAWN_REQUEST, etc.)",
+        "Timeline con timestamps relativos, auto-scroll opcional",
+        "Click en mensaje muestra detalle completo (body, ttl, hops, idempotency_key)"
+      ],
+      "gate": "dashboard/bus.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-04",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-05",
+      "title": "Implementar panel de debate/brainstorming trazable (HELP_REQUEST broadcast + respuestas)",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-xr-immersive-developer",
+      "reviewer": null,
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "chat-ui",
+        "threading"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Deteccion automatica de HELP_REQUEST con to:['*'] (broadcast)",
+        "Vista tipo chat: burbujas con avatar, timestamp, agente, expandible para ver body completo",
+        "Respuestas (HELP_ACCEPT, HELP_DECLINE, HELP_PARTIAL, HELP_QUESTION) anidadas bajo el request",
+        "Indicador visual de estado: pending -> accepted/declined/partial -> completed",
+        "Colapso/expansion de hilos completos, contador de respuestas",
+        "ARIA live region para anuncios de nuevos mensajes en hilos abiertos"
+      ],
+      "gate": "dashboard/debate.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-05",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-06",
+      "title": "Implementar panel de intervencion del jefe (Commander/Integrator/Architect decisions)",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-xr-immersive-developer",
+      "reviewer": null,
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "decision-tracking"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Tres secciones: Commander (scope/prioridades/escalations), Integrator (routing/leases/gates/deadlocks), Architect (tech decisions/patterns/contracts)",
+        "Lee decisions de state.json + mensajes en canales de coordinadores",
+        "Cada decision: timestamp, actor, cardId, decision, razon, siguiente accion",
+        "Filtro por coordinador, por card, por tipo de decision",
+        "Enlace a card afectada y a artifacts correspondientes"
+      ],
+      "gate": "dashboard/leadership.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-06",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-07",
+      "title": "Implementar Kanban visual de cards con drag-drop y acceptance criteria",
+      "type": "implementation",
+      "state": "in_progress",
+      "owner": "e-xr-immersive-developer",
+      "reviewer": null,
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "kanban",
+        "drag-drop"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Columnas: TODO, IN_PROGRESS, REVIEW, DONE, REWORK, BLOCKED, ESCALATED",
+        "Cards muestran: id, titulo, owner avatar, reviewer avatar, rejection count, acceptance checklist",
+        "Drag-drop opcional entre columnas (solo visual, no persiste - read-only dashboard)",
+        "Click en card abre modal con detalle completo: scope, acceptance, gate, artifacts, evidence links",
+        "Badges de estado gate: PASS/FAIL/NOT_RUN con colores",
+        "Filtro por owner, por tipo, por estado"
+      ],
+      "gate": "dashboard/kanban.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-07",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-08",
+      "title": "Implementar animacion de Factory creando agentes nuevos",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-xr-immersive-developer",
+      "reviewer": null,
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "animation",
+        "svg-canvas"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Deteccion: cuando hay card sin match en catalogo (cobertura < 60% en roster/state)",
+        "Animacion secuencial: Factory creando agente... -> archivo .md apareciendo en .opencode/agents/ -> entrada al catalogo dinamico -> match en proxima card",
+        "Visualizacion: progress steps con checkmarks, archivo escribiendose con cursor parpadeante",
+        "Toast/notification cuando factory completa y agente aparece en roster",
+        "Click en notificacion abre ficha del agente fabricado"
+      ],
+      "gate": "dashboard/factory.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-08",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-09",
+      "title": "Implementar panel lateral de Gates y Evidencia con spinners y resultados",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-testing-api-tester",
+      "reviewer": "e-design-ui-finish-gate-reviewer",
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "real-time-ui",
+        "testing"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "Panel lateral fijo (desktop) / bottom sheet (mobile) mostrando 7 gates",
+        "Fases: Build, Type check, Lint, Tests+coverage, Security grep, Diff review, Requisitos",
+        "Spinners animados mientras corren, iconos PASS/FAIL/NOT_RUN/N/A al terminar",
+        "Click en fase muestra output real (pega de evidence.md/gates.md)",
+        "Enlace a evidence.md y handoff.md de la card",
+        "Gate 7 (Requisitos): lista acceptance criteria con check/cross y link a evidencia registrada"
+      ],
+      "gate": "dashboard/gates.html funcional + typecheck + tests pass",
+      "dependsOn": [
+        "T-02"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-09",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    },
+    {
+      "id": "T-10",
+      "title": "Integrar todo en dashboard.html unico + README-DASHBOARD.md",
+      "type": "implementation",
+      "state": "todo",
+      "owner": "e-testing-api-tester",
+      "reviewer": "e-design-ui-finish-gate-reviewer",
+      "requiredCapabilities": [
+        "typescript",
+        "frontend",
+        "integration",
+        "documentation"
+      ],
+      "scope": {
+        "mayTouch": [
+          "dashboard/**"
+        ],
+        "forbidden": [
+          "src/**",
+          ".oficina/**",
+          "dist/**",
+          "node_modules/**"
+        ]
+      },
+      "acceptance": [
+        "dashboard.html unico con todos los paneles (layout: header + sidebar tabs + main area)",
+        "Navegacion por tabs: Mesa | Bus | Debate | Jefe | Kanban | Factory | Gates",
+        "Persistencia de tab activo en localStorage",
+        "Tema oscuro/claro con toggle persistido",
+        "Atajos de teclado: 1-7 tabs, Espacio pause/resume polling, R refresh, ? ayuda",
+        "README-DASHBOARD.md con: como usarlo, que muestra cada panel, atajos, troubleshooting"
+      ],
+      "gate": "dashboard.html abre en browser file:// + typecheck + tests pass + README completo",
+      "dependsOn": [
+        "T-03",
+        "T-04",
+        "T-05",
+        "T-06",
+        "T-07",
+        "T-08",
+        "T-09"
+      ],
+      "attempts": 0,
+      "rejections": 0,
+      "artifacts": ".oficina\\artifacts\\T-10",
+      "result": null,
+      "helpRequests": [],
+      "helpHops": 0
+    }
+  ],
+  "gates": {
+    "T-00": {
+      "ranAt": "2026-10-29T03:28:55.630Z",
+      "technical": [
+        {
+          "phase": "build",
+          "command": "npm run build",
+          "outcome": "pass",
+          "detail": "exit 0 en 11254ms",
+          "reason": ""
+        },
+        {
+          "phase": "typecheck",
+          "command": "npm run typecheck",
+          "outcome": "pass",
+          "detail": "exit 0 en 10481ms",
+          "reason": ""
+        },
+        {
+          "phase": "lint",
+          "command": null,
+          "outcome": "na",
+          "detail": "el proyecto no define script `lint`",
+          "reason": ""
+        },
+        {
+          "phase": "test",
+          "command": "npm run test",
+          "outcome": "pass",
+          "detail": "exit 0 en 38518ms",
+          "reason": ""
+        },
+        {
+          "phase": "secrecy",
+          "command": "scan:secretos",
+          "outcome": "pass",
+          "detail": "sin secretos en el scope",
+          "reason": ""
+        },
+        {
+          "phase": "diff",
+          "command": "git diff --stat HEAD",
+          "outcome": "pass",
+          "detail": "exit 0 en 448ms",
+          "reason": ""
+        }
+      ],
+      "security": [
+        {
+          "phase": "secrecy",
+          "command": "scan:credenciales asignadas",
+          "outcome": "pass",
+          "detail": "credenciales asignadas — limpio",
+          "reason": ""
+        },
+        {
+          "phase": "secrecy",
+          "command": "scan:claves de cloud",
+          "outcome": "pass",
+          "detail": "claves de cloud — limpio",
+          "reason": ""
+        },
+        {
+          "phase": "secrecy",
+          "command": "scan:tokens de provider",
+          "outcome": "pass",
+          "detail": "tokens de provider — limpio",
+          "reason": ""
+        }
+      ],
+      "requirements": [],
+      "technicalOutcome": "pass",
+      "securityOutcome": "pass",
+      "requirementsOutcome": "not_run",
+      "verdict": "pass"
+    }
+  },
+  "evidence": {
+    "T-00": [
+      {
+        "id": "ev-t-00-0-test-tests-gates-test-ts-guard-anti-gate-verde-vacio-",
+        "cardId": "T-00",
+        "requirement": "runTechnicalGates participa del guard: si la fase test sale con exit 0 pero testsActuallyRan es false, la fase test se reporta como not_run con reason explícita de gate verde vacío (no PASS silencioso ni silencioso en otros campos)",
+        "requirementIndex": 0,
+        "mandatory": false,
+        "kind": "test",
+        "level": 2,
+        "ref": "tests/gates.test.ts > Guard anti-gate-verde-vacío > degrada a not_run la fase test que sale 0 sin tests",
+        "note": "runTechnicalGates marca la fase test como not_run con reason EMPTY_TEST_GATE_REASON cuando exit 0 y no hay conteo; conserva exitCode 0 y output real.",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      },
+      {
+        "id": "ev-t-00-1-test-tests-gates-test-ts-guard-anti-gate-verde-vacio-",
+        "cardId": "T-00",
+        "requirement": "si testsActuallyRan es true (p. ej. conteo legible '5 passed' o 'Tests: 5'), la fase test sigue en PASS sin regresión",
+        "requirementIndex": 1,
+        "mandatory": false,
+        "kind": "test",
+        "level": 2,
+        "ref": "tests/gates.test.ts > Guard anti-gate-verde-vacío > no degrada cuando el conteo es legible ('5 passed' / 'Tests: 5')",
+        "note": "Con conteo legible la fase test sigue en PASS; sin regresión.",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      },
+      {
+        "id": "ev-t-00-2-test-tests-gates-test-ts-guard-anti-gate-verde-vacio-",
+        "cardId": "T-00",
+        "requirement": "consolidate con ese resultado produce technicalOutcome fail/not_run (passed=false) y renderGate muestra el motivo de forma legible",
+        "requirementIndex": 2,
+        "mandatory": false,
+        "kind": "test",
+        "level": 2,
+        "ref": "tests/gates.test.ts > Guard anti-gate-verde-vacío > consolidate propaga not_run / renderGate muestra el motivo",
+        "note": "consolidate devuelve technicalOutcome=not_run y passed=false; renderGate incluye columna Motivo con el texto del gate verde vacío.",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      },
+      {
+        "id": "ev-t-00-3-test-tests-gates-test-ts-guard-anti-gate-verde-vacio-",
+        "cardId": "T-00",
+        "requirement": "pmOfficeOffice.runGates / flujo Office.runGates queda cableado al guard vía runTechnicalGates (sin duplicar lógica)",
+        "requirementIndex": 3,
+        "mandatory": false,
+        "kind": "test",
+        "level": 2,
+        "ref": "tests/gates.test.ts > Guard anti-gate-verde-vacío > Office.runGates hereda el guard vía runTechnicalGates",
+        "note": "Office.runGates no reimplementa el guard: delega en runTechnicalGates; gates.md en disco muestra el motivo.",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      },
+      {
+        "id": "ev-t-00-4-artifact-tests-gates-test-ts",
+        "cardId": "T-00",
+        "requirement": "regresión cubierta por tests vitest nuevos en tests/gates.test.ts (existen ya tests de testsActuallyRan; se agregan los del cableado)",
+        "requirementIndex": 4,
+        "mandatory": false,
+        "kind": "artifact",
+        "level": 2,
+        "ref": "tests/gates.test.ts",
+        "note": "8 tests vitest nuevos en el describe 'Guard anti-gate-verde-vacío' (27 en el archivo).",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      },
+      {
+        "id": "ev-t-00-5-test-npm-run-typecheck-npm-test",
+        "cardId": "T-00",
+        "requirement": "npm run typecheck sin errores y npm test todo en verde (las 456 existentes + nuevas)",
+        "requirementIndex": 5,
+        "mandatory": false,
+        "kind": "test",
+        "level": 2,
+        "ref": "npm run typecheck && npm test",
+        "note": "typecheck exit 0; vitest 27 archivos / 464 tests en verde, 0 fallidos.",
+        "recordedAt": "1970-01-01T00:00:00.000Z",
+        "recordedBy": "e-testing-api-tester",
+        "passed": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Panel del Jefe · Commander / Integrator / Architect</title>
+<meta name="description" content="Panel de intervencion del jefe para la Oficina de Agents: decisiones de Commander, Integrator y Architect con razon, siguiente accion y links a card y artifacts." />
+<meta name="color-scheme" content="dark light" />
+<style>
+  /* ───────────────────────────────────────────────────────────────────────────
+     Tokens. OKLCH, contraste AA sobre el fondo de cada tema.
+     ─────────────────────────────────────────────────────────────────────────── */
+  :root {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+
+    --cmd: oklch(0.78 0.14 78);
+    --int: oklch(0.78 0.11 195);
+    --arc: oklch(0.76 0.14 305);
+    --ok: oklch(0.76 0.15 150);
+    --warn: oklch(0.8 0.15 80);
+    --bad: oklch(0.68 0.19 25);
+  }
+
+  html[data-theme="dark"] {
+    --bg: oklch(0.17 0.012 265);
+    --bg-raised: oklch(0.215 0.014 265);
+    --bg-sunken: oklch(0.145 0.012 265);
+    --line: oklch(0.32 0.016 265);
+    --line-strong: oklch(0.44 0.02 265);
+    --fg: oklch(0.96 0.004 265);
+    --fg-muted: oklch(0.79 0.012 265);
+    --fg-faint: oklch(0.68 0.014 265);
+    --accent: oklch(0.82 0.13 195);
+    --focus: oklch(0.88 0.16 195);
+    --shadow: 0 12px 32px oklch(0 0 0 / 0.42);
+    --chip-bg: oklch(0.28 0.016 265);
+  }
+
+  html[data-theme="light"] {
+    --bg: oklch(0.985 0.003 265);
+    --bg-raised: oklch(1 0 0);
+    --bg-sunken: oklch(0.955 0.006 265);
+    --line: oklch(0.87 0.01 265);
+    --line-strong: oklch(0.74 0.014 265);
+    --fg: oklch(0.24 0.02 265);
+    --fg-muted: oklch(0.43 0.02 265);
+    --fg-faint: oklch(0.52 0.018 265);
+    --accent: oklch(0.52 0.13 220);
+    --focus: oklch(0.52 0.16 240);
+    --shadow: 0 10px 28px oklch(0.4 0.02 265 / 0.14);
+    --chip-bg: oklch(0.94 0.008 265);
+
+    --cmd: oklch(0.55 0.13 62);
+    --int: oklch(0.5 0.11 215);
+    --arc: oklch(0.5 0.16 300);
+    --ok: oklch(0.5 0.14 150);
+    --warn: oklch(0.55 0.14 70);
+    --bad: oklch(0.52 0.19 25);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.5 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:hover { text-decoration-thickness: 2px; }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  .skip-link {
+    position: absolute; left: var(--space-4); top: -100px;
+    background: var(--bg-raised); color: var(--fg);
+    padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+    border: 1px solid var(--line-strong); z-index: 60;
+  }
+  .skip-link:focus { top: var(--space-3); }
+
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────────────────── */
+  header.top {
+    position: sticky; top: 0; z-index: 30;
+    background: color-mix(in oklch, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .top-row {
+    display: flex; align-items: center; gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .brand h1 {
+    margin: 0; font-size: 1.06rem; font-weight: 650; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .brand .sub {
+    color: var(--fg-faint); font-size: 0.78rem; font-family: var(--font-mono);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62vw;
+  }
+
+  .mark {
+    width: 10px; height: 10px; border-radius: 3px; flex: none;
+    background: linear-gradient(135deg, var(--cmd), var(--int) 55%, var(--arc));
+  }
+
+  .top-actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+  .badge-mode {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--line-strong); color: var(--fg-muted);
+    background: var(--chip-bg);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .badge-mode .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex: none; }
+  .badge-mode[data-mode="live"] .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ok) 25%, transparent); }
+  .badge-mode[data-mode="files"] .dot { background: var(--int); }
+  .badge-mode[data-mode="demo"] .dot { background: var(--bad); }
+  .badge-mode[data-paused="true"] .dot { background: var(--fg-faint); box-shadow: none; }
+
+  button, select, input[type="search"], input[type="text"] {
+    font: inherit; color: var(--fg);
+    background: var(--bg-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--chip-bg); border-color: var(--accent); }
+  button.icon { min-width: 34px; text-align: center; }
+
+  /* ── Filtros ─────────────────────────────────────────────────────────────── */
+  .filters {
+    display: flex; gap: var(--space-2); align-items: flex-end; flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-sunken);
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field > label {
+    font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--fg-faint); font-weight: 600;
+  }
+  .field.search { flex: 1 1 220px; min-width: 160px; }
+  .field.search input { width: 100%; }
+  .filters .counter { margin-left: auto; color: var(--fg-muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.84rem; color: var(--fg-muted); cursor: pointer;
+    padding-bottom: 6px;
+  }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  /* ── Grid de secciones ───────────────────────────────────────────────────── */
+  main { flex: 1 1 auto; padding: var(--space-4); }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  .section {
+    background: var(--bg-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    display: flex; flex-direction: column;
+    min-height: 200px;
+    overflow: hidden;
+  }
+
+  .section > header {
+    display: flex; align-items: baseline; gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    border-top: 3px solid var(--tone);
+    background: linear-gradient(180deg, color-mix(in oklch, var(--tone) 12%, transparent), transparent);
+  }
+  .section[data-coordinator="commander"] { --tone: var(--cmd); }
+  .section[data-coordinator="integrator"] { --tone: var(--int); }
+  .section[data-coordinator="architect"] { --tone: var(--arc); }
+
+  .section h2 {
+    margin: 0; font-size: 0.98rem; font-weight: 650; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .section h2 .sigil {
+    font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.08em;
+    padding: 2px 6px; border-radius: 4px;
+    color: var(--bg); background: var(--tone); font-weight: 700;
+  }
+  .section .scope {
+    display: block; color: var(--fg-faint); font-size: 0.75rem;
+    font-family: var(--font-mono); margin-top: 2px;
+  }
+  .section .count {
+    margin-left: auto; font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--fg-muted); font-variant-numeric: tabular-nums;
+    padding: 1px 8px; border-radius: 999px; background: var(--chip-bg);
+    border: 1px solid var(--line);
+  }
+
+  .decisions { list-style: none; margin: 0; padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+  .decisions:empty { padding: var(--space-3); }
+
+  /* ── Tarjeta de decision ─────────────────────────────────────────────────── */
+  .decision {
+    position: relative;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--tone, var(--line-strong));
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    display: grid; gap: 6px;
+    transition: border-color 120ms ease, transform 120ms ease;
+  }
+  .decision:hover { border-color: var(--line-strong); }
+  .decision:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .decision[data-priority="critical"] { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--bad) 45%, transparent); }
+  .decision[data-priority="high"] { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--warn) 32%, transparent); }
+
+  .dec-top { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+  .stamp {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--fg-faint);
+    display: inline-flex; align-items: baseline; gap: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stamp .rel { color: var(--fg-muted); }
+
+  .chip {
+    font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6;
+    padding: 1px 6px; border-radius: 999px;
+    background: var(--chip-bg); border: 1px solid var(--line);
+    color: var(--fg-muted); white-space: nowrap;
+  }
+  .chip.actor { color: var(--fg); border-color: color-mix(in oklch, var(--tone) 45%, var(--line)); }
+  .chip.actor .role { color: var(--fg-faint); }
+  .chip.type { letter-spacing: 0.02em; }
+  .chip.prio-critical { color: var(--bad); border-color: color-mix(in oklch, var(--bad) 55%, var(--line)); font-weight: 700; }
+  .chip.prio-high { color: var(--warn); border-color: color-mix(in oklch, var(--warn) 45%, var(--line)); }
+
+  .card-link {
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+    background: transparent; border: 1px dashed var(--line-strong);
+    color: var(--accent); padding: 0 6px; border-radius: var(--radius-sm);
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+  .card-link:hover { border-style: solid; }
+  .no-card { font-family: var(--font-mono); font-size: 0.72rem; color: var(--fg-faint); }
+
+  .dec-title { margin: 0; font-size: 0.9rem; font-weight: 600; line-height: 1.35; }
+
+  .dec-field { display: grid; grid-template-columns: 62px 1fr; gap: var(--space-2); align-items: start; }
+  .dec-field > dt {
+    font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--fg-faint); font-weight: 700; padding-top: 2px;
+  }
+  .dec-field > dd { margin: 0; font-size: 0.84rem; color: var(--fg-muted); }
+  .dec-field > dd.mono { font-family: var(--font-mono); font-size: 0.78rem; }
+
+  .next {
+    display: grid; grid-template-columns: 62px 1fr; gap: var(--space-2);
+    padding-top: 6px; border-top: 1px dashed var(--line);
+  }
+  .next > dt {
+    font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--fg-faint); font-weight: 700; padding-top: 2px;
+  }
+  .next > dd { margin: 0; font-size: 0.84rem; color: var(--fg); }
+  .next > dd::before { content: "→ "; color: var(--tone); font-weight: 700; }
+
+  .dec-links { display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: 0.76rem; }
+  .dec-links a, .dec-links button.linkish {
+    color: var(--fg-muted); background: none; border: 0; padding: 0;
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-size: inherit;
+  }
+  .dec-links a:hover, .dec-links button.linkish:hover { color: var(--accent); }
+
+  .empty {
+    margin: 0; padding: var(--space-5) var(--space-4); text-align: center;
+    color: var(--fg-faint); font-size: 0.85rem;
+  }
+
+  /* ── Dialog ──────────────────────────────────────────────────────────────── */
+  dialog {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--bg-raised);
+    color: var(--fg);
+    padding: 0;
+    max-width: min(680px, 94vw);
+    width: 100%;
+    box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: oklch(0 0 0 / 0.55); backdrop-filter: blur(2px); }
+  .dlg-head {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--bg-raised);
+  }
+  .dlg-head h2 { margin: 0; font-size: 1rem; }
+  .dlg-head .close { margin-left: auto; }
+  .dlg-body { padding: var(--space-4); display: grid; gap: var(--space-3); max-height: 74vh; overflow: auto; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: var(--space-2); font-size: 0.86rem; }
+  .kv > dt { color: var(--fg-faint); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; padding-top: 2px; }
+  .kv > dd { margin: 0; }
+  .state-badge {
+    font-family: var(--font-mono); font-size: 0.72rem; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid var(--line-strong); color: var(--fg-muted);
+  }
+  .state-badge[data-state="done"] { color: var(--ok); border-color: color-mix(in oklch, var(--ok) 55%, var(--line)); }
+  .state-badge[data-state="rework"], .state-badge[data-state="blocked"] { color: var(--bad); border-color: color-mix(in oklch, var(--bad) 55%, var(--line)); }
+  .state-badge[data-state="escalated"] { color: var(--warn); border-color: color-mix(in oklch, var(--warn) 55%, var(--line)); }
+  .state-badge[data-state="in_progress"] { color: var(--int); border-color: color-mix(in oklch, var(--int) 55%, var(--line)); }
+  ul.clean { margin: 0; padding-left: 1.1em; }
+  ul.clean li { margin: 2px 0; }
+  .linkrow { display: flex; gap: var(--space-3); flex-wrap: wrap; font-size: 0.84rem; }
+  .hint { color: var(--fg-faint); font-size: 0.78rem; margin: 0; }
+
+  kbd {
+    font-family: var(--font-mono); font-size: 0.72rem; padding: 1px 5px;
+    border: 1px solid var(--line-strong); border-bottom-width: 2px;
+    border-radius: 4px; background: var(--bg-sunken); color: var(--fg-muted);
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────────────────── */
+  footer.foot {
+    border-top: 1px solid var(--line);
+    padding: var(--space-2) var(--space-4) var(--space-4);
+    color: var(--fg-faint); font-size: 0.76rem;
+    display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center;
+    font-family: var(--font-mono);
+  }
+  footer.foot .sep { color: var(--line-strong); }
+
+  /* ── Responsive: mobile = acordeon por seccion ───────────────────────────── */
+  @media (max-width: 1024px) {
+    .board { grid-template-columns: 1fr; }
+    .section { min-height: 0; }
+    .brand .sub { max-width: 100%; }
+  }
+
+  @media (max-width: 600px) {
+    main { padding: var(--space-2); }
+    .filters { padding: var(--space-2) var(--space-3); }
+    .field { flex: 1 1 46%; }
+    .field.search { flex-basis: 100%; }
+    .dec-field, .next { grid-template-columns: 1fr; gap: 2px; }
+    .dec-field > dt, .next > dt { padding-top: 4px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#decisions">Saltar a las decisiones</a>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <h1><span class="mark" aria-hidden="true"></span> Panel del Jefe</h1>
+      <span class="sub" id="runline">Commander · Integrator · Architect — cargando…</span>
+    </div>
+    <div class="top-actions">
+      <span class="badge-mode" id="mode-badge" data-mode="snapshot" title="Origen de los datos">
+        <span class="dot" aria-hidden="true"></span><span id="mode-text">cargando</span>
+      </span>
+      <button type="button" id="btn-pause" aria-pressed="false" title="Pausar / reanudar polling (Espacio)">⏸ Pausar</button>
+      <button type="button" id="btn-refresh" title="Refrescar ahora (R)">↻</button>
+      <button type="button" id="btn-theme" class="icon" title="Tema claro / oscuro (T)" aria-label="Cambiar tema">◐</button>
+      <button type="button" id="btn-help" class="icon" title="Ayuda y atajos (?)" aria-label="Ayuda y atajos">?</button>
+    </div>
+  </div>
+</header>
+
+<div class="filters" role="search" aria-label="Filtros de decisiones">
+  <div class="field">
+    <label for="f-coordinator">Coordinador</label>
+    <select id="f-coordinator">
+      <option value="all">Todos</option>
+      <option value="commander">Commander</option>
+      <option value="integrator">Integrator</option>
+      <option value="architect">Architect</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-card">Card</label>
+    <select id="f-card"><option value="all">Todas</option></select>
+  </div>
+  <div class="field">
+    <label for="f-type">Tipo de decision</label>
+    <select id="f-type"><option value="all">Todos</option></select>
+  </div>
+  <div class="field search">
+    <label for="f-query">Buscar</label>
+    <input id="f-query" type="search" placeholder="razon, actor, card, siguiente accion…" autocomplete="off" />
+  </div>
+  <label class="toggle" for="f-only-decisions">
+    <input id="f-only-decisions" type="checkbox" checked />
+    Solo decisiones
+  </label>
+  <span class="counter" id="counter" aria-live="off">0 de 0</span>
+</div>
+
+<main>
+  <div class="board" id="board">
+    <section class="section" data-coordinator="commander" aria-labelledby="h-commander">
+      <header>
+        <div>
+          <h2 id="h-commander"><span class="sigil">CMD</span> Commander</h2>
+          <span class="scope">scope · prioridades · escalations</span>
+        </div>
+        <span class="count" id="count-commander" title="Decisiones en esta seccion">0</span>
+      </header>
+      <ul class="decisions" id="list-commander" aria-describedby="h-commander"></ul>
+    </section>
+
+    <section class="section" data-coordinator="integrator" aria-labelledby="h-integrator">
+      <header>
+        <div>
+          <h2 id="h-integrator"><span class="sigil">INT</span> Integrator</h2>
+          <span class="scope">routing · leases · gates · deadlocks</span>
+        </div>
+        <span class="count" id="count-integrator" title="Decisiones en esta seccion">0</span>
+      </header>
+      <ul class="decisions" id="list-integrator" aria-describedby="h-integrator"></ul>
+    </section>
+
+    <section class="section" data-coordinator="architect" aria-labelledby="h-architect">
+      <header>
+        <div>
+          <h2 id="h-architect"><span class="sigil">ARC</span> Architect</h2>
+          <span class="scope">tech decisions · patterns · contracts</span>
+        </div>
+        <span class="count" id="count-architect" title="Decisiones en esta seccion">0</span>
+      </header>
+      <ul class="decisions" id="list-architect" aria-describedby="h-architect"></ul>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">
+  <span id="last-update">—</span>
+  <span class="sep">·</span>
+  <span id="source-note">—</span>
+  <span class="sep">·</span>
+  <span><kbd>?</kbd> atajos</span>
+</footer>
+
+<div id="announcer" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Detalle de card -->
+<dialog id="dlg-card" aria-labelledby="dlg-card-title">
+  <div class="dlg-head">
+    <h2 id="dlg-card-title">Card</h2>
+    <button type="button" class="close" id="dlg-card-close" aria-label="Cerrar detalle">✕</button>
+  </div>
+  <div class="dlg-body" id="dlg-card-body"></div>
+</dialog>
+
+<!-- Ayuda -->
+<dialog id="dlg-help" aria-labelledby="dlg-help-title">
+  <div class="dlg-head">
+    <h2 id="dlg-help-title">Panel del Jefe — qué muestra y cómo se usa</h2>
+    <button type="button" class="close" id="dlg-help-close" aria-label="Cerrar ayuda">✕</button>
+  </div>
+  <div class="dlg-body">
+    <p class="hint">Tres secciones: <strong>Commander</strong> (scope, prioridades, escalations),
+      <strong>Integrator</strong> (routing, leases, gates, deadlocks) y
+      <strong>Architect</strong> (tech decisions, patterns, contracts). Cada decision muestra
+      timestamp, actor, card, decision, razon y siguiente accion, con enlace a la card y a sus artifacts.</p>
+    <dl class="kv">
+      <dt>Fuente</dt><dd>Decisiones de <code>state.json</code> (decisions, escalations, context.decisions) + mensajes de
+        <code>bus/coord-command</code> (Commander), <code>bus/coord-flow</code> (Integrator) y <code>bus/coord-arch</code> (Architect).</dd>
+      <dt>Atajos</dt><dd>
+        <kbd>j</kbd>/<kbd>k</kbd> decision siguiente/anterior · <kbd>Enter</kbd> abrir card ·
+        <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> ir a seccion · <kbd>/</kbd> buscar ·
+        <kbd>Espacio</kbd> pausar polling · <kbd>r</kbd> refrescar · <kbd>t</kbd> tema · <kbd>?</kbd> esta ayuda · <kbd>Esc</kbd> cerrar.
+      </dd>
+      <dt>Modos</dt><dd>
+        <code>live</code>: <code>node dashboard/scripts/serve.mjs</code> (lee <code>.oficina/</code> en vivo).
+        <code>archivos</code>: servidor estatico desde la raiz del repo (solo <code>state.json</code>).
+        <code>snapshot</code>: <code>node dashboard/scripts/snapshot.mjs</code> genera <code>dashboard/data/snapshot.json</code>.
+        <code>demo</code>: datos embebidos, sin <code>.oficina/</code>.
+      </dd>
+    </dl>
+    <p class="hint">El panel es de solo lectura: no escribe en <code>.oficina/</code> ni en <code>src/</code>.</p>
+  </div>
+</dialog>
+
+<noscript>
+  <p style="padding:1rem;color:#f88">Este panel necesita JavaScript habilitado para leer el estado de la oficina.</p>
+</noscript>
+
+<script src="./lib/leadership-model.js"></script>
+<script>
+"use strict";
+(function () {
+  var L = window.OficinaLeadership;
+  var CONFIG = {
+    api: "/api/snapshot",
+    snapshotFile: "./data/snapshot.json",
+    stateFile: "../.oficina/state.json",
+    rosterFile: "../.oficina/roster.json",
+    pollMs: 1000,
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    snapshot: null,
+    items: [],
+    view: { commander: [], integrator: [], architect: [] },
+    filters: { coordinator: "all", card: "all", type: "all", query: "", onlyDecisions: true },
+    mode: "snapshot",
+    paused: false,
+    lastRenderSig: "",
+    lastTotal: 0,
+    firstLoad: true,
+    timer: null,
+    focusIndex: -1,
+  };
+
+  // ── Tema ───────────────────────────────────────────────────────────────────
+  var THEME_KEY = "oficina.leadership.theme";
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* file:// sin storage */ }
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* noop */ }
+    if (!saved) saved = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    applyTheme(saved);
+  }
+  function toggleTheme() {
+    applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  }
+
+  // ── Utilidades DOM ─────────────────────────────────────────────────────────
+  function el(tag, props, children) {
+    var node = document.createElement(tag);
+    if (props) {
+      Object.keys(props).forEach(function (k) {
+        var v = props[k];
+        if (v === null || v === undefined || v === false) return;
+        if (k === "class") node.className = v;
+        else if (k === "text") node.textContent = v;
+        else if (k === "dataset") Object.keys(v).forEach(function (d) { node.dataset[d] = v[d]; });
+        else if (k === "attrs") Object.keys(v).forEach(function (a) { node.setAttribute(a, v[a]); });
+        else if (k.indexOf("on") === 0 && typeof v === "function") node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+      });
+    }
+    (children || []).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    });
+    return node;
+  }
+
+  function announce(text) {
+    var a = $("announcer");
+    if (!a) return;
+    a.textContent = "";
+    // Re-asignar en el proximo tick asegura que el lector lo anuncie de nuevo.
+    window.setTimeout(function () { a.textContent = text; }, 30);
+  }
+
+  // ── Carga de datos ─────────────────────────────────────────────────────────
+  var warned = false;
+  function note(msg) {
+    if (!warned) { warned = true; console.warn("[leadership] " + msg); }
+  }
+
+  async function fetchJson(url) {
+    var res = await fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + "_t=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error(url + " -> HTTP " + res.status);
+    return res.json();
+  }
+
+  async function loadSnapshot() {
+    // 1. Servidor con endpoint de snapshot (live: state + bus + artifacts).
+    try {
+      var live = await fetchJson(CONFIG.api);
+      if (live && live.state) return Object.assign({ mode: "live" }, live);
+    } catch (e) { note(String(e)); }
+
+    // 2. Servidor estatico desde la raiz del repo: solo state.json/roster.json.
+    try {
+      var pair = await Promise.all([fetchJson(CONFIG.stateFile), fetchJson(CONFIG.rosterFile).catch(function () { return null; })]);
+      if (pair[0] && pair[0].cards) {
+        return { mode: "files", state: pair[0], roster: pair[1] || {}, messages: [], generatedAt: new Date().toISOString() };
+      }
+    } catch (e) { note(String(e)); }
+
+    // 3. Snapshot estatico generado por scripts/snapshot.mjs (file:// amigable).
+    try {
+      var snap = await fetchJson(CONFIG.snapshotFile);
+      if (snap && snap.state) return Object.assign({ mode: "snapshot" }, snap);
+    } catch (e) { note(String(e)); }
+
+    // 4. Demo embebido: el panel nunca queda en blanco.
+    return Object.assign({ mode: "demo" }, L.demoSnapshot());
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  var MODE_LABEL = {
+    live: "live · .oficina",
+    files: "archivos · state.json",
+    snapshot: "snapshot estatico",
+    demo: "demo embebido",
+  };
+
+  function setMode(mode) {
+    state.mode = mode;
+    var badge = $("mode-badge");
+    badge.dataset.mode = mode;
+    $("mode-text").textContent = MODE_LABEL[mode] || mode;
+    $("source-note").textContent =
+      mode === "live" ? "api /api/snapshot" :
+      mode === "files" ? "../.oficina/state.json (sin bus)" :
+      mode === "snapshot" ? "dashboard/data/snapshot.json" :
+      "datos demo — corré node dashboard/scripts/serve.mjs para datos reales";
+  }
+
+  function stampNode(item) {
+    return el("span", { class: "stamp", attrs: { title: item.at } }, [
+      el("time", { text: L.formatClock(item.at), attrs: { datetime: item.at } }),
+      el("span", { class: "rel", text: "· " + L.formatRelative(item.at) }),
+    ]);
+  }
+
+  function cardChip(item) {
+    if (!item.cardId) return el("span", { class: "no-card", text: "sin card (global)" });
+    return el("button", {
+      class: "card-link",
+      type: "button",
+      text: item.cardId,
+      attrs: { title: "Ver card " + item.cardId + " y sus artifacts" },
+      onclick: function (ev) { ev.stopPropagation(); openCard(item.cardId); },
+    });
+  }
+
+  function decisionNode(item, index) {
+    var article = el("li", { class: "decision", dataset: { priority: item.priority, id: item.id, index: String(index) } }, [
+      el("div", { class: "dec-top" }, [
+        stampNode(item),
+        el("span", { class: "chip actor" }, [
+          el("span", { text: item.actorLabel }),
+          el("span", { class: "role", text: " · " + item.actorRole }),
+        ]),
+        cardChip(item),
+        el("span", { class: "chip type", text: item.typeLabel }),
+        item.channel ? el("span", { class: "chip", text: item.channel }) : null,
+        item.priority === "critical" ? el("span", { class: "chip prio-critical", text: "critical" }) :
+          item.priority === "high" ? el("span", { class: "chip prio-high", text: "high" }) : null,
+      ]),
+      el("h3", { class: "dec-title", text: item.decision }),
+      el("dl", { class: "dec-field" }, [
+        el("dt", { text: "Razón" }),
+        el("dd", { text: item.reason }),
+        el("dt", { text: "Card" }),
+        el("dd", { class: "mono", text: item.cardId ? (item.cardId + (item.cardTitle ? " — " + item.cardTitle : "")) + (item.cardState ? " (" + item.cardState + ")" : "") : "—" }),
+      ]),
+      el("dl", { class: "next" }, [
+        el("dt", { text: "Siguiente" }),
+        el("dd", { text: item.nextAction }),
+      ]),
+      el("div", { class: "dec-links" }, [
+        item.cardId ? el("a", { href: item.links.artifacts, text: "artifacts/" + item.cardId, attrs: { title: "Carpeta de artifacts de la card" } }) : null,
+        item.cardId ? el("a", { href: item.links.handoff, text: "handoff.md" }) : null,
+        item.cardId ? el("a", { href: item.links.evidence, text: "evidence.md" }) : null,
+        item.cardId ? el("a", { href: item.links.kanban, text: "kanban ↗", attrs: { title: "Abrir la card en el Kanban (T-07)" } }) : null,
+        item.cardId ? el("button", { class: "linkish", type: "button", text: "ver detalle", onclick: function (ev) { ev.stopPropagation(); openCard(item.cardId); } }) : null,
+      ]),
+    ]);
+    article.setAttribute("tabindex", "-1");
+    article.setAttribute("aria-label",
+      item.typeLabel + " por " + item.actorLabel + (item.cardId ? " sobre " + item.cardId : "") + ": " + item.decision);
+    article.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" && item.cardId) { ev.preventDefault(); openCard(item.cardId); }
+    });
+    return article;
+  }
+
+  function renderSection(coordinator, list) {
+    var ul = $("list-" + coordinator);
+    var count = $("count-" + coordinator);
+    ul.textContent = "";
+    count.textContent = String(list.length);
+    if (!list.length) {
+      ul.appendChild(el("li", {}, [el("p", { class: "empty", text: "Sin decisiones con los filtros actuales." })]));
+      return;
+    }
+    list.forEach(function (item, i) { ul.appendChild(decisionNode(item, i)); });
+  }
+
+  function renderCards() {
+    var opts = L.filterOptions(state.items);
+    var select = $("f-card");
+    var current = state.filters.card;
+    select.textContent = "";
+    select.appendChild(el("option", { value: "all", text: "Todas" }));
+    opts.cards.forEach(function (c) {
+      select.appendChild(el("option", { value: c.id, text: c.id + (c.title ? " — " + L.clip(c.title, 34) : "") }));
+    });
+    if (current !== "all" && !opts.cards.some(function (c) { return c.id === current; })) current = "all";
+    select.value = current;
+    state.filters.card = current;
+  }
+
+  function renderTypes() {
+    var opts = L.filterOptions(state.items);
+    var select = $("f-type");
+    var current = state.filters.type;
+    select.textContent = "";
+    select.appendChild(el("option", { value: "all", text: "Todos" }));
+    opts.types.forEach(function (t) {
+      select.appendChild(el("option", { value: t.id, text: t.label + " · " + t.coordinator + " (" + t.count + ")" }));
+    });
+    if (current !== "all" && !opts.types.some(function (t) { return t.id === current; })) current = "all";
+    select.value = current;
+    state.filters.type = current;
+  }
+
+  function render() {
+    var filtered = L.filterDecisions(state.items, state.filters);
+    var grouped = L.groupByCoordinator(filtered);
+    ["commander", "integrator", "architect"].forEach(function (c) { renderSection(c, grouped[c]); });
+
+    $("counter").textContent = filtered.length + " de " + state.items.length;
+    state.view = grouped;
+
+    var total = state.items.length;
+    if (!state.firstLoad && total > state.lastTotal) {
+      announce((total - state.lastTotal) + " decisiones nuevas en el panel del jefe");
+    }
+    state.lastTotal = total;
+    state.firstLoad = false;
+    state.lastRenderSig = sig();
+  }
+
+  /** Firma de datos+filtros: evita re-render si nada cambio (mantiene el foco). */
+  function sig() {
+    return JSON.stringify({
+      f: state.filters,
+      i: state.items.map(function (x) { return x.id + "@" + x.at + ":" + x.cardState; }),
+    });
+  }
+
+  function renderAll(force) {
+    renderCards();
+    renderTypes();
+    var next = sig();
+    if (force || next !== state.lastRenderSig) render();
+    $("last-update").textContent = "actualizado " + new Date().toLocaleTimeString();
+  }
+
+  // ── Detalle de card ────────────────────────────────────────────────────────
+  function openCard(cardId) {
+    var state0 = (state.snapshot && state.snapshot.state) || {};
+    var card = state0.cards && state0.cards[cardId] ? state0.cards[cardId] : null;
+    var links = L.cardLinks(cardId);
+    var body = $("dlg-card-body");
+    body.textContent = "";
+    $("dlg-card-title").textContent = "Card " + cardId;
+
+    var related = state.items.filter(function (i) { return i.cardId === cardId; });
+
+    body.appendChild(el("dl", { class: "kv" }, [
+      el("dt", { text: "Titulo" }),
+      el("dd", { text: card && card.title ? card.title : "(no esta en state.json)" }),
+      el("dt", { text: "Estado" }),
+      el("dd", {}, [el("span", { class: "state-badge", dataset: { state: (card && card.state) || "unknown" }, text: (card && card.state) || "desconocido" })]),
+      el("dt", { text: "Owner" }),
+      el("dd", { class: "mono", text: (card && card.owner) || "sin owner" }),
+      el("dt", { text: "Reviewer" }),
+      el("dd", { class: "mono", text: (card && card.reviewer) || "sin reviewer" }),
+      el("dt", { text: "Intentos" }),
+      el("dd", { text: card ? (card.attempts || 0) + " intento(s) · " + (card.rejections || 0) + " rechazo(s)" : "—" }),
+      el("dt", { text: "Gate" }),
+      el("dd", { class: "mono", text: (card && card.gate) || "—" }),
+    ]));
+
+    var acc = card && Array.isArray(card.acceptance) ? card.acceptance : [];
+    body.appendChild(el("div", {}, [
+      el("div", { class: "kv" }, [el("dt", { text: "Criterios" })]),
+      acc.length
+        ? el("ul", { class: "clean" }, acc.map(function (a) { return el("li", { text: a }); }))
+        : el("p", { class: "hint", text: "Sin criterios de aceptacion en state.json." }),
+    ]));
+
+    body.appendChild(el("div", {}, [
+      el("div", { class: "kv" }, [el("dt", { text: "Artifacts" })]),
+      el("div", { class: "linkrow" }, [
+        el("a", { href: links.artifacts, text: "carpeta " + cardId + "/" }),
+        el("a", { href: links.handoff, text: "handoff.md" }),
+        el("a", { href: links.evidence, text: "evidence.md" }),
+        el("a", { href: links.gates, text: "gates.md" }),
+        el("a", { href: links.kanban, text: "ver en Kanban ↗" }),
+      ]),
+    ]));
+
+    body.appendChild(el("div", {}, [
+      el("div", { class: "kv" }, [el("dt", { text: "Decisiones" })]),
+      related.length
+        ? el("ul", { class: "clean" }, related.slice(0, 8).map(function (r) {
+            return el("li", { text: L.formatRelative(r.at) + " · " + r.actorLabel + " · " + r.decision });
+          }))
+        : el("p", { class: "hint", text: "Esta card no tiene decisiones en el panel." }),
+    ]));
+
+    var dlg = $("dlg-card");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+
+  function openHelp() {
+    var dlg = $("dlg-help");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+
+  // ── Polling ────────────────────────────────────────────────────────────────
+  async function tick(force) {
+    var snap;
+    try {
+      snap = await loadSnapshot();
+    } catch (e) {
+      console.error("[leadership] fallo de carga", e);
+      return;
+    }
+    state.snapshot = snap;
+    setMode(snap.mode || "snapshot");
+    var runId = (snap.state && snap.state.runId) || "?";
+    var runStatus = (snap.state && snap.state.status) || "?";
+    var objective = (snap.state && snap.state.objective) || "";
+    $("runline").textContent = "run " + runId + " · " + runStatus + (objective ? " · " + L.clip(objective, 70) : "");
+
+    var extracted = L.extractDecisions(snap, { now: Date.now() });
+    state.items = extracted.items;
+    renderAll(!!force);
+
+    // En modos no-live no tiene sentido seguir golpeando (snapshot/demo son estaticos).
+    if ((snap.mode === "snapshot" || snap.mode === "demo") && state.timer) {
+      window.clearInterval(state.timer);
+      state.timer = null;
+      $("btn-pause").setAttribute("aria-pressed", "false");
+      $("btn-pause").textContent = "⏸ Pausar";
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    state.timer = window.setInterval(function () {
+      if (state.paused) return;
+      if (document.hidden) return; // no gastar ciclos en pestaña oculta
+      tick(false);
+    }, CONFIG.pollMs);
+  }
+  function stopPolling() {
+    if (state.timer) { window.clearInterval(state.timer); state.timer = null; }
+  }
+  function setPaused(paused) {
+    state.paused = paused;
+    var b = $("btn-pause");
+    b.setAttribute("aria-pressed", paused ? "true" : "false");
+    b.textContent = paused ? "▶ Reanudar" : "⏸ Pausar";
+    $("mode-badge").dataset.paused = String(paused);
+    announce(paused ? "Polling pausado" : "Polling reanudado");
+  }
+
+  // ── Navegacion por teclado entre decisiones ────────────────────────────────
+  function focusableDecisions() {
+    return Array.prototype.slice.call(document.querySelectorAll("#board li.decision"));
+  }
+
+  function moveFocus(delta) {
+    var list = focusableDecisions();
+    if (!list.length) return;
+    var active = document.activeElement;
+    var idx = list.indexOf(active);
+    var next = idx === -1 ? (delta > 0 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, idx + delta));
+    list[next].setAttribute("tabindex", "0");
+    list[next].focus();
+  }
+
+  function jumpToSection(n) {
+    var sections = document.querySelectorAll(".section");
+    var s = sections[n - 1];
+    if (!s) return;
+    var target = s.querySelector("li.decision") || s;
+    s.scrollIntoView({ block: "start", behavior: "smooth" });
+    target.focus();
+    announce("Seccion " + s.getAttribute("data-coordinator"));
+  }
+
+  // ── Wiring ─────────────────────────────────────────────────────────────────
+  function wire() {
+    $("f-coordinator").addEventListener("change", function (e) { state.filters.coordinator = e.target.value; renderAll(true); });
+    $("f-card").addEventListener("change", function (e) { state.filters.card = e.target.value; renderAll(true); });
+    $("f-type").addEventListener("change", function (e) { state.filters.type = e.target.value; renderAll(true); });
+
+    var q = $("f-query");
+    var debounce = null;
+    q.addEventListener("input", function (e) {
+      window.clearTimeout(debounce);
+      var v = e.target.value;
+      debounce = window.setTimeout(function () { state.filters.query = v; renderAll(true); }, 120);
+    });
+
+    $("f-only-decisions").addEventListener("change", function (e) {
+      state.filters.onlyDecisions = e.target.checked; renderAll(true);
+    });
+
+    $("btn-pause").addEventListener("click", function () { setPaused(!state.paused); });
+    $("btn-refresh").addEventListener("click", function () { tick(true); });
+    $("btn-theme").addEventListener("click", toggleTheme);
+    $("btn-help").addEventListener("click", openHelp);
+    $("dlg-card-close").addEventListener("click", function () { $("dlg-card").close(); });
+    $("dlg-help-close").addEventListener("click", function () { $("dlg-help").close(); });
+
+    document.addEventListener("keydown", function (ev) {
+      var tag = (ev.target && ev.target.tagName) || "";
+      var typing = tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || (ev.target && ev.target.isContentEditable);
+      if (ev.key === "Escape") {
+        ["dlg-card", "dlg-help"].forEach(function (id) {
+          var d = $(id);
+          if (d && d.open) d.close();
+        });
+        if (typing && ev.target === q) {
+          if (q.value) { q.value = ""; state.filters.query = ""; renderAll(true); }
+          else q.blur();
+        }
+        return;
+      }
+      if (typing) return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+
+      switch (ev.key) {
+        case "j": ev.preventDefault(); moveFocus(1); break;
+        case "k": ev.preventDefault(); moveFocus(-1); break;
+        case "/": ev.preventDefault(); q.focus(); q.select && q.select(); break;
+        case " ": ev.preventDefault(); setPaused(!state.paused); break;
+        case "r": ev.preventDefault(); tick(true); announce("Datos refrescados"); break;
+        case "t": ev.preventDefault(); toggleTheme(); break;
+        case "?": ev.preventDefault(); openHelp(); break;
+        case "1": ev.preventDefault(); jumpToSection(1); break;
+        case "2": ev.preventDefault(); jumpToSection(2); break;
+        case "3": ev.preventDefault(); jumpToSection(3); break;
+        default: break;
+      }
+    });
+
+    // Volver a la pestaña = ponerse al dia de una.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && !state.paused) tick(true);
+    });
+  }
+
+  // ── Arranque ───────────────────────────────────────────────────────────────
+  initTheme();
+  wire();
+  tick(true).then(function () {
+    startPolling();
+  });
+})();
+</script>
+</body>
+</html>

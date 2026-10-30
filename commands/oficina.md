@@ -11,15 +11,20 @@ Si el objetivo está vacío, tomá el pedido más reciente del usuario en esta c
 
 ## Paso 0 — ¿Plugin o fallback?
 
+> **Dashboard en vivo:** al arrancar una corrida, el dashboard visual se abre
+> automáticamente en tu navegador (`http://localhost:7333`, negocia otro puerto
+> si está ocupado). Ahí ves la mesa, el bus de mensajes, el kanban y los gates
+> en tiempo real. Si no se abrió solo: `oficina dashboard`.
+
 **[plugin]** Si tenés las tools `oficina_*` disponibles, usá el **motor duro**. Es lo que hace que los invariantes dejen de ser sugerencias: el guard de scope rechaza escrituras fuera del scope, el gate corre comandos de verdad, y una card no se cierra sin evidencia.
 
 Comprobá si existe `oficina_plan`. Si existe:
 
 1. `oficina_plan` con el objetivo descompuesto en cards (ver abajo).
-2. `oficina_dispatch` → **arma el equipo**: resuelve los roles en el catálogo de agency-agents, materializa los agentes y los arranca en paralelo.
+2. `oficina_dispatch` → **arma el equipo**: resuelve los roles en el catálogo de agency-agents, materializa los agentes y los arranca en paralelo. Si no hay match, la factory crea un agente persistente en `.opencode/agents/` y queda en el catálogo vivo.
 3. `oficina_mesa` (view) → mirá quién trabaja en qué.
 4. Corré el ciclo con las tools: `oficina_assign` → trabajo → `oficina_submit` → `oficina_review` → `oficina_evidence` → `oficina_gate`.
-5. `oficina_cost` para el costo; `oficina_stop` si la corrida se descontrola.
+5. `oficina_stop` si la corrida se descontrola.
 
 **Si NO hay plugin**, seguí el flujo de artefactos en markdown de `reference/protocol.md`. Mismo protocolo, sin enforcement.
 
@@ -33,10 +38,6 @@ Comprobá si existe `oficina_plan`. Si existe:
 6. Corré el ciclo: TRABAJO → AUTO-REVIEW → GATES + EVIDENCIA → DONE, o REWORK/REPLAN/ESCALADA.
 7. Checkpoint al usuario cada 3 cards — **informá y seguí**, no pidás permiso.
 8. Escalá solo con el formato de 2-3 opciones concretas + recomendación.
-
-## Presupuesto
-
-20 cards, 40 invocaciones de subagente, 20 spawns por corrida. **[plugin]** El costo real (tokens y USD) se ve con `oficina_cost`; si se dispara, `oficina_stop` frena la corrida.
 
 ## Lo que esta oficina garantiza
 

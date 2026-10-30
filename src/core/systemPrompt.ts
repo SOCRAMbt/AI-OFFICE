@@ -14,6 +14,7 @@
 
 import type { Office } from "./office.js"
 import type { OfficeState } from "./types.js"
+import { renderEnvironmentSheet } from "./environment.js"
 
 /**
  * Construye el bloque de estado.
@@ -31,6 +32,8 @@ export async function buildSystemPrompt(office: Office, state: OfficeState): Pro
   const working = Object.values(roster.agents).filter((a) => a.state === "working")
 
   const lines: string[] = [
+    "",
+    renderEnvironmentSheet(),
     "",
     "## 🏢 OFICINA — estado de la corrida",
     "",

@@ -1,0 +1,201 @@
+{
+  "objective": "Crear un dashboard visual interactivo en tiempo real que muestre el funcionamiento interno de la Oficina de Agents",
+  "cards": [
+    {
+      "id": "T-01",
+      "title": "Explorar estructura .oficina/ y definir schema de datos para el dashboard",
+      "type": "exploration",
+      "requiredCapabilities": ["typescript", "node", "filesystem"],
+      "scope": {
+        "mayTouch": [".oficina/**"],
+        "forbidden": ["src/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Mapear todos los archivos en .oficina/ (state.json, roster.json, bus/*, evidence/*, leases/*, context.md, cost.json)",
+        "Definir TypeScript interfaces para cada tipo de dato que el dashboard consumira",
+        "Identificar que archivos cambian en tiempo real y frecuencia de actualizacion",
+        "Documentar estructura de mensajes en bus/ y formato de envelopes"
+      ],
+      "gate": "TypeScript interfaces validadas y documentadas en artifacts/T-01/handoff.md",
+      "dependsOn": []
+    },
+    {
+      "id": "T-02",
+      "title": "Arquitectura del dashboard: single-page app con polling/WebSocket sobre archivos",
+      "type": "architecture",
+      "requiredCapabilities": ["frontend-architecture", "typescript", "real-time-systems"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Diseno de arquitectura: HTML unico + CSS + JS vanilla/Alpine.js sin build step",
+        "Estrategia de polling: intervalos adaptativos por tipo de dato (state.json: 500ms, bus: 1s, roster: 2s)",
+        "WebSocket fallback si se detecta servidor (opcional, documentar)",
+        "Tema oscuro/claro con design tokens consistentes (OKLCH)",
+        "Responsive: desktop paneles lado a lado, mobile tabs/accordion",
+        "Accesibilidad: ARIA live regions, keyboard navigation, WCAG AA contrast"
+      ],
+      "gate": "Architecture decision document en artifacts/T-02/handoff.md con decisiones y trade-offs",
+      "dependsOn": ["T-01"]
+    },
+    {
+      "id": "T-03",
+      "title": "Implementar mesa visual en vivo (panel principal)",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "svg-canvas", "real-time-ui"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Panel que lee roster.json y state.json y muestra agentes con estado visual (working/idle/no-heartbeat/dead)",
+        "Cards sin owner visibles con badge de 'unassigned'",
+        "Avatares de agentes con iniciales, color por rol, indicador de heartbeat (pulse animation)",
+        "Tooltip con capabilities, currentCard, idleSince, helpGiven/Received",
+        "Actualizacion en tiempo real via polling (500ms)",
+        "Keyboard navigation entre agentes, Enter para ver detalle"
+      ],
+      "gate": "dashboard/mesa.html funcional + npm run typecheck + npm test pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-04",
+      "title": "Implementar bus de mensajes visible con threading y prioridades",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "data-visualization", "real-time-ui"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Panel que lee bus/peer/ y canales de coordinadores (coord-command, coord-arch, coord-flow)",
+        "Visualizacion tipo sequence diagram: flechas entre avatares, colores por prioridad (critical=red, high=orange, normal=blue, low=gray)",
+        "Threading visual: inReplyTo agrupa mensajes en hilos colapsables/expandibles",
+        "Filtros por kind (HELP_REQUEST, HELP_ACCEPT, CLAIM, RELEASE, SPAWN_REQUEST, etc.)",
+        "Timeline con timestamps relativos, auto-scroll opcional",
+        "Click en mensaje muestra detalle completo (body, ttl, hops, idempotency_key)"
+      ],
+      "gate": "dashboard/bus.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-05",
+      "title": "Implementar panel de debate/brainstorming trazable (HELP_REQUEST broadcast + respuestas)",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "chat-ui", "threading"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Deteccion automatica de HELP_REQUEST con to:['*'] (broadcast)",
+        "Vista tipo chat: burbujas con avatar, timestamp, agente, expandible para ver body completo",
+        "Respuestas (HELP_ACCEPT, HELP_DECLINE, HELP_PARTIAL, HELP_QUESTION) anidadas bajo el request",
+        "Indicador visual de estado: pending -> accepted/declined/partial -> completed",
+        "Colapso/expansion de hilos completos, contador de respuestas",
+        "ARIA live region para anuncios de nuevos mensajes en hilos abiertos"
+      ],
+      "gate": "dashboard/debate.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-06",
+      "title": "Implementar panel de intervencion del jefe (Commander/Integrator/Architect decisions)",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "decision-tracking"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Tres secciones: Commander (scope/prioridades/escalations), Integrator (routing/leases/gates/deadlocks), Architect (tech decisions/patterns/contracts)",
+        "Lee decisions de state.json + mensajes en canales de coordinadores",
+        "Cada decision: timestamp, actor, cardId, decision, razon, siguiente accion",
+        "Filtro por coordinador, por card, por tipo de decision",
+        "Enlace a card afectada y a artifacts correspondientes"
+      ],
+      "gate": "dashboard/leadership.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-07",
+      "title": "Implementar Kanban visual de cards con drag-drop y acceptance criteria",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "kanban", "drag-drop"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Columnas: TODO, IN_PROGRESS, REVIEW, DONE, REWORK, BLOCKED, ESCALATED",
+        "Cards muestran: id, titulo, owner avatar, reviewer avatar, rejection count, acceptance checklist",
+        "Drag-drop opcional entre columnas (solo visual, no persiste - read-only dashboard)",
+        "Click en card abre modal con detalle completo: scope, acceptance, gate, artifacts, evidence links",
+        "Badges de estado gate: PASS/FAIL/NOT_RUN con colores",
+        "Filtro por owner, por tipo, por estado"
+      ],
+      "gate": "dashboard/kanban.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-08",
+      "title": "Implementar animacion de Factory creando agentes nuevos",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "animation", "svg-canvas"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Deteccion: cuando hay card sin match en catalogo (cobertura < 60% en roster/state)",
+        "Animacion secuencial: Factory creando agente... -> archivo .md apareciendo en .opencode/agents/ -> entrada al catalogo dinamico -> match en proxima card",
+        "Visualizacion: progress steps con checkmarks, archivo escribiendose con cursor parpadeante",
+        "Toast/notification cuando factory completa y agente aparece en roster",
+        "Click en notificacion abre ficha del agente fabricado"
+      ],
+      "gate": "dashboard/factory.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-09",
+      "title": "Implementar panel lateral de Gates y Evidencia con spinners y resultados",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "real-time-ui", "testing"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "Panel lateral fijo (desktop) / bottom sheet (mobile) mostrando 7 gates",
+        "Fases: Build, Type check, Lint, Tests+coverage, Security grep, Diff review, Requisitos",
+        "Spinners animados mientras corren, iconos PASS/FAIL/NOT_RUN/N/A al terminar",
+        "Click en fase muestra output real (pega de evidence.md/gates.md)",
+        "Enlace a evidence.md y handoff.md de la card",
+        "Gate 7 (Requisitos): lista acceptance criteria con check/cross y link a evidencia registrada"
+      ],
+      "gate": "dashboard/gates.html funcional + typecheck + tests pass",
+      "dependsOn": ["T-02"]
+    },
+    {
+      "id": "T-10",
+      "title": "Integrar todo en dashboard.html unico + README-DASHBOARD.md",
+      "type": "implementation",
+      "requiredCapabilities": ["typescript", "frontend", "integration", "documentation"],
+      "scope": {
+        "mayTouch": ["dashboard/**"],
+        "forbidden": ["src/**", ".oficina/**", "dist/**", "node_modules/**"]
+      },
+      "acceptance": [
+        "dashboard.html unico con todos los paneles (layout: header + sidebar tabs + main area)",
+        "Navegacion por tabs: Mesa | Bus | Debate | Jefe | Kanban | Factory | Gates",
+        "Persistencia de tab activo en localStorage",
+        "Tema oscuro/claro con toggle persistido",
+        "Atajos de teclado: 1-7 tabs, Espacio pause/resume polling, R refresh, ? ayuda",
+        "README-DASHBOARD.md con: como usarlo, que muestra cada panel, atajos, troubleshooting"
+      ],
+      "gate": "dashboard.html abre en browser file:// + typecheck + tests pass + README completo",
+      "dependsOn": ["T-03", "T-04", "T-05", "T-06", "T-07", "T-08", "T-09"]
+    }
+  ]
+}

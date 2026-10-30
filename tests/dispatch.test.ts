@@ -125,6 +125,18 @@ describe("Materialización del agente", () => {
     expect(content).toContain("Build React Components")
     expect(content).toContain("Frontend Developer")
   })
+
+  it("materializa la hoja de entorno en el archivo del agente", async () => {
+    const { ficha } = await office.resolveFicha({ role: "frontend-developer", capabilities: ["react"] })
+    const card = makeCard()
+    const briefing = buildBriefing({ ficha, card, objective: "Test" })
+    const file = await materializeAgent(tmp, ficha, briefing)
+
+    const content = await fs.readFile(file, "utf8")
+    // El agente invocado por nombre (@oficina-*) también debe conocer su entorno.
+    expect(content).toContain("PowerShell")
+    expect(content).toContain("NO hay `import`, `export` ni `require`")
+  })
 })
 
 describe("Prompt de arranque", () => {
@@ -145,6 +157,26 @@ describe("Prompt de arranque", () => {
     // 4. Cómo se trabaja en la mesa.
     expect(prompt).toContain("mesa")
     expect(prompt).toContain("HELP_REQUEST")
+  })
+
+  it("incluye la hoja de entorno ANTES de la especialidad", async () => {
+    const { ficha } = await office.resolveFicha({ role: "frontend-developer", capabilities: ["react"] })
+    const card = makeCard()
+    const briefing = buildBriefing({ ficha, card, objective: "Test" })
+    const prompt = buildAgentPrompt(ficha, briefing)
+
+    // La hoja de entorno va primero: el agente debe saber su runtime antes
+    // que su especialidad. (Lección de la corrida con errores de PowerShell.)
+    const idxEntorno = prompt.indexOf("Tu entorno de ejecución")
+    const idxEspecialidad = prompt.indexOf("Tu especialidad (prompt de origen)")
+    expect(idxEntorno).toBeGreaterThan(-1)
+    expect(idxEspecialidad).toBeGreaterThan(-1)
+    expect(idxEntorno).toBeLessThan(idxEspecialidad)
+
+    // Las reglas que evitan los errores reales del log.
+    expect(prompt).toContain("PowerShell")
+    expect(prompt).toContain("NO hay `import`, `export` ni `require`")
+    expect(prompt).toContain("NO reintentés lo mismo")
   })
 })
 

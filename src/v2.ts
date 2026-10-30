@@ -82,6 +82,8 @@ export interface V2Options {
   maxAutoResumes?: number
   /** Tope de archivos que mira el tripwire por comando. */
   tripwireMaxFiles?: number
+  /** Dashboard visual. `{ enabled: false }` para desactivarlo. */
+  dashboard?: { enabled?: boolean; port?: number }
 }
 
 /**
@@ -153,6 +155,35 @@ export default Plugin.define({
     })
     await office.init()
 
+    /* ────────────────────────────────────────────────────────────────────────
+     * 0. DASHBOARD VISUAL
+     *
+     * El servidor arranca en background (detached) apenas el plugin carga,
+     * así que cuando la corrida empieza ya está conectado a `.oficina/`.
+     * El navegador se abre cuando hay una corrida activa: al guardar el plan
+     * (`oficina_plan`) o al reanudar una corrida `running`.
+     * ──────────────────────────────────────────────────────────────────────── */
+    const dashboardEnabled =
+      (options as V2Options).dashboard?.enabled !== false &&
+      // En tests y CI el auto-start spawnearía un proceso detached que
+      // bloquea los temp dirs del suite (EBUSY en el cleanup).
+      !process.env.VITEST &&
+      !process.env.CI
+    const dashboard = await import("./core/dashboard.js")
+    if (dashboardEnabled) {
+      void (async () => {
+        try {
+          const info = await dashboard.startDashboard(office.paths.projectRoot, office.paths.officeDir)
+          if (!info) return
+          // ¿Hay una corrida activa que reanudar? Abrir el navegador ya.
+          const state = await office.loadState()
+          if (state.status === "running") dashboard.openBrowser(info.url)
+        } catch (err) {
+          log.debug("dashboard: arranque best-effort", { error: String(err) })
+        }
+      })()
+    }
+
     const tripwire = new Tripwire(office.paths.projectRoot, {
       maxFiles: options.tripwireMaxFiles ?? 4000,
     })
@@ -217,7 +248,23 @@ export default Plugin.define({
      * 1. TOOLS
      * ──────────────────────────────────────────────────────────────────────── */
 
-    const defs = buildTools(office)
+    const defs = buildTools(office, {
+      onRunStart: async (runId) => {
+        if (!dashboardEnabled) return undefined
+        try {
+          const info = await dashboard.startDashboard(office.paths.projectRoot, office.paths.officeDir)
+          if (info) {
+            dashboard.openBrowser(info.url)
+            log.info("dashboard abierto", { runId, url: info.url })
+            return info.url
+          }
+          log.warn("dashboard no disponible", { runId })
+        } catch (err) {
+          log.debug("dashboard: arranque best-effort", { runId, error: String(err) })
+        }
+        return undefined
+      },
+    })
     await ctx.tool.transform((editor) => {
       for (const [name, def] of Object.entries(defs)) {
         editor.add({

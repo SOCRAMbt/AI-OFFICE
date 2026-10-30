@@ -108,7 +108,16 @@ const cardTypeSchema = z.enum([
  * no puede nombrar el tipo de los schemas (que viene del zod anidado del
  * plugin) y el build falla con TS2742.
  */
-export function buildTools(office: Office): Record<string, OficinaTool> {
+/** Hooks que el entry point puede inyectar en el ciclo de la corrida. */
+export interface ToolHooks {
+  /**
+   * Se dispara cuando se guarda un plan (arranca una corrida). Devuelve la
+   * URL del dashboard visual si pudo abrirse — el plan la reporta al modelo.
+   */
+  onRunStart?: (runId: string) => Promise<string | undefined>
+}
+
+export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string, OficinaTool> {
   const officeOf = (ctx: { directory: string }) => {
     // El directorio del contexto tiene prioridad sobre el cwd del plugin:
     // es el proyecto real en el que se está trabajando.
@@ -158,19 +167,27 @@ export function buildTools(office: Office): Record<string, OficinaTool> {
         await off.init()
         const state = await off.loadState(args.objective)
         const updated = await off.savePlan(state, args.cards as never)
+        // El plan marca el arranque de la corrida: acá se abre el dashboard
+        // visual (la URL viaja en la salida para que el modelo la reporte).
+        let dashUrl: string | undefined
+        try {
+          dashUrl = await hooks.onRunStart?.(updated.runId)
+        } catch { /* el dashboard es best-effort: no bloquea la corrida */ }
+        const lines = [
+          `Plan guardado. ${updated.order.length} cards en la corrida.`,
+          "",
+          ...updated.order.map((id) => {
+            const c = updated.cards[id]!
+            return `- **${id}** ${c.title} [${c.type}] owner=${c.owner ?? "(sin owner)"} reviewer=${c.reviewer ?? "(sin reviewer)"} — gate: ${c.gate}`
+          }),
+          "",
+          `Siguiente paso: llamá \`oficina_assign\` para tomar la primera card.`,
+        ]
+        if (dashUrl) lines.push("", `Dashboard en vivo: ${dashUrl} (ya se abrió en tu navegador)`)
         return {
           title: `Plan guardado: ${updated.order.length} cards`,
-          output: [
-            `Plan guardado. ${updated.order.length} cards en la corrida.`,
-            "",
-            ...updated.order.map((id) => {
-              const c = updated.cards[id]!
-              return `- **${id}** ${c.title} [${c.type}] owner=${c.owner ?? "(sin owner)"} reviewer=${c.reviewer ?? "(sin reviewer)"} — gate: ${c.gate}`
-            }),
-            "",
-            `Siguiente paso: llamá \`oficina_assign\` para tomar la primera card.`,
-          ].join("\n"),
-          metadata: { runId: updated.runId, cards: updated.order.length },
+          output: lines.join("\n"),
+          metadata: { runId: updated.runId, cards: updated.order.length, dashboard: dashUrl },
         }
       },
     }),
