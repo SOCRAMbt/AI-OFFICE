@@ -96,7 +96,7 @@
     "@opencode-ai/plugin": "^1.19.5",
     "@opencode/client": "^2.1.2",
     "@opencode/plugin": "^2.1.2",
-    "@types/node": "^24.12.2",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.0.5",
     "playwright": "^1.64.1",
     "tsx": "^4.20.3",
