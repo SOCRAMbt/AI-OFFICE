@@ -152,7 +152,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
                   mayTouch: z.array(z.string()).describe("Globs que el agente puede tocar."),
                   forbidden: z.array(z.string()).describe("Globs prohibidos."),
                 })
-                .optional(),
+                .describe("Scope del agente."),
               acceptance: z
                 .array(z.string())
                 .describe("Criterios verificables. Nada de 'hecho' genérico."),
@@ -783,9 +783,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         capabilities: z.array(z.string()).describe("Capabilities necesarias."),
         scope: z
           .object({
-            mayTouch: z.array(z.string()).optional(),
-            forbidden: z.array(z.string()).optional(),
+            mayTouch: z.array(z.string()).describe("Globs que el agente puede tocar."),
+            forbidden: z.array(z.string()).describe("Globs prohibidos."),
           })
+          .describe("Scope del agente.")
           .optional(),
         canDelegate: z.boolean().default(false),
         delegateBudget: z.number().int().min(0).max(5).default(0),

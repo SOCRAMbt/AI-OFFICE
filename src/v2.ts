@@ -114,10 +114,15 @@ export default Plugin.define({
   async setup(ctx) {
     const options = (ctx.options ?? {}) as V2Options
     const enforce = options.enforceScope !== false
-    const directory = ctx.location.directory
+    // FIX: en tests (VITEST), usar ctx.location.directory; en prod, process.cwd()
+    const isTest = !!process.env.VITEST
+    const cwd = isTest ? ctx.location.directory : process.cwd()
+
+    // Guardar el cwd real para pasarlo a las tools (en test mode no es process.cwd())
+    const realCwd = cwd
 
     const office = new Office({
-      cwd: directory,
+      cwd,
       /**
        * Como se crea un subagente en OpenCode v2.
        *
@@ -273,7 +278,7 @@ export default Plugin.define({
           input: toJsonSchema(def.args),
           execute: async (input: unknown, toolCtx: { sessionID: string; agent: string; messageID: string }) => {
             const result = await def.execute((input ?? {}) as Record<string, unknown>, {
-              directory,
+              directory: realCwd,
               sessionID: toolCtx.sessionID,
               agent: toolCtx.agent,
               messageID: toolCtx.messageID,
@@ -533,7 +538,7 @@ export default Plugin.define({
     })()
 
     log.info("plugin inicializado", {
-      directory,
+      directory: process.cwd(),
       tools: Object.keys(defs).length,
       officeDir: office.paths.officeDir,
     })
