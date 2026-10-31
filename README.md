@@ -26,7 +26,7 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v3.1.1 |
+| **Paquete** | `oficina-opencode` v3.1.2 |
 | **Tools** | 15 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
