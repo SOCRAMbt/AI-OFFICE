@@ -376,6 +376,32 @@ export class Bus {
     }
     return out
   }
+
+  /**
+   * Limpia mensajes expirados de todos los canales.
+   * Devuelve el número de mensajes eliminados.
+   */
+  async cleanupExpired(): Promise<number> {
+    let deleted = 0
+    for (const channel of Object.values(CHANNELS)) {
+      const channelDir = this.channelDir(channel)
+      try {
+        const files = await fs.readdir(channelDir)
+        for (const file of files) {
+          if (!file.endsWith(".json")) continue
+          const filePath = path.join(channelDir, file)
+          const result = await readJson<BusMessage>(filePath)
+          if (result.ok && result.value && this.isExpired(result.value)) {
+            await fs.unlink(filePath)
+            deleted++
+          }
+        }
+      } catch {
+        // Canal no existe o error de lectura
+      }
+    }
+    return deleted
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@
 import path from "node:path"
 import fs from "node:fs/promises"
 import type {
+  AgentState,
   Card,
   CardState,
   CardType,
@@ -947,6 +948,18 @@ export class Office {
       working: this.rosterStore.workingAgents(roster),
       dead: this.rosterStore.deadAgents(roster, this.limits.heartbeatSec * 3),
     }
+  }
+
+  /** Cambia el estado de un agente directamente. */
+  async setAgentState(state: OfficeState, agentId: string, newState: AgentState): Promise<void> {
+    const roster = await this.loadRoster(state.runId)
+    this.rosterStore.setState(roster, agentId, newState)
+    await this.saveRoster(roster)
+  }
+
+  /** Limpia mensajes expirados del bus. */
+  async cleanupBus(): Promise<number> {
+    return this.bus.cleanupExpired()
   }
 }
 

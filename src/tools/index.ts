@@ -1139,6 +1139,344 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         }
       },
     }),
+
+    /**
+     * Limpia mensajes expirados del bus.
+     */
+    oficina_bus_cleanup: tool({
+      description:
+        "Limpia mensajes expirados del bus (HELP_REQUEST, QUESTION, etc. que vencieron su TTL). " +
+        "Devuelve el número de mensajes eliminados. Útil para mantener el bus limpio.",
+      args: {},
+      async execute(_args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+        const deleted = await off.cleanupBus()
+        return {
+          title: `Bus limpiado: ${deleted} mensaje(s) expirado(s) eliminado(s)`,
+          output: `Se eliminaron ${deleted} mensaje(s) expirado(s) del bus.`,
+          metadata: { deleted },
+        }
+      },
+    }),
+
+    /**
+     * Estado de coordinación: quién trabaja, ayuda abierta, spawns pendientes.
+     */
+    oficina_status: tool({
+      description:
+        "Estado de coordinación de la oficina: agentes trabajando, libres, ayuda abierta, preguntas abiertas, " +
+        "spawns pendientes, cards sin owner, y salud de la corrida. Útil para el jefe/coordinador y para debugging.",
+      args: {
+        filter: z
+          .enum(["all", "working", "free", "help", "spawns", "unowned", "health"])
+          .default("all")
+          .describe("Qué sección mostrar."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+        const state = await off.loadState()
+        const roster = await off.loadRoster(state.runId)
+        const mesa = await snapshotMesa(off)
+        const agents = Object.values(roster.agents)
+
+        const sections: string[] = ["# Estado de coordinación", ""]
+
+        const showAll = args.filter === "all"
+
+        if (showAll || args.filter === "working") {
+          const working = agents.filter((a) => a.state === "working")
+          sections.push(
+            `## Trabajando (${working.length})`,
+            "",
+            working.length === 0
+              ? "(nadie)"
+              : working
+                  .map(
+                    (a) =>
+                      `- **${a.displayName}** (\`${a.id}\`, ${a.role}) → card ${a.currentCard ?? "—"} · idle desde ${a.idleSince ?? "—"}`,
+                  )
+                  .join("\n"),
+            "")
+        }
+
+        if (showAll || args.filter === "free") {
+          const free = agents.filter((a) => a.state === "idle_available" && a.canAccept)
+          sections.push(
+            `## Libres para ayudar (${free.length})`,
+            "",
+            free.length === 0
+              ? "(nadie)"
+              : free
+                  .map(
+                    (a) =>
+                      `- **${a.displayName}** (\`${a.id}\`, ${a.role}) · capabilities: ${a.capabilities.slice(0, 5).join(", ") || "—"} · idle desde ${a.idleSince}`,
+                  )
+                  .join("\n"),
+            "")
+        }
+
+        if (showAll || args.filter === "help") {
+          sections.push(
+            `## Ayuda abierta (${mesa.ayudaAbierta.length})`,
+            "",
+            mesa.ayudaAbierta.length === 0
+              ? "(ninguna)"
+              : mesa.ayudaAbierta
+                  .map(
+                    (h) =>
+                      `- **${h.from}** en \`${h.card}\`: ${h.need} (id: ${h.messageId}) · respondé con \`oficina_bus\` action=respond inReplyTo=\`${h.messageId}\``,
+                  )
+                  .join("\n"),
+            "")
+        }
+
+        if (showAll || args.filter === "spawns") {
+          const peerMessages = await off.bus.readChannel(CHANNELS.flow)
+          const spawns = peerMessages
+            .filter((m) => m.kind === "SPAWN_REQUEST")
+            .filter((m) => {
+              const answered = peerMessages.some(
+                (r) =>
+                  (r.kind === "SPAWN_APPROVED" || r.kind === "SPAWN_REJECTED") &&
+                  r.inReplyTo === m.id,
+              )
+              return !answered
+            })
+          sections.push(
+            `## Spawns pendientes (${spawns.length})`,
+            "",
+            spawns.length === 0
+              ? "(ninguno)"
+              : spawns
+                  .map(
+                    (s) =>
+                      `- **${s.from}** pide \`${(s.body as Record<string, unknown>)?.requested_role ?? "desconocido"}\` en ${s.subject ?? "general"} (id: ${s.id}) · ${s.body ? `need: ${(s.body as Record<string, unknown>).need}` : ""}`,
+                  )
+                  .join("\n"),
+            "")
+        }
+
+        if (showAll || args.filter === "unowned") {
+          sections.push(
+            `## Cards sin owner (${mesa.sinOwner.length})`,
+            "",
+            mesa.sinOwner.length === 0
+              ? "(ninguna)"
+              : mesa.sinOwner
+                  .map(
+                    (c) =>
+                      `- **${c.cardId}** ${c.title} — necesita: ${c.requiredCapabilities.join(", ") || "—"}`,
+                  )
+                  .join("\n"),
+            "")
+        }
+
+        if (showAll || args.filter === "health") {
+          const state = await off.loadState()
+          const deadAgents = agents.filter(
+            (a) => a.state !== "retired" && a.state !== "idle_available" && Date.parse(a.lastHeartbeat) < Date.now() - 180_000,
+          )
+          const pendingCards = Object.values(state.cards).filter((c) => c.state !== "done").length
+          const blockedCards = Object.values(state.cards).filter((c) => c.state === "blocked" || c.state === "escalated").length
+          sections.push(
+            `## Salud de la corrida`,
+            "",
+            `- **Estado:** ${state.status}`,
+            `- **Iteración:** ${state.iteration}`,
+            `- **Cards pendientes:** ${pendingCards}`,
+            `- **Cards bloqueadas/escaladas:** ${blockedCards}`,
+            `- **Agentes sin heartbeat:** ${deadAgents.length}`,
+            `- **Freno de emergencia:** ${state.halt ? `ACTIVO (${state.halt.reason})` : "inactivo"}`,
+            `- **Presupuesto:** ${state.order.length}/${off.limits.maxConcurrentAgents ?? "—"} agents concurrentes, ${Object.values(state.cards).reduce((s, c) => s + c.attempts, 0)}/${off.limits.maxMessagesPerAgent ?? "—"} msgs/agente`,
+          )
+        }
+
+        return {
+          title: `Estado de coordinación (${args.filter})`,
+          output: sections.join("\n"),
+          metadata: {
+            filter: args.filter,
+            working: mesa.trabajando.length,
+            free: mesa.libres.length,
+            helpOpen: mesa.ayudaAbierta.length,
+            unowned: mesa.sinOwner.length,
+          },
+        }
+      },
+    }),
+
+    /**
+     * Cuando un agente termina su card, queda idle o necesita decidir qué hacer:
+     * esta tool OBLIGA a pasar por el protocolo de reasignación:
+     * 1. Lee la mesa (quién trabaja, libres, ayuda abierta, cards sin owner)
+     * 2. Lee el inbox (mensajes del bus)
+     * 3. Obliga a decidir: CLAIM, HELP_RESPOND, ASK_COORDINATOR, STAY_IDLE
+     *
+     * No declarar "terminé" sin pasar por acá.
+     */
+    oficina_next: tool({
+      description:
+        "Protocolo obligatorio de siguiente acción. Cuando terminás una card, quedás idle o no sabés qué hacer: " +
+        "esta tool te obliga a leer la mesa, leer el inbox y decidir tu próximo movimiento. " +
+        "Opciones: CLAIM (reclamar card), HELP_RESPOND (contestar ayuda), ASK_COORDINATOR (preguntar al jefe), STAY_IDLE (justificar). " +
+        "NO declarar 'terminé' sin pasar por acá.",
+      args: {
+        agentId: z.string().describe("Tu id de agente."),
+        action: z
+          .enum(["CLAIM", "HELP_RESPOND", "ASK_COORDINATOR", "STAY_IDLE"])
+          .describe("Qué decidiste hacer."),
+        cardId: z.string().optional().describe("Card a reclamar (para CLAIM)."),
+        messageId: z.string().optional().describe("Mensaje al que respondés (para HELP_RESPOND)."),
+        kind: z
+          .enum(["HELP_ACCEPT", "HELP_DECLINE", "HELP_PARTIAL", "HELP_QUESTION"])
+          .optional()
+          .describe("Tipo de respuesta a ayuda (para HELP_RESPOND)."),
+        body: z.string().optional().describe("Cuerpo de la respuesta (para HELP_RESPOND/ASK_COORDINATOR)."),
+        justification: z.string().optional().describe("Justificación si te quedás idle (para STAY_IDLE)."),
+        to: z.array(z.string()).optional().describe("Destinatarios (para HELP_RESPOND)."),
+      },
+      async execute(args, ctx) {
+        const off = officeOf(ctx)
+        await off.init()
+
+        const state = await off.loadState()
+        const roster = await off.loadRoster(state.runId)
+        const agent = roster.agents[args.agentId]
+
+        if (!agent) {
+          return { title: "Agente no encontrado", output: `No existe el agente ${args.agentId} en el roster.` }
+        }
+
+        // 1. Leer mesa
+        const mesa = await snapshotMesa(off)
+        const mesaRender = renderMesa(mesa)
+
+        // 2. Leer inbox
+        const messages = await off.bus.receive(args.agentId, [CHANNELS.peer, CHANNELS.flow, CHANNELS.command, CHANNELS.arch])
+        const inboxRender = messages.length === 0
+          ? "(inbox vacío)"
+          : messages
+              .map(
+                (m) =>
+                  `### [${m.kind}] de ${m.from} — ${m.subject}\n${JSON.stringify(m.body, null, 2)}\n_(id: ${m.id})_`,
+              )
+              .join("\n\n")
+
+        // 3. Ejecutar la acción decidida
+        let resultOutput = ""
+        let metadata: Record<string, unknown> = {}
+
+        switch (args.action) {
+          case "CLAIM": {
+            if (!args.cardId) {
+              return { title: "Falta cardId", output: "Para CLAIM debes indicar cardId." }
+            }
+            const claimed = await off.claimCard(state, args.agentId, args.cardId)
+            if (!claimed.ok) {
+              return { title: "No se pudo reclamar", output: claimed.reason }
+            }
+            await off.bus.send(CHANNELS.peer, {
+              from: args.agentId,
+              to: ["*"],
+              kind: "CLAIM",
+              subject: args.cardId,
+              body: { claimed: args.cardId },
+            })
+            resultOutput = `✅ **Card ${args.cardId} reclamada.**\n\n${claimed.reason}`
+            metadata = { action: "CLAIM", cardId: args.cardId }
+            break
+          }
+
+          case "HELP_RESPOND": {
+            if (!args.messageId) {
+              return { title: "Falta messageId", output: "Para HELP_RESPOND debes indicar messageId." }
+            }
+            if (!args.kind) {
+              return { title: "Falta kind", output: "Para HELP_RESPOND debes indicar kind (HELP_ACCEPT/HELP_DECLINE/HELP_PARTIAL/HELP_QUESTION)." }
+            }
+            const msg = await off.bus.send(CHANNELS.peer, {
+              from: args.agentId,
+              to: args.to ?? [],
+              kind: args.kind as never,
+              subject: args.cardId ?? "",
+              body: args.body ? safeJson(args.body) : {},
+              inReplyTo: args.messageId,
+            })
+            await off.bus.ack(args.agentId, args.messageId)
+            resultOutput = `✅ **Respuesta de ayuda enviada (${args.kind}).**\n\nPublicado en el canal peer (seq ${msg.seq}).`
+            metadata = { action: "HELP_RESPOND", messageId: args.messageId, kind: args.kind }
+            break
+          }
+
+          case "ASK_COORDINATOR": {
+            if (!args.body) {
+              return { title: "Falta body", output: "Para ASK_COORDINATOR debes indicar body (la pregunta)." }
+            }
+            const msg = await off.bus.send(CHANNELS.command, {
+              from: args.agentId,
+              to: ["commander", "architect", "integrator"],
+              kind: "QUESTION",
+              subject: args.cardId ?? "general",
+              body: { question: args.body },
+              priority: "normal",
+            })
+            resultOutput = `✅ **Pregunta enviada a coordinadores.**\n\nPublicado en canal command (seq ${msg.seq}).`
+            metadata = { action: "ASK_COORDINATOR", messageId: msg.id }
+            break
+          }
+
+          case "STAY_IDLE": {
+            if (!args.justification) {
+              return { title: "Falta justification", output: "Para STAY_IDLE debes justificar por qué te quedás idle (p. ej. 'esperando respuesta de ayuda en T-03', 'no hay cards que matchen mis capabilities')." }
+            }
+            // Update agent state to idle_available if it was working and has no current card
+            const agentEntry = roster.agents[args.agentId]
+            if (agentEntry && agentEntry.state === "working" && !agentEntry.currentCard) {
+              await off.setAgentState(state, args.agentId, "idle_available")
+              await off.saveState(state)
+            }
+            resultOutput = `⏸ **Idle justificado.**\n\nJustificación: ${args.justification}\n\nSeguí atento al inbox y la mesa.`
+            metadata = { action: "STAY_IDLE", justification: args.justification }
+            break
+          }
+
+          default:
+            return { title: "Acción inválida", output: `Acción ${args.action} no reconocida.` }
+        }
+
+        // Build the full output with mesa and inbox
+        const fullOutput = [
+          "## Protocolo de siguiente acción (oficina_next)",
+          "",
+          `**Acción ejecutada:** ${args.action}`,
+          resultOutput,
+          "",
+          "---",
+          "",
+          "## Mesa (snapshot actual)",
+          "",
+          mesaRender,
+          "",
+          "---",
+          "",
+          "## Inbox",
+          "",
+          inboxRender,
+          "",
+          "---",
+          "",
+          "**Recordá:** No declares la corrida terminada mientras queden cards sin DONE. Si estás trabado, pedí ayuda por el bus o escalá.",
+        ].join("\n")
+
+        return {
+          title: `Próxima acción: ${args.action}`,
+          output: fullOutput,
+          metadata,
+        }
+      },
+    }),
   }
 }
 

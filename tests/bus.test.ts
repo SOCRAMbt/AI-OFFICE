@@ -194,4 +194,50 @@ describe("Bus", () => {
     expect(response.inReplyTo).toBe(request.id)
     expect(response.kind).toBe("HELP_ACCEPT")
   })
+
+  it("ciclo completo de ayuda: A pide → B responde → A recibe", async () => {
+    const bus = makeBus()
+    
+    // A pide ayuda
+    const request = await bus.requestHelp({
+      from: "e-a",
+      to: ["*"],
+      cardId: "T-01",
+      need: "Necesito ayuda con TypeScript generics",
+      whyMe: "Mi especialidad es UI, no tipos avanzados",
+    })
+    
+    // B (e-b) recibe el pedido
+    const receivedByB = await bus.receive("e-b", [CHANNELS.peer])
+    expect(receivedByB).toHaveLength(1)
+    expect(receivedByB[0]!.kind).toBe("HELP_REQUEST")
+    expect(receivedByB[0]!.subject).toBe("T-01")
+    expect(receivedByB[0]!.body.need).toBe("Necesito ayuda con TypeScript generics")
+    
+    // B acepta la ayuda
+    const accept = await bus.respondHelp({
+      from: "e-b",
+      to: ["e-a"],
+      cardId: "T-01",
+      kind: "HELP_ACCEPT",
+      body: { suggestion: "Usa Pick<T, K> para el tipo de retorno" },
+      inReplyTo: request.id,
+    })
+    expect(accept.inReplyTo).toBe(request.id)
+    expect(accept.kind).toBe("HELP_ACCEPT")
+    
+    // A recibe la respuesta
+    const receivedByA = await bus.receive("e-a", [CHANNELS.peer])
+    const helpResponse = receivedByA.find((m) => m.inReplyTo === request.id)
+    expect(helpResponse).toBeDefined()
+    expect(helpResponse!.kind).toBe("HELP_ACCEPT")
+    expect(helpResponse!.body.suggestion).toBe("Usa Pick<T, K> para el tipo de retorno")
+    
+    // A hace ack de la respuesta
+    await bus.ack("e-a", helpResponse!.id)
+    
+    // Verificar que no hay mensajes pendientes para A
+    const afterAck = await bus.receive("e-a", [CHANNELS.peer])
+    expect(afterAck.length).toBe(0)
+  })
 })
