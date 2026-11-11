@@ -79,6 +79,7 @@ async function registerAgent(state: OfficeState, id = "e-trabajador"): Promise<v
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    canDelegate: false,
     lastHeartbeat: new Date().toISOString(),
     source: { kind: "factory" },
   }
@@ -233,6 +234,7 @@ describe("Reconciliacion: huerfanos", () => {
       helpGiven: 0,
       helpReceived: 0,
       helpedPeers: [],
+      canDelegate: false,
       lastHeartbeat: new Date().toISOString(),
       source: { kind: "factory" },
     }

@@ -594,16 +594,15 @@ export class Office {
       return { card: null, reason: `la corrida está detenida: ${state.halt.reason}`, state }
     }
 
-    // Usar un lock por corrida para serializar la selección y el claim.
-    // Esto evita la carrera entre selectNextCard y leases.acquire.
-    const runLockPath = path.join(this.paths.leasesDir, `.run-${state.runId}.lock`)
-
-    return withLock(runLockPath, async () => {
-      // Recargar estado dentro del lock para tener la vista más fresca
-      const freshState = await this.loadState()
+    return this.withRunLock(state, async (freshState): Promise<{ card: Card | null; reason: string; state: OfficeState }> => {
       if (freshState.halt) {
         return { card: null, reason: `la corrida está detenida: ${freshState.halt.reason}`, state: freshState }
       }
+
+      // Validar agente en roster
+      const roster = await this.loadRoster(freshState.runId)
+      const agentCheck = this.assertAgentInRoster(roster, agentId)
+      if (!agentCheck.ok) return { card: null, reason: (agentCheck.reason ?? "agente no válido"), state: freshState }
 
       const next = selectNextCard(freshState)
       if (!next.card) return { card: null, reason: next.reason, state: freshState }
@@ -621,13 +620,18 @@ export class Office {
       const lease = await this.leases.acquire(card.id, agentId)
       if (!lease) return { card: null, reason: `la card ${card.id} ya está tomada por otro agente`, state: freshState }
 
-      const roster = await this.loadRoster(freshState.runId)
       this.rosterStore.assign(roster, agentId, card.id)
       await this.saveRoster(roster)
 
       transitionCard(freshState, card.id, "in_progress", { owner: agentId })
       if (sessionId) this.bindSession(freshState, sessionId, agentId, card.id)
       await this.saveState(freshState)
+
+      // Validar binding de sesión
+      if (sessionId) {
+        const bindingCheck = this.assertSessionBinding(freshState, sessionId, agentId, card.id)
+        if (!bindingCheck.ok) return { card: null, reason: bindingCheck.reason, state: freshState }
+      }
 
       await this.bus.send(CHANNELS.flow, {
         from: agentId,
@@ -660,6 +664,80 @@ export class Office {
     return state.cards[binding.cardId]
   }
 
+  /** Wrapper para ejecutar mutaciones bajo el lock de corrida. */
+  private async withRunLock<T>(state: OfficeState, fn: (freshState: OfficeState) => Promise<T>): Promise<T> {
+    const runLockPath = path.join(this.paths.leasesDir, `.run-${state.runId}.lock`)
+    return withLock(runLockPath, async () => {
+      const freshState = await this.loadState()
+      return fn(freshState)
+    })
+  }
+
+  /** Valida que la sesión esté bindeada al agente y card correctos. */
+  private assertSessionBinding(
+    state: OfficeState,
+    sessionId: string,
+    agentId: string,
+    cardId: string
+  ): { ok: boolean; reason: string } {
+    console.error('[DEBUG] assertSessionBinding:', { sessionId, agentId, cardId, sessions: Object.keys(state.sessions) })
+    const binding = state.sessions[sessionId]
+    if (!binding) {
+      console.error('[DEBUG] No binding for session:', sessionId)
+      return { ok: false, reason: `sesión ${sessionId} no tiene binding` }
+    }
+    console.error('[DEBUG] Found binding:', binding)
+    if (binding.agentId !== agentId) return { ok: false, reason: `sesión ${sessionId} bindeada a ${binding.agentId}, no a ${agentId}` }
+    if (binding.cardId !== cardId) return { ok: false, reason: `sesión ${sessionId} bindeada a card ${binding.cardId}, no a ${cardId}` }
+    return { ok: true, reason: "" }
+  }
+
+  /** Valida que el agente exista en el roster. */
+  private assertAgentInRoster(roster: Roster, agentId: string): { ok: boolean; reason: string } {
+    if (!roster.agents[agentId]) return { ok: false, reason: `agente ${agentId} no está desplegado en esta corrida` }
+    return { ok: true, reason: "" }
+  }
+
+  /**
+   * Asigna reviewer a las cards que tienen owner pero reviewer=null.
+   *
+   * ## Por qué existe
+   *
+   * El routing de savePlan corre cuando el roster está VACÍO (los agentes
+   * todavía no existen): deja reviewer=null en todas las cards. El dispatch
+   * después materializa los agentes pero no vuelve a rutear, así que el
+   * review quedaba estructuralmente imposible: submitReview exigía
+   * `card.reviewer === reviewerId` y ese campo era null para siempre.
+   *
+   * Este método es la segunda mitad del routing: corre DESPUÉS del dispatch,
+   * con el roster completo, y cierra el hueco.
+   */
+  async assignReviewers(state: OfficeState): Promise<string[]> {
+    const roster = await this.loadRoster(state.runId)
+    if (Object.keys(roster.agents).length === 0) return []
+
+    const catalog = await this.catalog()
+    const assigned: string[] = []
+
+    for (const id of state.order) {
+      const card = state.cards[id]
+      if (!card || !card.owner || card.reviewer) continue
+
+      const streak = ownerStreak(state.cards, state.order, "", card.type)
+      const route = routeCard(card, roster, catalog, { ownerStreak: streak })
+      // El router garantiza reviewer !== su propio owner, pero el owner que
+      // él eligió puede diferir del owner actual de la card: se revalida.
+      if (route.reviewer && route.reviewer.id !== card.owner) {
+        card.reviewer = route.reviewer.id
+        assigned.push(`${id} → ${route.reviewer.id}`)
+      }
+    }
+
+    if (assigned.length > 0) await this.saveState(state)
+    return assigned
+  }
+
+
   /** Reclama una card específica (claim proactivo del pool idle). */
   async claimCard(
     state: OfficeState,
@@ -667,39 +745,51 @@ export class Office {
     cardId: string,
     sessionId?: string,
   ): Promise<{ ok: boolean; reason: string }> {
-    if (state.halt) {
-      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}` }
-    }
-    const card = state.cards[cardId]
-    if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
-
-    // El lease se verifica PRIMERO: un doble claim es el diagnóstico más
-    // específico y el más común.
-    const lease = await this.leases.acquire(cardId, agentId)
-    if (!lease) return { ok: false, reason: `la card ${cardId} ya está tomada por otro agente` }
-
-    // Una card se puede reclamar si está pendiente de trabajo. El `rework`
-    // cuenta: es trabajo pendiente, y es el más urgente de todos.
-    if (card.state !== "todo" && card.state !== "rework" && card.state !== "in_progress") {
-      await this.leases.release(cardId, agentId)
-      return {
-        ok: false,
-        reason: `la card ${cardId} está en estado ${card.state}, no se puede reclamar`,
+    return this.withRunLock(state, async (freshState) => {
+      if (freshState.halt) {
+        return { ok: false, reason: `la corrida está detenida: ${freshState.halt.reason}` }
       }
-    }
+      const card = freshState.cards[cardId]
+      if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
 
-    const roster = await this.loadRoster(state.runId)
-    this.rosterStore.assign(roster, agentId, cardId)
-    await this.saveRoster(roster)
+      // Validar agente en roster
+      const roster = await this.loadRoster(freshState.runId)
+      const agentCheck = this.assertAgentInRoster(roster, agentId)
+      if (!agentCheck.ok) return { ...agentCheck, reason: agentCheck.reason ?? "agente no válido" }
 
-    if (card.state !== "in_progress") {
-      transitionCard(state, cardId, "in_progress", { owner: agentId })
-    } else {
-      card.owner = agentId
-    }
-    if (sessionId) this.bindSession(state, sessionId, agentId, cardId)
-    await this.saveState(state)
-    return { ok: true, reason: `card ${cardId} reclamada` }
+      // Si la card ya tiene owner, solo ÉSE puede reclamarla (reclaim tras rework)
+      if (card.owner && card.owner !== agentId) {
+        return { ok: false, reason: `la card ${cardId} pertenece a ${card.owner}, no a ${agentId}` }
+      }
+
+      // Validar elegibilidad ANTES de acquire (evita lease innecesario)
+      if (card.state !== "todo" && card.state !== "rework" && card.state !== "in_progress") {
+        return { ok: false, reason: `la card ${cardId} está en estado ${card.state}, no se puede reclamar` }
+      }
+
+      // El lease se verifica: un doble claim es el diagnóstico más específico
+      const lease = await this.leases.acquire(cardId, agentId)
+      if (!lease) return { ok: false, reason: `la card ${cardId} ya está tomada por otro agente` }
+
+      this.rosterStore.assign(roster, agentId, cardId)
+      await this.saveRoster(roster)
+
+      if (card.state !== "in_progress") {
+        transitionCard(freshState, cardId, "in_progress", { owner: agentId })
+      } else {
+        card.owner = agentId
+      }
+      if (sessionId) this.bindSession(freshState, sessionId, agentId, cardId)
+      await this.saveState(freshState)
+
+      // Validar binding de sesión si se proveyó
+      if (sessionId) {
+        const bindingCheck = this.assertSessionBinding(freshState, sessionId, agentId, cardId)
+        if (!bindingCheck.ok) return { ...bindingCheck, reason: bindingCheck.reason ?? "binding inválido" }
+      }
+
+      return { ok: true, reason: `card ${cardId} reclamada` }
+    })
   }
 
   /** Envía el trabajo de una card a review. */
@@ -708,39 +798,49 @@ export class Office {
     cardId: string,
     agentId: string,
     payload: { handoff: string; evidence?: string },
+    sessionId?: string,
   ): Promise<{ ok: boolean; reason: string }> {
-    if (state.halt) {
-      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}` }
-    }
-    const card = state.cards[cardId]
-    if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
-    if (card.owner !== agentId) {
-      return { ok: false, reason: `la card ${cardId} no la tiene ${agentId} (owner: ${card.owner})` }
-    }
-
-    const dir = cardDir(this.paths, cardId)
-    await ensureDir(dir)
-    await writeAtomic(path.join(dir, "handoff.md"), payload.handoff)
-    if (payload.evidence) {
-      await writeAtomic(path.join(dir, "evidence.md"), payload.evidence)
-    } else {
-      const hasEvidence = await readText(path.join(dir, "evidence.md"))
-      if (!hasEvidence) {
-        // Sin evidencia no hay hecho. Pero no bloqueamos el handoff: el
-        // reviewer va a marcarlo.
-        await writeAtomic(
-          path.join(dir, "evidence.md"),
-          `# Evidencia — ${cardId}\n\n(pendiente: el owner no adjuntó evidencia)\n`,
-        )
+    return this.withRunLock(state, async (freshState) => {
+      if (freshState.halt) {
+        return { ok: false, reason: `la corrida está detenida: ${freshState.halt.reason}` }
       }
-    }
+      const card = freshState.cards[cardId]
+      if (!card) return { ok: false, reason: `no existe la card ${cardId}` }
+      if (card.owner !== agentId) {
+        return { ok: false, reason: `la card ${cardId} no la tiene ${agentId} (owner: ${card.owner})` }
+      }
 
-    transitionCard(state, cardId, "review")
-    await this.saveState(state)
+      // Validar agente en roster
+      const roster = await this.loadRoster(freshState.runId)
+      const agentCheck = this.assertAgentInRoster(roster, agentId)
+      if (!agentCheck.ok) return agentCheck
 
-    const roster = await this.loadRoster(state.runId)
-    await this.saveRoster(roster)
-    return { ok: true, reason: `card ${cardId} entregada a revisión` }
+      // Validar binding de sesión
+      if (sessionId) {
+        const bindingCheck = this.assertSessionBinding(freshState, sessionId, agentId, cardId)
+        if (!bindingCheck.ok) return bindingCheck
+      }
+
+      const dir = cardDir(this.paths, cardId)
+      await ensureDir(dir)
+      await writeAtomic(path.join(dir, "handoff.md"), payload.handoff)
+      if (payload.evidence) {
+        await writeAtomic(path.join(dir, "evidence.md"), payload.evidence)
+      } else {
+        const hasEvidence = await readText(path.join(dir, "evidence.md"))
+        if (!hasEvidence) {
+          await writeAtomic(
+            path.join(dir, "evidence.md"),
+            `# Evidencia — ${cardId}\n\n(pendiente: el owner no adjuntó evidencia)\n`,
+          )
+        }
+      }
+
+      transitionCard(freshState, cardId, "review")
+      await this.saveState(freshState)
+      await this.saveRoster(roster)
+      return { ok: true, reason: `card ${cardId} entregada a revisión` }
+    })
   }
 
   /** Registra el veredicto del reviewer. */
@@ -750,43 +850,63 @@ export class Office {
     reviewerId: string,
     verdict: "approved" | "rejected",
     payload: { review: string; reason?: string },
+    sessionId?: string,
   ): Promise<{ ok: boolean; reason: string; action: string }> {
-    if (state.halt) {
-      return { ok: false, reason: `la corrida está detenida: ${state.halt.reason}`, action: "none" }
-    }
-    const card = state.cards[cardId]
-    if (!card) return { ok: false, reason: `no existe la card ${cardId}`, action: "none" }
-
-    if (card.owner === reviewerId) {
-      return {
-        ok: false,
-        reason: "el revisor no puede ser el owner de la card",
-        action: "none",
+    return this.withRunLock(state, async (freshState) => {
+      if (freshState.halt) {
+        return { ok: false, reason: `la corrida está detenida: ${freshState.halt.reason}`, action: "none" }
       }
-    }
+      const card = freshState.cards[cardId]
+      if (!card) return { ok: false, reason: `no existe la card ${cardId}`, action: "none" }
 
-    const dir = cardDir(this.paths, cardId)
-    await ensureDir(dir)
-    await writeAtomic(path.join(dir, "review.md"), payload.review)
+      // Validar agente en roster
+      const roster = await this.loadRoster(freshState.runId)
+      const agentCheck = this.assertAgentInRoster(roster, reviewerId)
+      if (!agentCheck.ok) return { ...agentCheck, reason: agentCheck.reason ?? "agente no válido", action: "none" }
 
-    if (verdict === "approved") {
-      recordApproval(card, payload.reason ?? "sin observaciones")
-      await this.saveState(state)
-      return { ok: true, reason: "review APROBADO — falta el gate", action: "run_gates" }
-    }
+      // Validar que es EL reviewer asignado (no cualquiera del roster)
+      if (card.reviewer !== reviewerId) {
+        return { ok: false, reason: `la card ${cardId} está asignada a ${card.reviewer}, no a ${reviewerId}`, action: "none" }
+      }
 
-    recordRejection(card, payload.reason ?? "sin motivo declarado")
-    const decision = decideRetry(card, this.limits)
-    transitionCard(state, cardId, "rework", { result: card.result })
-    state.decisions.push({
-      at: nowIso(this.options.clock),
-      cardId,
-      decision: decision.action === "escalate" ? "escalated" : decision.action === "replan" ? "replan" : "rework",
-      reason: decision.reason,
-      actor: reviewerId,
+      // Check self-review
+      if (card.owner === reviewerId) {
+        return {
+          ok: false,
+          reason: "el revisor no puede ser el owner de la card",
+          action: "none",
+        }
+      }
+
+      // Validar binding de sesión
+      if (sessionId) {
+        const bindingCheck = this.assertSessionBinding(freshState, sessionId, reviewerId, cardId)
+        if (!bindingCheck.ok) return { ...bindingCheck, reason: bindingCheck.reason ?? "binding inválido", action: "none" }
+      }
+
+      const dir = cardDir(this.paths, cardId)
+      await ensureDir(dir)
+      await writeAtomic(path.join(dir, "review.md"), payload.review)
+
+      if (verdict === "approved") {
+        recordApproval(card, payload.reason ?? "sin observaciones")
+        await this.saveState(freshState)
+        return { ok: true, reason: "review APROBADO — falta el gate", action: "run_gates" }
+      }
+
+      recordRejection(card, payload.reason ?? "sin motivo declarado")
+      const decision = decideRetry(card, this.limits)
+      transitionCard(freshState, cardId, "rework", { result: card.result })
+      freshState.decisions.push({
+        at: nowIso(this.options.clock),
+        cardId,
+        decision: decision.action === "escalate" ? "escalated" : decision.action === "replan" ? "replan" : "rework",
+        reason: decision.reason,
+        actor: reviewerId,
+      })
+      await this.saveState(freshState)
+      return { ok: true, reason: decision.instruction || decision.reason, action: decision.action }
     })
-    await this.saveState(state)
-    return { ok: true, reason: decision.instruction || decision.reason, action: decision.action }
   }
 
   /**

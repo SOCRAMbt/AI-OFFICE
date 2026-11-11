@@ -114,9 +114,13 @@ export default Plugin.define({
   async setup(ctx) {
     const options = (ctx.options ?? {}) as V2Options
     const enforce = options.enforceScope !== false
-    // FIX: en tests (VITEST), usar ctx.location.directory; en prod, process.cwd()
-    const isTest = !!process.env.VITEST
-    const cwd = isTest ? ctx.location.directory : process.cwd()
+    // El root de la oficina es el directorio de la SESIÓN, no el cwd del
+    // proceso de OpenCode. Si el server arrancó desde otro proyecto, el cwd
+    // miente: la oficina se rootaba en el proyecto equivocado (ej.
+    // cedears-tracker-pro) y los agentes iban a escribir ahí.
+    // ctx.location.directory es el directorio real de la sesión;
+    // process.cwd() es solo el último recurso.
+    const cwd = ctx.location?.directory ?? process.cwd()
 
     // Guardar el cwd real para pasarlo a las tools (en test mode no es process.cwd())
     const realCwd = cwd

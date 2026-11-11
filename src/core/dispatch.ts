@@ -105,7 +105,7 @@ export function agentNameFor(role: string): string {
  * 2. La ficha — el contrato del rol: scope, peers, límites.
  * 3. El briefing — la misión de esta card en concreto.
  */
-export function buildAgentPrompt(ficha: Ficha, briefing: Briefing): string {
+export function buildAgentPrompt(ficha: Ficha, briefing: Briefing, isPeer = false): string {
   const sections: string[] = []
 
   // La hoja de entorno va PRIMERO: antes de que el agente toque shell o
@@ -170,6 +170,31 @@ export function buildAgentPrompt(ficha: Ficha, briefing: Briefing): string {
       "Al terminar tu card: dejá `handoff.md` y `evidence.md` en `.oficina/artifacts/<cardId>/`, entregá con `oficina_submit`, y **ofrecé ayuda** para lo que sigue.",
     ].join("\n"),
   )
+
+  // Los pares libres (sin card propia) tienen un trabajo distinto: recibir
+  // del bus y responder. Sin esta sección, el par se spawnea, lee su
+  // especialidad, no encuentra ninguna instrucción de triage, y los
+  // HELP_REQUEST dirigidos a él se mueren en el canal. Era un hueco real:
+  // el bus funcionaba, el pool estaba lleno, y nadie contestaba.
+  if (isPeer) {
+    sections.push(
+      [
+        "# Sos un par libre (sin card propia): tu trabajo es responder al equipo",
+        "",
+        "No tenés card asignada. Tu valor es la ayuda puntual con tu especialidad. El protocolo:",
+        "",
+        "1. **Tu primer acto es `oficina_next`** con tu `agentId`: te muestra tu inbox (los pedidos de ayuda dirigidos a vos) y el estado de la mesa.",
+        "2. Si tenés un `HELP_REQUEST` dirigido a vos, respondé YA con `oficina_next` action=`HELP_RESPOND`:",
+        "   - `HELP_ACCEPT` si podés dar la respuesta completa,",
+        "   - `HELP_PARTIAL` si aportás parte (decí qué parte falta),",
+        "   - `HELP_QUESTION` si necesitás contexto antes de comprometerte,",
+        "   - `HELP_DECLINE` con motivo concreto si no es tu dominio.",
+        "3. La respuesta lleva **sustancia real**: criterios, números, riesgos, referencias. Un \"te aviso\" no es una respuesta.",
+        "4. Si no tenés pedidos pendientes: quedás a disposición (`STAY_IDLE` con justificación) o reclamá una card sin owner (`oficina_assign`).",
+        "5. Respondé en el `messageId` del pedido — una respuesta sin correlación es ruido en el bus.",
+      ].join("\n"),
+    )
+  }
 
   return sections.join("\n\n---\n\n")
 }
@@ -487,6 +512,7 @@ async function instantiateFactory(
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    canDelegate: false,
     lastHeartbeat: nowIso(),
     source: ficha.source,
   }
@@ -572,7 +598,7 @@ async function instantiate(
 
   const briefing = office.buildBriefing(ficha, card, roster)
   const agentFile = await materializeAgent(options.projectRoot, ficha, briefing)
-  const prompt = buildAgentPrompt(ficha, briefing)
+  const prompt = buildAgentPrompt(ficha, briefing, isPeer)
 
   roster.agents[ficha.id] = {
     id: ficha.id,
@@ -588,6 +614,7 @@ async function instantiate(
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    canDelegate: false,
     lastHeartbeat: nowIso(),
     source: ficha.source,
   }

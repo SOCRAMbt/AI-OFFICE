@@ -89,6 +89,21 @@ function tool<TShape extends z.ZodRawShape>(input: {
   }
 }
 
+/**
+ * Valida que el agentId del argumento coincida con la identidad real de la sesión (ctx.agent).
+ * La identidad real viene del host (OpenCode) y no puede ser falsificada por el modelo.
+ * Retorna null si es válido, o un mensaje de error si no coincide.
+ */
+function validateAgentIdentity(args: { agentId: string }, ctx: ToolContext): string | null {
+  if (!ctx.agent) {
+    return "La sesión no reporta agente (ctx.agent undefined). No se puede verificar la identidad."
+  }
+  if (args.agentId !== ctx.agent) {
+    return `agentId del argumento (${args.agentId}) no coincide con la sesión (${ctx.agent})`
+  }
+  return null
+}
+
 const cardTypeSchema = z.enum([
   "exploration",
   "design",
@@ -146,7 +161,12 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
               type: cardTypeSchema.describe("Tipo de trabajo."),
               requiredCapabilities: z
                 .array(z.string())
-                .describe("Capabilities que el agente necesita. Se usan para resolver el rol desde el catálogo."),
+                .describe(
+                  "Capabilities que el agente necesita. CRÍTICO: usá palabras literales de las descripciones del catálogo " +
+                    "(consultalas con oficina_brief o el skill oficina) — el matcher compara contra esas descripciones. " +
+                    "Sinónimos inventados (ej. 'conversion' en vez de 'CRO', 'planeamiento financiero' en vez de 'FP&A') " +
+                    "producen matches falsos o cobertura 0. Preferí sustantivos técnicos concretos: 'react', 'fp&a', 'penetration testing', 'vo2max'.",
+                ),
               scope: z
                 .object({
                   mayTouch: z.array(z.string()).describe("Globs que el agente puede tocar."),
@@ -256,6 +276,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         cardId: z.string().optional().describe("Card puntual a reclamar. Opcional."),
       },
       async execute(args, ctx) {
+        // Validar identidad: agentId debe coincidir con la sesión real
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         const state = await off.loadState()
 
@@ -324,12 +348,18 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         evidence: z.string().optional().describe("Salida real de los comandos, pegada literal."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
+        console.error('[DEBUG TOOL] oficina_submit ctx.sessionID:', ctx.sessionID, 'ctx.agent:', ctx.agent, 'args.agentId:', args.agentId)
+
         const off = officeOf(ctx)
         const state = await off.loadState()
         const result = await off.submitWork(state, args.cardId, args.agentId, {
           handoff: args.handoff,
           evidence: args.evidence,
-        })
+        }, ctx.sessionID)
         if (!result.ok) return { title: "No se pudo entregar", output: result.reason }
 
         const card = state.cards[args.cardId]!
@@ -363,12 +393,16 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         review: z.string().describe("El review completo en markdown: ledger de lectura, findings con path:línea, escenario de reproducción, fix y test de regresión."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         const state = await off.loadState()
         const result = await off.submitReview(state, args.cardId, args.agentId, args.verdict, {
           review: args.review,
           reason: args.reason,
-        })
+        }, ctx.sessionID)
         if (!result.ok) return { title: "Review inválido", output: result.reason }
         return {
           title: `${args.cardId}: ${args.verdict}`,
@@ -478,6 +512,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         priority: z.enum(["low", "normal", "high", "critical"]).default("normal"),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
 
@@ -556,6 +594,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         cardId: z.string().optional().describe("Card donde lo vas a usar."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         const state = await off.loadState()
         const roster = await off.loadRoster(state.runId)
@@ -630,6 +672,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         recommendation: z.string().describe("Cuál recomendás y por qué."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         const state = await off.loadState()
         const card = state.cards[args.cardId]
@@ -829,6 +875,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         "de arranque de cada uno. Los complementos del panel quedan disponibles como pares para pedir ayuda. " +
         "Usá esto UNA vez, después de `oficina_plan`: es el momento en que el equipo se forma.",
       args: {
+        agentId: z.string().describe("Tu id de agente (debe ser integrator/commander)."),
         maxAgents: z.number().int().min(1).max(14).default(10).describe("Máximo de agentes a materializar."),
         maxComplements: z.number().int().min(0).max(3).default(2).describe("Complementos por card."),
         spawn: z
@@ -837,11 +884,23 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           .describe("Si es true, arranca los subagentes en paralelo automáticamente."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState()
         const catalog = await off.catalog()
         const roster = await off.loadRoster(state.runId)
+        const caller = roster.agents[args.agentId]
+        // Autoridad de despacho: la ficha declara canDelegate (integrator/
+        // commander). Fallback a la lista de roles para rosters creados antes
+        // de que el campo existiera (backward compat).
+        const callerCanDelegate = caller?.canDelegate ?? ["integrator", "commander", "architect"].includes(caller?.role ?? "")
+        if (!caller || !callerCanDelegate) {
+          return { title: "No autorizado", output: "Solo agentes con canDelegate (integrator/commander) pueden despachar el equipo." }
+        }
 
         const result = await dispatchOffice(off, state, {
           projectRoot: off.paths.projectRoot,
@@ -853,13 +912,22 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           existing: Object.values(roster.agents),
         })
 
-        // Arranque en paralelo de los agentes con card propia.
+        // Segunda mitad del routing: savePlan corrió con el roster vacío y
+        // dejó reviewer=null en todas las cards. Ahora el roster existe y se
+        // puede asignar. Sin esto, submitReview es estructuralmente imposible
+        // (exige card.reviewer === reviewerId y el campo era null para siempre).
+        const reviewersAssigned = await off.assignReviewers(state)
+
+        // Arranque de los agentes. LOS PARES TAMBIÉN: un par materializado
+        // pero sin sesión no puede recibir del bus, y los HELP_REQUEST
+        // dirigidos a él se mueren en el canal. Materializar no es arrancar.
         const spawned: string[] = []
+        const spawnFailed: string[] = []
         if (args.spawn) {
           for (const agent of result.dispatched) {
-            if (agent.isPeer) continue
             const ok = await off.spawnAgent(ctx.sessionID, agent.agentName, agent.prompt, agent.cardId ?? "")
             if (ok) spawned.push(`${agent.agentName} (${agent.role})`)
+            else spawnFailed.push(agent.agentName)
           }
         }
 
@@ -875,7 +943,24 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         ]
 
         if (spawned.length > 0) {
-          lines.push("", `**Arrancados en paralelo:** ${spawned.join(", ")}`)
+          lines.push("", `**Arrancados (con sesión viva):** ${spawned.join(", ")}`)
+        }
+        if (spawnFailed.length > 0) {
+          lines.push(
+            "",
+            `**⚠️ Spawn falló para:** ${spawnFailed.join(", ")} — materializados pero SIN sesión. Un agente sin sesión no puede recibir del bus: arrancalo manual con su prompt de arranque antes de seguir.`,
+          )
+        }
+        if (!args.spawn) {
+          lines.push(
+            "",
+            "**⚠️ spawn=false: ningún agente tiene sesión viva.** Materializar en `.opencode/agents/` NO es arrancar: sin sesión, los HELP_REQUEST a los pares se mueren en el canal y las cards quedan sin nadie trabajándolas. Spawneá cada agente con su prompt de arranque (re-corré `oficina_dispatch` con spawn=true, o usá los prompts de `oficina_brief`).",
+          )
+        }
+        if (reviewersAssigned.length > 0) {
+          lines.push("", `**Reviewers asignados:** ${reviewersAssigned.join(", ")}`)
+        } else if (result.dispatched.some((a) => !a.isPeer)) {
+          lines.push("", "**Reviewers:** sin cambios (o ya asignados, o el roster no dio candidato distinto del owner).")
         }
         if (result.uncovered.length > 0) {
           lines.push(
@@ -939,6 +1024,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         to: z.array(z.string()).optional().describe("Destinatarios (para offer)."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
 
@@ -1041,6 +1130,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         note: z.string().optional().describe("Qué demuestra esta evidencia."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState()
@@ -1111,9 +1204,13 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
       args: {
         action: z.enum(["halt", "resume"]).default("halt"),
         reason: z.string().optional().describe("Por que frenas (para halt)."),
-        agentId: z.string().optional().describe("Quien frena."),
+        agentId: z.string().describe("Tu id de agente (obligatorio para auditoría)."),
       },
       async execute(args, ctx) {
+        // Validar identidad (agentId obligatorio)
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState()

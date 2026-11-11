@@ -272,6 +272,8 @@ export interface RosterEntry {
   helpReceived: number
   /** Pares con los que ya colaboraron, para rotar. */
   helpedPeers: string[]
+  /** Puede despachar el equipo (oficina_dispatch): viene de la ficha. */
+  canDelegate: boolean
   lastHeartbeat: string
   source: FichaSource
 }

@@ -295,7 +295,7 @@ describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
 
     await hooks.tool!.oficina_bus!.execute(
       { action: "send", agentId: "e-a", to: ["e-b"], kind: "NOTICE", subject: "T-00", body: "hola", priority: "normal" },
-      { sessionID: "ses-1", messageID: "m1", agent: "primary", directory: tmp, worktree: tmp, abort: new AbortController().signal, metadata: () => {}, ask: async () => {} },
+      { sessionID: "ses-1", messageID: "m1", agent: "e-a", directory: tmp, worktree: tmp, abort: new AbortController().signal, metadata: () => {}, ask: async () => {} },
     )
 
     const files = await fs.readdir(path.join(tmp, ".oficina", "bus", "peer"))

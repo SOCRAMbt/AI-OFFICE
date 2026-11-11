@@ -226,11 +226,19 @@ describe("Ciclo completo de la oficina", () => {
     await office.savePlan(state, [
       { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
     ])
-    state.cards["T-00"]!.owner = "e-same"
-    state.cards["T-00"]!.reviewer = "e-same"
+
+    // Deploy agent
+    const { ficha: fichaSame } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaSame)
+
+    await office.savePlan(state, [
+      { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
+    ])
+    state.cards["T-00"]!.owner = fichaSame.id
+    state.cards["T-00"]!.reviewer = fichaSame.id
     await office.saveState(state)
 
-    const reviewed = await office.submitReview(state, "T-00", "e-same", "approved", {
+    const reviewed = await office.submitReview(state, "T-00", fichaSame.id, "approved", {
       review: "x",
       reason: "y",
     })
@@ -240,22 +248,30 @@ describe("Ciclo completo de la oficina", () => {
 
   it("un rechazo cambia la card a rework y cuenta el contador", async () => {
     const office = await makeOffice()
-    const state = await office.loadState("Test")
+    let state = await office.loadState("Test")
     await office.savePlan(state, [
       { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
     ])
-    state.cards["T-00"]!.owner = "e-a"
-    state.cards["T-00"]!.reviewer = "e-b"
+
+    // Deploy agents
+    const { ficha: fichaA } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaA)
+    const { ficha: fichaB } = await office.resolveFicha({ role: "code-architect", capabilities: ["architecture"] })
+    await office.deploy(fichaB)
+
+    state.cards["T-00"]!.owner = fichaA.id
+    state.cards["T-00"]!.reviewer = fichaB.id
     await office.saveState(state)
 
     // Flujo realista: reclamar → entregar → rechazar.
-    await office.claimCard(state, "e-a", "T-00")
-    await office.submitWork(state, "T-00", "e-a", { handoff: "# H", evidence: "# E" })
+    await office.claimCard(state, fichaA.id, "T-00")
+    await office.submitWork(state, "T-00", fichaA.id, { handoff: "# H", evidence: "# E" })
 
-    const reviewed = await office.submitReview(state, "T-00", "e-b", "rejected", {
+    const reviewed = await office.submitReview(state, "T-00", fichaB.id, "rejected", {
       review: "finding: falta validación",
       reason: "falta validación de input",
     })
+    state = await office.loadState()  // reload
     expect(reviewed.action).toBe("rework")
     expect(state.cards["T-00"]!.state).toBe("rework")
     expect(state.cards["T-00"]!.rejections).toBe(1)
@@ -263,23 +279,36 @@ describe("Ciclo completo de la oficina", () => {
 
   it("tres rechazos escalan", async () => {
     const office = await makeOffice()
-    const state = await office.loadState("Test")
+    let state = await office.loadState("Test")
     await office.savePlan(state, [
       { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
     ])
-    state.cards["T-00"]!.owner = "e-a"
-    state.cards["T-00"]!.reviewer = "e-b"
+
+    // Owner y reviewer reales: submitReview valida roster desde el fix de identidad.
+    const { ficha: fichaA } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaA)
+    const { ficha: fichaB } = await office.resolveFicha({ role: "code-architect", capabilities: ["architecture"] })
+    await office.deploy(fichaB)
+
+    state = await office.loadState()
+    state.cards["T-00"]!.owner = fichaA.id
+    state.cards["T-00"]!.reviewer = fichaB.id
     await office.saveState(state)
 
     let action = ""
     for (let i = 0; i < 3; i++) {
-      // Reclamar y entregar de nuevo en cada intento.
-      await office.claimCard(state, "e-a", "T-00")
-      await office.submitWork(state, "T-00", "e-a", { handoff: "# H", evidence: "# E" })
-      const r = await office.submitReview(state, "T-00", "e-b", "rejected", {
+      // Reclamar y entregar de nuevo en cada intento. El estado se recarga
+      // entre operaciones: conRunLock recarga adentro, pero el objeto local
+      // queda obsoleto después de cada guardado.
+      await office.claimCard(state, fichaA.id, "T-00")
+      state = await office.loadState()
+      await office.submitWork(state, "T-00", fichaA.id, { handoff: "# H", evidence: "# E" })
+      state = await office.loadState()
+      const r = await office.submitReview(state, "T-00", fichaB.id, "rejected", {
         review: "finding",
         reason: `falla ${i}`,
       })
+      state = await office.loadState()
       action = r.action
     }
     expect(action).toBe("escalate")
@@ -294,12 +323,18 @@ describe("Ciclo completo de la oficina", () => {
     ])
     await office.saveState(state)
 
-    const first = await office.claimCard(state, "e-a", "T-00")
+    // Deploy two agents first
+    const { ficha: fichaA } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaA)
+    const { ficha: fichaB } = await office.resolveFicha({ role: "code-architect", capabilities: ["architecture"] })
+    await office.deploy(fichaB)
+
+    const first = await office.claimCard(state, fichaA.id, "T-00")
     expect(first.ok).toBe(true)
 
-    const second = await office.claimCard(state, "e-b", "T-00")
+    const second = await office.claimCard(state, fichaB.id, "T-00")
     expect(second.ok).toBe(false)
-    expect(second.reason).toContain("tomada")
+    expect(second.reason).toContain("pertenece a")
   })
 
   it("el gate falla si un comando falla de verdad", async () => {
@@ -322,17 +357,27 @@ describe("Ciclo completo de la oficina", () => {
 
   it("escribe los artefactos en disco", async () => {
     const office = await makeOffice()
-    const state = await office.loadState("Test")
+    let state = await office.loadState("Test")
     await office.savePlan(state, [
       { title: "T", type: "implementation", acceptance: ["a"], gate: "g" },
     ])
-    state.cards["T-00"]!.owner = "e-a"
-    state.cards["T-00"]!.reviewer = "e-b"
+
+    // Deploy agents
+    const { ficha: fichaA } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaA)
+    const { ficha: fichaB } = await office.resolveFicha({ role: "code-architect", capabilities: ["architecture"] })
+    await office.deploy(fichaB)
+
+    state.cards["T-00"]!.owner = fichaA.id
+    state.cards["T-00"]!.reviewer = fichaB.id
     await office.saveState(state)
 
-    await office.claimCard(state, "e-a", "T-00")
-    await office.submitWork(state, "T-00", "e-a", { handoff: "# H", evidence: "# E" })
-    await office.submitReview(state, "T-00", "e-b", "approved", { review: "# R", reason: "ok" })
+    await office.claimCard(state, fichaA.id, "T-00")
+    state = await office.loadState()
+    await office.submitWork(state, "T-00", fichaA.id, { handoff: "# H", evidence: "# E" })
+    state = await office.loadState()
+    await office.submitReview(state, "T-00", fichaB.id, "approved", { review: "# R", reason: "ok" })
+    state = await office.loadState()
     await office.runGates(state, "T-00")
 
     const dir = path.join(tmp, ".oficina", "artifacts", "T-00")

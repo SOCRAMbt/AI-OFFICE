@@ -18,6 +18,7 @@ function entry(overrides: Partial<RosterEntry> = {}): RosterEntry {
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    canDelegate: false,
     lastHeartbeat: new Date().toISOString(),
     source: { kind: "factory" },
     ...overrides,

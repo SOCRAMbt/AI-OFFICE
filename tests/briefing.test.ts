@@ -81,6 +81,7 @@ function makeContext(overrides: Partial<BriefingContext> = {}): BriefingContext 
         helpGiven: 0,
         helpReceived: 0,
         helpedPeers: [],
+        canDelegate: false,
         lastHeartbeat: new Date().toISOString(),
         source: { kind: "factory" },
       },

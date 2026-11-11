@@ -49,6 +49,7 @@ export class RosterStore {
       helpGiven: 0,
       helpReceived: 0,
       helpedPeers: [],
+      canDelegate: ficha.canDelegate,
       lastHeartbeat: nowIso(this.clock),
       source: ficha.source,
     }
@@ -56,6 +57,7 @@ export class RosterStore {
     entry.displayName = ficha.displayName
     entry.capabilities = [...ficha.capabilities]
     entry.source = ficha.source
+    entry.canDelegate = ficha.canDelegate
     entry.lastHeartbeat = nowIso(this.clock)
     roster.agents[ficha.id] = entry
     return entry

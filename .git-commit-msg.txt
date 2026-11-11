@@ -1,0 +1,19 @@
+fix: cierre de huecos de produccion (v3.1.4) - root de sesion, reviewers, peers con sesion, spawn observable
+
+Correcciones derivadas de una corrida real y de la auditoria integral:
+
+- root: la oficina se roota en ctx.location.directory (sesion), no en process.cwd()
+  del server - no enraiza mas en el proyecto equivocado
+- reviewers: oficina_dispatch asigna reviewers con Office.assignReviewers() cuando
+  el roster ya existe (el routing del plan corre con roster vacio y dejaba null)
+- peers: el dispatch spawnea tambien a los pares; su prompt lleva protocolo de
+  triage del bus (oficina_next -> HELP_RESPOND con sustancia real)
+- spawn observable: se reportan los fallos de spawn y el modo spawn=false advierte
+  que materializar no es arrancar
+- identidad: validacion agentId === ctx.agent en 9 tools sensibles + binding
+  sesion-agente-card + roster validation (sin agentes fantasma)
+- autorizacion de dispatch por ficha.canDelegate propagada a RosterEntry
+- transaccionalidad: withRunLock en mutaciones, fencing tokens en leases
+- brief de plan: instruye vocabulario literal del catalogo para capabilities
+- tests: 470/470 (+28 identidad, +4 protocol-fixes); smoke E2E permanente (15 checks)
+- docs: SKILL.md reescrito como manual operativo v3.1.4 (18 tools, troubleshooting R1-R10)

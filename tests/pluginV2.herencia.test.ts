@@ -144,8 +144,12 @@ async function crearCardConScope(sessionID: string) {
     },
   ])
 
+  // Deploy the agent first
+  const { ficha: trabajadorFicha } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+  await office.deploy(trabajadorFicha)
+
   const fresh = await office.loadState("Objetivo")
-  const claimed = await office.claimCard(fresh, "e-trabajador", "T-00", sessionID)
+  const claimed = await office.claimCard(fresh, trabajadorFicha.id, "T-00", sessionID)
   expect(claimed.ok).toBe(true)
 }
 
@@ -258,12 +262,22 @@ describe("El dispatch crea subagentes en v2", () => {
       },
     ])
 
+    // Dispatch ahora exige identidad autenticada (agentId === ctx.agent) y
+    // caller con canDelegate (integrator/commander): deployamos un integrador
+    // real y operamos como él.
+    const { ficha: integratorFicha } = await office.resolveFicha({
+      role: "integrator",
+      capabilities: ["coordination"],
+      canDelegate: true,
+    })
+    await office.deploy(integratorFicha)
+
     const dispatch = tools.get("oficina_dispatch")!
     expect(dispatch).toBeDefined()
 
     const result = (await (dispatch.execute as (a: unknown, c: unknown) => Promise<unknown>)(
-      { maxAgents: 2, maxComplements: 0, spawn: true },
-      { sessionID: "ses-padre", agent: "general", messageID: "m1" },
+      { agentId: integratorFicha.id, maxAgents: 2, maxComplements: 0, spawn: true },
+      { sessionID: "ses-padre", agent: integratorFicha.id, messageID: "m1" },
     )) as { metadata?: { spawned?: number } }
 
     // Se creo una sesion hija, colgando del padre.

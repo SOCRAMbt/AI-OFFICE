@@ -127,8 +127,12 @@ async function crearCardConScope(): Promise<string> {
     },
   ])
 
+  // Deploy the agent first
+  const { ficha: trabajadorFicha } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+  await office.deploy(trabajadorFicha)
+
   const fresh = await office.loadState("Objetivo de prueba")
-  const claimed = await office.claimCard(fresh, "e-trabajador", "T-00", "ses-1")
+  const claimed = await office.claimCard(fresh, trabajadorFicha.id, "T-00", "ses-1")
   expect(claimed.ok).toBe(true)
   return "ses-1"
 }

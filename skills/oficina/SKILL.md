@@ -1,65 +1,53 @@
 ﻿---
 name: oficina
-description: Oficina de Agents que trabaja un objetivo de principio a fin sin instrucciones repetidas. Con el plugin instalado, la oficina es una máquina de estados con hooks de enforcement: el Director descompone, el dispatch crea los subagentes buscándolos en el catálogo real de agency-agents, coordina por un bus de mensajes en disco, permite pedir ayuda y delegar entre pares, y un hook de auto-continuación sigue trabajando cuando el modelo dice "terminé". Una card no se cierra sin gates en verde Y sin evidencia para cada criterio de aceptación. Sin el plugin, el mismo protocolo funciona con el flujo de artefactos en markdown. Úsala cuando el usuario da un objetivo, feature, bug o refactor y quiere que un equipo de agentes lo ejecute completo, se auto-verifique y entregue evidencia, en vez de que el assistant lo haga todo lineal.
+description: Oficina de Agents que trabaja un objetivo de principio a fin sin instrucciones repetidas. Con el plugin instalado, la oficina es una máquina de estados con hooks de enforcement: el Director descompone, el dispatch crea los subagentes buscándolos en el catálogo real de agency-agents, coordina por un bus de mensajes en disco, permite pedir ayuda y delegar entre pares, y un hook de auto-continuación sigue trabajando cuando el modelo dice "terminé". Una card no se cierra sin gates en verde Y sin evidencia para cada criterio de aceptación. Úsala cuando el usuario da un objetivo, feature, bug o refactor y quiere que un equipo de agentes lo ejecute completo, se auto-verifique y entregue evidencia, en vez de que el assistant lo haga todo lineal. Incluye protocolo de identidad, resolución de problemas operativos y verificación de instalación (v3.1.4).
 ---
 
-# OFICINA — Oficina de Agents
+# OFICINA — Manual Operativo (v3.1.4)
 
 Un objetivo entra por la puerta. La oficina lo ejecuta, se auto-verifica, y entrega evidencia.
 
-## Dos motores, un solo protocolo
+Este documento es el manual completo para cualquier IA que use el plugin `oficina-opencode`. Cubre: verificación de instalación, el protocolo por rol, las 18 tools, el modelo de identidad, y la resolución de problemas conocidos.
 
-| | **Con plugin** (motor duro) | **Sin plugin** (fallback) |
+---
+
+## 0. Verificación de instalación (hacé esto primero)
+
+Antes de usar la oficina, verificá que el plugin cargó la versión correcta:
+
+| Verificación | Cómo | Esperado |
 |---|---|---|
-| Estado | Máquina de estados en TypeScript | `state.json` markdown + JSON |
-| Equipo | `oficina_dispatch` crea los subagentes | El modelo los crea a mano |
-| Gates | 7 comandos reales, exit codes interpretados por código | El modelo corre los comandos y pega la salida |
-| Enforcement | 3 capas: guard, `permission.ask`, tripwire | Disciplina del prompt |
-| Cierre | Gates **+ evidencia** de cada requisito | Solo gates |
-| Loop | Hook `session.idle` → la oficina sigue sola | El modelo decide si sigue |
-| Invariantes | `assertInvariants` en código | Regla dura en el prompt |
-| Costo | Ledger de tokens y USD en tiempo real | No se mide |
-| Comunicación | Bus de mensajes con TTL/ack/idempotencia | Artefactos en disco, unidireccional |
+| Tools registradas | ¿Ves las 18 tools `oficina_*` disponibles? | 18 tools |
+| Versión del paquete | `npm view oficina-opencode version` o leer `node_modules/oficina-opencode/package.json` | 3.1.4 o mayor |
+| Root correcto | La primera vez que una tool corra, el output muestra `officeDir` | `<proyecto>/.oficina` |
 
-**Preferí el plugin.** Si las tools `oficina_*` están disponibles, usá el motor duro: los invariantes dejan de ser sugerencias.
+**Síntomas de instalación vieja o rota:**
 
-El protocolo de este documento sirve para los dos. Las secciones marcadas **[plugin]** solo aplican con el plugin instalado.
+- Hay 16 tools en vez de 18 (falta `oficina_next`, `oficina_status`, `oficina_bus_cleanup`) → instalación < 3.1.x.
+- La oficina escribe en otro proyecto (ver troubleshooting §R1).
+- Los reviewers quedan `(sin asignar)` en todas las cards (ver §R2).
 
----
+**Cómo instalar/actualizar:**
 
-## Por qué existe
-
-| Falla | Cómo la resuelve OFICINA |
-|---|---|
-| El usuario tiene que dar todas las instrucciones | El **Comandante** descompone solo. El usuario da un objetivo y basta. |
-| El agent "no cumple" lo que se dice | Cada card tiene **acceptance criteria** explícitos y un **gate** que se ejecuta, no se opina. |
-| Los subagentes se desaprovechan | **Dispatch** que resuelve el rol desde el catálogo real de agency-agents y panel con complementos. |
-| Hay que repetir el contexto | **Ledger de contexto** en disco (`.oficina/context.md`) + handoff por artefactos. |
-| Los agents no se coordinan ni se ayudan | **Bus de mensajes** + **mesa** compartida: cada uno sabe quién trabaja en qué. |
-| Son monotonos | **Revisor distinto del autor** + rotación de owner y de dimensión. |
-| Nadie los orquesta | **3 coordinadores** con dominios particionados y arbitraje explícito. |
-| La IA dice "terminé" sin terminar | **[plugin]** Hook de auto-continuación: el estado decide, no la confianza. |
-| Compila pero no cumple | **Grafo de evidencia**: cada criterio de aceptación necesita respaldo o la card no se cierra. |
-| Se gasta una fortuna sin avisar | **Ledger de costo** con presupuestos y **freno de emergencia**. |
-
----
-
-## Las 4 capas
-
-```
-CAPA 3 — COORDINACIÓN    Comandante · Arquitecto · Integrador
-CAPA 2 — BUS             bus/<canal>/<seq>-<msgid>.json · inbox/ · leases/
-CAPA 1 — ESPECIALISTAS   fichas normalizadas (agency-agents o factory)
-CAPA 0 — ROSTER/FICHAS   resolución de roles + matching de capabilities
+```bash
+npm install oficina-opencode@latest -g        # o en el proyecto
+# En el config de OpenCode (~/.config/opencode/opencode.json):
+#   "plugins": ["oficina-opencode"]
+# Si ya existe un loader local (~/.config/opencode/plugins/oficina.js),
+# el paquete actualizado se resuelve desde <config>/node_modules/.
 ```
 
-Detalle completo en `reference/mesh.md`.
+---
+
+## 1. Las dos garantías duras de v3.1.4 (léelo antes de operar)
+
+**1a. Identidad autenticada.** Toda tool sensible compara `args.agentId` con la identidad real de la sesión (`ctx.agent`, que da el host). Si no coinciden, la tool rechaza con *"no coincide con la sesión"*. **Consecuencia práctica: usá SIEMPRE tu id de ficha tal como te lo dieron, y operá desde tu propia sesión.** No pases el id de otro agente ni desde otra sesión.
+
+**1b. Reviewer asignado por el motor.** El routing del plan corre con el roster vacío; **es `oficina_dispatch` el que asigna los reviewers** una vez que el roster existe (su output lo muestra: `**Reviewers asignados:** T-00 → e-x, ...`). `oficina_review` exige: card en estado `review`, vos sos EL reviewer asignado, y no sos el owner. **Consecuencia práctica: no despachés plan sin dispatch; si una card aparece sin reviewer, re-corré `oficina_dispatch`.**
 
 ---
 
-## El flujo completo: de un objetivo a un equipo
-
-Este es el flujo. Seguílo en orden.
+## 2. El flujo completo: de un objetivo a un equipo
 
 ```
    EL USUARIO DA UN OBJETIVO
@@ -72,230 +60,171 @@ Este es el flujo. Seguílo en orden.
             |
             v
   +--------------------------------+
-  | 2. DISPATCH  (Integrador)     |  → RESUELVE LOS ROLES y ARRANCA LOS AGENTES
-  |    oficina_dispatch            |    busca en agency-agents, materializa
-  |                               |    .opencode/agents/, spawna en paralelo
+  | 2. DISPATCH  (Integrador)     |  → RESUELVE ROLES, MATERIALIZA, ARRANCA
+  |    oficina_dispatch           |    asigna reviewers, spawnea owners Y pares
   +--------------------------------+
             |
             v
   +--------------------------------+
-  | 3. MESA      (todos)          |  → quién trabaja en qué, quién está libre,
-  |    oficina_mesa (view)         |    qué ayuda espera respuesta
+  | 3. TRABAJO   (Owner)          |  → oficina_assign + handoff.md + evidence.md
   +--------------------------------+
             |
             v
   +--------------------------------+
-  | 4. TRABAJO   (Owner)          |  → oficina_assign + handoff.md + evidence.md
-  +--------------------------------+
-            |
-            v
-  +--------------------------------+
-  | 5. AUTO-REVIEW  (Crítico)     |  → revisor ≠ owner
-  |    oficina_review              |
+  | 4. REVIEW    (Reviewer)       |  → oficina_review (asignado por el motor,
+  |                               |    nunca el owner)
   +--------------------------------+
             | APROBADO
             v
   +--------------------------------+
-  | 6. GATES + EVIDENCIA          |  → oficina_gate corre los 7 gates
-  |    oficina_gate                |    + verifica el grafo de requisitos
+  | 5. GATES + EVIDENCIA          |  → oficina_gate + oficina_evidence
   +--------------------------------+
             | PASA
             v
-  +--------------------------------+
-  | 7. DONE                       |  → la card queda done, el agente se libera
-  +--------------------------------+
-            |
-            v
-      el agente queda LIBRE y ofrece ayuda
-      → puede reclamar la siguiente card
+  | 6. NEXT      (todos)          |  → oficina_next: CLAIM / HELP_RESPOND /
+  +--------------------------------+    ASK_COORDINATOR / STAY_IDLE
 ```
 
-**[plugin] El paso 2 es el que hace que esto sea una oficina y no un chatbot.** `oficina_dispatch` es lo único que arma el equipo: resuelve el rol de cada card, materializa el agente con su briefing de 10 secciones, y lo arranca con `session.prompt`.
+### Secuencia exacta por rol
+
+**COMANDANTE (la sesión principal):**
+1. `oficina_plan` — descomponé el objetivo en cards. **Capabilities: copiá palabras literales de las descripciones del catálogo** (ver §R6).
+2. `oficina_dispatch` con tu `agentId` — el integrador materializa el equipo, asigna reviewers y arranca owners **y pares**.
+3. Verificá el output: si dice `⚠️ Spawn falló para: ...`, arrancá a esos agentes manual con su prompt antes de seguir. Si dice `⚠️ spawn=false: ningún agente tiene sesión viva`, no avances: materializar no es arrancar.
+4. Monitoreá con `oficina_status` / `oficina_mesa`. Intervení solo en escalaciones.
+
+**OWNER (agente con card):**
+1. `oficina_assign` — reclamás la card. Esto bindea tu sesión a la card.
+2. Trabajá **dentro del scope** (`mayTouch`). Fuera del scope la escritura se rechaza de verdad.
+3. `oficina_submit` con `handoff` (qué hiciste, archivos tocados, decisiones) y `evidence` (salida literal de comandos). Sin evidencia no hay cierre.
+4. Al terminar: `oficina_next` — te obliga a decidir el próximo movimiento.
+
+**REVIEWER:**
+1. La card llega a estado `review` cuando el owner entrega. Vos fuiste asignado por el dispatch.
+2. `oficina_review` con veredicto `approved`/`rejected`. Si rechazás, el motivo tiene que ser accionable (path:línea, escenario, fix, test de regresión).
+3. **Nunca revises tu propio trabajo** — el motor lo rechaza, no lo intentes.
+
+**PAR LIBRE (sin card propia):**
+1. **Tu primer acto es `oficina_next`**: te muestra tu inbox (los `HELP_REQUEST` dirigidos a vos) y la mesa.
+2. Si tenés un pedido, respondé YA con `oficina_next action=HELP_RESPOND`: `HELP_ACCEPT` (respuesta completa), `HELP_PARTIAL` (decí qué falta), `HELP_QUESTION` (pedí contexto), `HELP_DECLINE` (motivo concreto). **La respuesta lleva sustancia real, no un "te aviso".**
+3. Si no tenés pedidos: `STAY_IDLE` con justificación, o reclamá una card sin owner con `oficina_assign`.
 
 ---
 
-## Las 16 tools
+## 3. Las 18 tools
 
-| Tool | Qué hace |
-|---|---|
-| `oficina_plan` | Guarda el plan de cards. El modelo propone; el motor valida y rutea owner/reviewer |
-| **`oficina_dispatch`** | **Arma el equipo**: resuelve los roles, materializa los agentes y los arranca en paralelo |
-| **`oficina_mesa`** | **La mesa**: quién trabaja en qué, quién está libre, qué ayuda espera respuesta, qué cards no tienen owner |
-| `oficina_board` | Estado: cards, owners, agentes libres, agentes sin heartbeat, presupuesto |
-| `oficina_assign` | Toma trabajo — la próxima card, o claim proactivo de una puntual |
-| `oficina_submit` | Entrega handoff + evidencia real → pasa a `REVIEW` |
-| `oficina_review` | Registra el veredicto. El motor **rechaza** que el owner se auto-revise |
-| `oficina_gate` | Corre los 7 gates. Exit codes reales, no opinión |
-| **`oficina_evidence`** | **El grafo de requisitos**: qué evidencia falta para poder cerrar |
-| **`oficina_cost`** | **Tokens y USD** por card, agente y fase, con los presupuestos |
-| **`oficina_stop`** | **Freno de emergencia**: detiene o reanuda la corrida |
-| `oficina_bus` | Bus: `send` · `receive` · `ack` · `help` |
-| `oficina_spawn` | Pide desplegar un agente. El Integrador aprueba o rechaza |
-| `oficina_escalate` | Escala al usuario con 2-3 opciones concretas y recomendación |
-| `oficina_ficha` | Resuelve un rol a ficha y **despliega** el agente con su briefing |
-| `oficina_brief` | Muestra el briefing y el **panel de roles** sin desplegar: decisión del Comandante |
-
----
-
-## El dispatch: cómo se arma el equipo
-
-**[plugin]** `oficina_dispatch` hace, por cada card sin owner:
-
-1. **Busca el rol** en el catálogo de agency-agents con el matcher.
-2. **Calcula el panel**: primario + complementos (los que cubren lo que el primario NO cubre).
-3. **Materializa el agente** en `.opencode/agents/oficina-<slug>.md` con su briefing de 10 secciones y su prompt de especialidad. Queda versionado con el repo.
-4. **Lo arranca** en paralelo con `session.prompt` (parte `subtask`).
-
-El resultado es que **los subagentes heredan el scope de su card** y trabajan con el contexto completo desde el primer token.
-
-**Si algo no matchea bien**, no fuerces: `oficina_brief` muestra las alternativas sin desplegar, y `oficina_ficha` despliega un rol puntual.
+| Tool | Qué hace | Quién la usa |
+|---|---|---|
+| `oficina_plan` | Guarda el plan de cards. El modelo propone; el motor valida y rutea owner/reviewer | Comandante |
+| **`oficina_dispatch`** | **Arma el equipo**: resuelve roles, materializa agentes, asigna reviewers, arranca owners y pares. Solo agentes con `canDelegate` | Integrador/Comandante |
+| **`oficina_mesa`** | La mesa: quién trabaja en qué, quién está libre, qué ayuda espera respuesta | Todos |
+| `oficina_board` | Estado: cards, owners, agentes libres, agentes sin heartbeat | Todos |
+| **`oficina_status`** | Resumen de corrida: estado, cards por estado, agentes vivos/muertos, spawns pendientes | Todos |
+| `oficina_assign` | Toma trabajo — la próxima card o claim proactivo de una puntual. **Bindea tu sesión a la card** | Owner |
+| `oficina_submit` | Entrega handoff + evidencia real → pasa a `REVIEW` | Owner |
+| `oficina_review` | Veredicto del reviewer asignado. El motor rechaza self-review y reviewers no asignados | Reviewer |
+| `oficina_gate` | Corre los 7 gates. Exit codes reales, no opinión | Owner/Reviewer |
+| **`oficina_evidence`** | Grafo de requisitos: qué evidencia falta para cerrar cada criterio | Todos |
+| `oficina_bus` | Bus: `send` · `receive` · `ack` · `help`. Valida identidad por mensaje | Todos |
+| **`oficina_next`** | **Protocolo obligatorio de siguiente acción.** Lee mesa + inbox, ejecuta CLAIM/HELP_RESPOND/ASK_COORDINATOR/STAY_IDLE. NO declare "terminé" sin pasar por acá | Todos |
+| `oficina_spawn` | Pide desplegar un agente con gating de capabilities | Agente con card |
+| **`oficina_bus_cleanup`** | Limpia mensajes expirados del bus (TTL vencido) | Integrador |
+| `oficina_escalate` | Escala al usuario con 2-3 opciones concretas y recomendación | Cualquiera |
+| `oficina_ficha` | Resuelve un rol a ficha y despliega el agente con su briefing | Comandante |
+| `oficina_brief` | Muestra el briefing y el panel de roles sin desplegar | Comandante |
+| `oficina_stop` | Freno de emergencia: `halt` / `resume`. Requiere `agentId` (auditoría) | Usuario/Comandante |
 
 ---
 
-## La mesa: cómo se coordinan
+## 4. Resolución de problemas (R1–R10)
 
-**[plugin]** `oficina_mesa` es la vista compartida. Sin ella, el peer mesh es un bus al que nadie mira.
+Estos son los fallos reales observados en producción. Cada uno con síntoma exacto, causa y acción.
 
-- **view** — quién trabaja en qué, quién está libre, qué cards no tienen owner, qué ayuda espera respuesta, qué preguntas están abiertas.
-- **read** — tus mensajes.
-- **respond** — contestar un pedido de ayuda.
-- **offer** — ofrecer ayuda.
-- **claim** — reclamar una card libre.
+### R1 — "The office is rooted in the wrong project"
+- **Síntoma:** los artefactos aparecen en otro proyecto (ej. `cedears-tracker-pro` en vez del proyecto actual); la mesa muestra estado que no coincide con lo que veís.
+- **Causa (v3.1.3 y anteriores):** el plugin tomaba el `process.cwd()` del server de OpenCode, que puede ser cualquier proyecto.
+- **Fix (v3.1.4):** el root es `ctx.location.directory` (el directorio de la **sesión**). Actualizá el paquete a ≥3.1.4.
+- **Si te pasa igual:** verificá que la oficina viva en `<proyecto>/.oficina`; si hay un `.oficina` en otro proyecto con estado fresco, ese fue el root viejo — mové/eliminá ese estado y re-corré.
 
-**Consultá la mesa antes de**: reclamar trabajo, pedir ayuda (para saber a quién), y cuando te asignen una card.
+### R2 — Reviewer `(sin asignar)` en todas las cards
+- **Síntoma:** `submitReview` rechaza con *"la card T-xx está asignada a null"*; nadie puede revisar.
+- **Causa:** el routing del plan corrió con el roster vacío. En v3.1.3 y anteriores el dispatch no re-ruteaba → reviewers null para siempre.
+- **Fix (v3.1.4):** `oficina_dispatch` asigna reviewers después de materializar el equipo. **Re-corré `oficina_dispatch`** (es idempotente: no duplica agentes ni reasigna los que ya tienen reviewer).
+- **Verificación:** el output del dispatch muestra `**Reviewers asignados:** T-00 → e-x, ...`.
+
+### R3 — HELP_REQUEST sin respuesta ("se mueren en el canal")
+- **Síntoma:** el bus tiene pedidos de ayuda, el pool está lleno, pero nadie contesta.
+- **Causa:** los pares estaban **materializados** (`.opencode/agents/`) pero **sin sesión viva**. Un agente sin sesión no puede recibir del bus. Materializar ≠ arrancar.
+- **Fix (v3.1.4):** el dispatch spawnea también a los pares, y su prompt incluye el protocolo de triage (`oficina_next` → `HELP_RESPOND` con sustancia).
+- **Si te pasa igual:** spawnéá a los pares manual con su prompt y la instrucción explícita: *"tu primer acto es oficina_next; respondé los HELP_REQUEST dirigidos a vos"*.
+
+### R4 — Spawn silenciosamente fallido (cards sin nadie trabajándolas)
+- **Síntoma:** el dispatch reporta "equipo despachado" pero las cards no avanzan; no hay sesiones.
+- **Causa:** en v3.1.3 el resultado del spawn no se reportaba: un `false` se tragaba en silencio.
+- **Fix (v3.1.4):** el output distingue `**Arrancados (con sesión viva):**` de `**⚠️ Spawn falló para:** X`. **Si aparece el warning, arrancá a X manual con su prompt y recién ahí sigas.**
+
+### R5 — "agentId del argumento (X) no coincide con la sesión (Y)"
+- **No es un bug: es la garantía de identidad trabajando.** Pasaste un `agentId` que no es el de tu sesión, o operás desde la sesión de otro.
+- **Acción:** usá tu id de ficha real. Si sos el Comandante sin ficha, primero desplegá tu ficha de integrador con `oficina_ficha` y operá con ese id.
+
+### R6 — El matcher asigna roles equivocados o cobertura 0
+- **Síntoma:** `oficina_brief` devuelve un primario que no tiene nada que ver, o `sin cubrir` con capabilities que claramente existen en el catálogo.
+- **Causa más común:** capabilities escritas con **sinónimos inventados**. El matcher compara contra las descripciones literales del catálogo: `'conversion'` no es `'CRO'`, `'planeamiento financiero'` no es `'FP&A'`.
+- **Acción:** en `oficina_plan`, escribí capabilities con **palabras que aparecen en las descripciones del catálogo** (consultalas con `oficina_brief` o el skill). Sustantivos técnicos concretos: `react`, `fp&a`, `penetration testing`, `vo2max`. Medido: el matcher acierta el primer rol en el 71% de las tareas de referencia — pero solo con el vocabulario correcto.
+
+### R7 — Web search falla (402 / payment required)
+- **Causa:** el provider del modelo no tiene crédito para `websearch`. No es problema del plugin.
+- **Acción:** usá `webfetch` + buscadores sin API (ej. DuckDuckGo HTML) como fallback. La hoja de entorno que recibe cada agente documenta el runtime disponible.
+
+### R8 — "la card T-xx ya está tomada por otro agente" / "pertenece a X"
+- **No es un bug: el lease/doble-claim working.** La card tiene owner.
+- **Acción:** reclamá otra card (`oficina_assign` sin `cardId`) u ofrecé ayuda. Si el owner está muerto (sin heartbeat), el lease expira solo (~15 min) y la card vuelve al pool.
+
+### R9 — "la corrida está detenida: ..."
+- **Causa:** alguien corrió `oficina_stop action=halt` (freno de emergencia).
+- **Acción:** si sos el usuario/Comandante y querés seguir: `oficina_stop action=resume` con tu `agentId`. Si no sabés por qué se frenó, `oficina_status` muestra el motivo en el estado.
+
+### R10 — La corrida se retoma tras reiniciar y repite acciones
+- **Causa (v3.1.3 y anteriores):** los contadores de auto-resume vivían en memoria.
+- **Fix (v3.1.4):** `autoResumes` se persiste en `state.sessions[].autoResumes`. Verificá versión ≥3.1.4.
 
 ---
 
-## Los 3 coordinadores
-
-Un solo coordinador es cuello de botella y punto único de falla. Tres, con dominios particionados:
+## 5. Los coordinadores y la escalación
 
 | | COMANDANTE | ARQUITECTO | INTEGRADOR |
 |---|---|---|---|
 | **Dominio** | Scope, objetivo, prioridades | Decisiones técnicas cross-cutting | DAG, leases, gates, calidad |
 | **Responde** | ¿esto está en el objetivo? | ¿qué patrón usamos? | ¿quién tiene T-07? ¿pasó el gate? |
-| **Detecta** | Scope creep, requisitos no cubiertos | Drift arquitectónico, decisiones inconsistentes | Deadlock, starvation, gates rojos, doble-claim |
-| **NO hace** | Diseñar ni revisar código | Escribir código | Escribir código |
+| **Detecta** | Scope creep | Drift arquitectónico | Deadlock, starvation, doble-claim |
 
-**Arbitraje**: scope → Comandante. Patrón/contrato → Arquitecto. Flujo/lease/gate → Integrador. Si cruza dos dominios: el Arquitecto decide lo técnico con visto bueno del Comandante; si el Integrador detecta deadlock, reparte y avisa.
+**Arbitraje:** scope → Comandante. Patrón/contrato → Arquitecto. Flujo/lease/gate → Integrador.
 
-**Al usuario solo se escala** si el coordinador no puede decidir (criterio de producto), si el conflicto cruza dominios sin resolución, o si se agotó el presupuesto.
-
----
-
-## Los roles
-
-| Rol | Agente | Puede aprobar? |
-|---|---|---|
-| Comandante | `oficina-commander` | No revisa técnico |
-| Arquitecto | `oficina-architect` | No revisa técnico |
-| Integrador | `oficina-integrator` | No revisa técnico |
-| Explorador | `code-explorer` | No |
-| Arquitecto (rol) | `code-architect` | No |
-| Implementador | `general` | No |
-| **Crítico** | `oficina-critico` | Sí (revisión de card) |
-| **Guardián** | `oficina-guardian` | Sí (gate seguridad) |
-| **Verificador** | `oficina-verificador` | Sí (gate técnico) |
-
-**Regla dura:** el que implementa nunca revisa su propio trabajo.
+**Al usuario solo se escala** si el coordinador no puede decidir (criterio de producto), si el conflicto cruza dominios sin resolución, o si se agotó el presupuesto. La escalación (`oficina_escalate`) lleva SIEMPRE 2-3 opciones concretas con tradeoff y una recomendación con motivo.
 
 ---
 
-## Resolver roles: catálogo → factory → panel
+## 6. Ayuda entre pares: el protocolo completo
 
-**[plugin]** `oficina_brief` muestra el panel sin desplegar; `oficina_ficha` además despliega el agente con su briefing.
+Pedir: `oficina_bus action=help` con **need** (qué necesitás) y **whyMe** (por qué no lo resolvés vos). Un pedido sin `whyMe` es ruido.
 
-**1. Catálogo primero.** El repo de agency-agents tiene **258 agentes resolubles en 18 divisiones** (la cifra vive en `docs/catalog-facts.json`, con su commit de origen, y el CI verifica que no se desactualice). La especialidad real de cada uno está en el **cuerpo** (Core Mission, Technical Deliverables, Advanced Capabilities) y en la `description` y el `vibe` del frontmatter, no solo en el nombre.
-
-El matcher pondera por señal: **identidad** (slug + nombre + `description` + `vibe`) 35%, **misión literal** 28%, **misión conceptual** 18%, **división** 10%, **cuerpo** 5%. Además usa **sinónimos por capability** (`"e2e"` es `"end-to-end"`, pero `"e2e"` NO es `"playwright"`), **lematización** (`"testing"` ~ `"test"`) y **focus de misión** (qué fracción de las misiones del agente es del dominio: distingue a un especialista de un generalista que menciona la tool de pasada).
-
-**Medido, no supuesto:** el matcher completo acierta el primer rol en el **71%** de 21 tareas de referencia, contra el **48%** de la versión anterior. El benchmark es `npm run bench:selection`.
-
-**2. Factory si la cobertura es < 60%.** El rol fabricado emite la **misma estructura de 10 secciones** que el catálogo, con las capabilities, el scope, el objetivo de la corrida y los modos de fallo del rol. Un rol fabricado con contexto es usable; uno genérico no.
-
-**3. Panel, no un solo agente.** Un objetivo casi nunca es de un solo dominio. El panel devuelve:
-
-- **primario** — el mejor match. Se lleva la card.
-- **complementos** — los que cubren lo que el primario NO cubre. Son sus pares en el bus.
-- **sin cubrir** — lo que nadie cubre. Señal de que la card debería partirse en dos.
-
-**Nunca fuerces un mal match.** Si nadie cubre una capacidad, se fabrica el rol o se pide ayuda. Un rol medio-tonto en el equipo arruina más de lo que aporta.
-
-**Sin plugin**: la tabla de `reference/roles.md`.
-
----
-
-## El briefing: qué recibe cada agente
-
-**[plugin]** Todo agente desplegado recibe un briefing de **10 secciones en orden fijo** —de lo más estable a lo más cambiante— y **4 artefactos** en `.oficina/fichas/<agentId>/`:
-
-| Artefacto | Contenido |
-|---|---|
-| `ficha.md` | Quién sos: rol, especialidad, origen, vibe |
-| `misiones.md` | Tu misión · lo que ya sabés · lo que NO sabés |
-| `protocolo.md` | Cómo trabajás · tu territorio · qué se espera · límites · éxito |
-| `bus.md` | Tu canal: dónde, formato, TTLs, cómo acusar recibo |
-
-**El agente no arranca sin `misiones.md`. Nunca.**
-
-**Mínimo**: las 10 secciones son requeridas. Si alguna queda vacía, el briefing se marca `INCOMPLETO` y el agente no se despliega. Un briefing a medio llenar produce un agente a medio informado, que es peor que no tener agente.
-
-La sección *"lo que ya sabés"* se alimenta del **ledger** (`.oficina/context.md`): decisiones, restricciones, piezas construidas y trampas. Es lo que evita repetir lo ya decidido.
-
-Detalle completo en `reference/mesh.md`.
-
----
-
-## El scope: una restricción, no una instrucción
-
-**[plugin]** Cuando un agente intenta escribir fuera del scope de su card, la operación **se rechaza**. No es una sugerencia.
-
-- La ruta se **resuelve** (absoluta → normalizada → symlinks resueltos) y recién ahí se decide.
-- `..`, paths absolutos y symlinks que apuntan afuera están cerrados.
-- Los archivos sensibles (`.env`, `.npmrc`, `.git/**`, claves) **nunca** son escribibles.
-- Los **subagentes heredan el scope**: delegar no es un escalón para salirse.
-
-Si el archivo es necesario: pedí por el bus que se amplíe el scope. No lo toques por tu cuenta.
-
----
-
-## Pedir ayuda y delegar
-
-**[plugin]** `oficina_bus` con `action: "help"`.
-
-El que recibe **hace su propio triage** — no acepta por cortesía:
+El que recibe hace su propio triage — no acepta por cortesía:
 
 1. ¿Entiendo la tarea? → si no, `HELP_DECLINE` + explicar
 2. ¿Está en mi scope? → si no, `HELP_DECLINE` + sugerir a quién
 3. ¿Puedo hacerlo ya sin romper mi card? → si no, `HELP_DECLINE` + "cuando termine"
 4. ¿Tengo el contexto? → si no, `HELP_QUESTION` por el bus
 5. ¿Vale la pena? → si no, `HELP_DECLINE` + alternativa
-6. ¿Tengo presupuesto? → si no, `HELP_DECLINE` + "sin presupuesto"
 
-**Anti-deadlock**: máximo 2 saltos en una cadena de ayuda; después escala al Integrador.
-**Anti-monotonía**: si el par A↔B ya se ayudaron 2 veces, el tercer pedido va a un tercero.
-
-**[plugin]** Delegar un rol nuevo: `oficina_spawn`. El Integrador aprueba o rechaza. Nunca clones agentes por tu cuenta.
-
-**Sin plugin**: `reference/protocol.md`.
+**Anti-deadlock**: máximo 2 saltos en una cadena de ayuda; después escala al Integrador. Un pedido puede declarar explícitamente que no bloquea: *"si el #1 cambia, re-ancalo los números"* — el pedido informa, no frena.
+**Anti-monotonía**: si el par A↔B ya colaboró 2 veces, el tercer pedido va a un tercero.
+**TTL**: los HELP_REQUEST vencen. `oficina_bus_cleanup` limpia los expirados.
 
 ---
 
-## El pool idle
+## 7. Verificar el resultado, no solo el proceso
 
-Cuando un agente termina su objetivo, entra al pool y puede ayudar de tres modos:
-
-1. Atender un `HELP_REQUEST` dirigido
-2. Atender un broadcast (`to: ["*"]`) — el primero que acepta toma el lease
-3. **Claim proactivo** — si hay cards sin owner y tu capability matchea, la reclamás
-
-El modo 3 es lo que convierte la oficina de "N tareas en paralelo" a "N agentes que se acomodan solos según la carga".
-
----
-
-## Verificar el resultado, no solo el proceso
-
-**[plugin]** Siete gates. Los seis técnicos dicen que **el código está sano**; el séptimo dice que **el objetivo está cumplido**:
+Siete gates. Los seis técnicos dicen que **el código está sano**; el séptimo dice que **el objetivo está cumplido**:
 
 | # | Fase | Qué comprueba |
 |---|---|---|
@@ -303,23 +232,20 @@ El modo 3 es lo que convierte la oficina de "N tareas en paralelo" a "N agentes 
 | 2 | Type check | Tipos |
 | 3 | Lint | Estilo |
 | 4 | Tests | Comportamiento |
-| 5 | Secretos | No hay credenciales en el árbol |
+| 5 | Secretos | No hay credenciales en el árbol (escaneo en código, valor redactado) |
 | 6 | Diff | Qué cambió |
 | 7 | **Requisitos** | **Cada criterio de aceptación tiene evidencia** |
 
-**Reglas de honestidad** — no negociables:
+**Reglas de honestidad — no negociables:**
 
 - Nunca `PASS` en una fase que no se corrió → `NOT RUN` y eso hace fallar el gate
 - Nunca output inventado
 - `N/A` siempre con motivo explícito
 - Una fase aplicable en `FAIL` = gate `FAIL`. No se promedia
-- El escaneo de secretos corre **en código**, no shelling out a `grep` (que no existe en Windows), y **redacta** el valor: un log de gate que imprime la credencial completa la acaba de filtrar
 
 ### El grafo de evidencia
 
-**[plugin]** `oficina_evidence` muestra, por card, qué criterio de aceptación tiene evidencia y cuál no.
-
-Cada criterio de aceptación es un **requisito**. Cada evidencia —un artefacto, un test, un gate, una inspección, una auditoría— se vincula a un requisito con un **nivel**:
+`oficina_evidence view <cardId>` muestra, por card, qué criterio tiene evidencia y cuál no. Niveles:
 
 | Nivel | Qué es |
 |---|---|
@@ -328,34 +254,39 @@ Cada criterio de aceptación es un **requisito**. Cada evidencia —un artefacto
 | 3 | Validación de requisitos (inspección) |
 | 4 | Auditoría independiente (revisor ≠ owner) |
 
-**Una card NO se cierra sin evidencia suficiente de cada requisito obligatorio.** Los gates en verde no alcanzan: un proyecto puede compilar, pasar todos sus tests y tener la autenticación mal porque ningún test contemplaba ese escenario.
-
-Cuando entregues, registrá la evidencia: `oficina_evidence` con `action: "add"`, diciendo QUÉ evidencia respalda QUÉ criterio.
+**Una card NO se cierra sin evidencia suficiente de cada requisito obligatorio.** Los gates en verde no alcanzan: un proyecto puede compilar, pasar todos sus tests y tener la autenticación mal porque ningún test contemplaba ese escenario. Al entregar, registrá evidencia: `oficina_evidence action=add`, diciendo QUÉ evidencia respalda QUÉ criterio.
 
 ---
 
-## El costo y el freno
+## 8. El scope: una restricción, no una instrucción
 
-**[plugin]** `oficina_cost` muestra tokens y USD por card, agente y fase, con los presupuestos y cuánto falta para cada límite. El costo real lo reporta el motor; no se estima.
+Cuando un agente intenta escribir fuera del scope de su card, la operación **se rechaza**. No es una sugerencia.
 
-Si la corrida se está descontrolando: `oficina_stop` con `action: "halt"`. La oficina deja de avanzar — no reanuda, no despacha, no gasta. Se reanuda con `action: "resume"`.
+- La ruta se **resuelve** (absoluta → normalizada → symlinks resueltos) y recién ahí se decide.
+- `..`, paths absolutos y symlinks que apuntan afuera están cerrados.
+- Los archivos sensibles (`.env`, `.npmrc`, `.git/**`, claves) **nunca** son escribibles.
+- Los **subagentes heredan el scope** de la cadena de sesiones: delegar no es un escalón para salirse.
+- Una sesión de oficina **sin card** no tiene acceso de escritura libre (fail-closed).
+
+Si el archivo es necesario: pedí por el bus que se amplíe el scope. No lo toques por tu cuenta.
 
 ---
 
-## Reglas de ejecución
+## 9. Reglas de ejecución
 
 1. **Nunca marques DONE sin los gates en verde.** Una card sin `gates.md` en PASS no está DONE, está mintiendo.
 2. **Nunca marques DONE sin evidencia** de cada requisito obligatorio.
-3. **Nunca revises tu propio trabajo.**
+3. **Nunca revises tu propio trabajo.** El motor lo rechaza.
 4. **Un subagente, una card, un artefacto.** Los subagentes son stateless: la delegación lleva todo el contexto.
 5. **Los artefactos son la memoria.** Si no está en `.oficina/`, no existe.
 6. **No toques fuera del scope.** Si hace falta, pedí la ampliación por el bus.
-7. **Escalá cuando el caso lo pida**, no antes. 3 rechazos de la misma card = escalación con opciones concretas.
-8. **Presupuesto**: 20 cards, 40 invocaciones, 20 spawns por corrida. Si se agota, informe parcial honesto y preguntá.
+7. **Terminar = pasar por `oficina_next`.** No declares "terminé" en la conversación: la decisión verificable es la de la tool.
+8. **Escalá cuando el caso lo pida**, no antes. 3 rechazos de la misma card = escalación automática con opciones concretas.
+9. **Pedí ayuda con need + whyMe.** Contestá con sustancia real y en el `messageId` del pedido.
 
 ---
 
-## Cuándo NO usar OFICINA
+## 10. Cuándo NO usar OFICINA
 
 - Tarea de una sola acción.
 - El usuario pidió explícitamente hacerlo vos directo.
@@ -367,7 +298,8 @@ En esos casos, hacelo vos. OFICINA es para trabajo multi-paso con objetivo verif
 
 ## Referencias
 
-- `reference/mesh.md` — bus, fichas, roster, leases, spawn policy, idle pool (v2)
+- `reference/mesh.md` — bus, fichas, roster, leases, spawn policy, idle pool
 - `reference/roles.md` — fichas de rol, criterios de enrutado, rotación
 - `reference/protocol.md` — handoff, gates, escalamiento, checkpoints, reintentos
 - `reference/templates.md` — templates de board, state.json, handoff, review, gates, informe
+- Repo: `github.com/SOCRAMbt/AI-OFFICE` · npm: `oficina-opencode`

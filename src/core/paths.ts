@@ -198,3 +198,18 @@ export function relToProject(paths: ResolvedPaths, target: string): string {
   const rel = path.relative(paths.projectRoot, target)
   return rel.startsWith("..") ? target : rel
 }
+
+/**
+ * Resuelve el directorio alternativo de la oficina (fallback global).
+ *
+ * Usa un hash SHA256 del path canónico del proyecto para evitar colisiones
+ * entre proyectos con el mismo nombre en directorios distintos.
+ * Esta es la misma lógica que usa resolvePaths internamente para el fallback.
+ */
+export async function resolveAlternateOficinaDir(projectRoot: string): Promise<string> {
+  const crypto = await import("node:crypto")
+  const canonicalPath = path.resolve(projectRoot)
+  const hash = crypto.createHash("sha256").update(canonicalPath).digest("hex").slice(0, 12)
+  const slug = `${path.basename(projectRoot).replace(/[^a-zA-Z0-9._-]/g, "-") || "proyecto"}-${hash}`
+  return path.join(process.env.HOME ?? process.env.USERPROFILE ?? ".", ".oficina", slug)
+}

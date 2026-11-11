@@ -274,11 +274,18 @@ describe("Claim de card concurrente a traves de la oficina", () => {
         gate: "npm test",
       },
     ])
+
+    // Deploy agents first
+    const { ficha: fichaA } = await office.resolveFicha({ role: "developer", capabilities: ["react"] })
+    await office.deploy(fichaA)
+    const { ficha: fichaB } = await office.resolveFicha({ role: "code-architect", capabilities: ["architecture"] })
+    await office.deploy(fichaB)
+
     const fresh = await office.loadState("Objetivo")
 
     const [a, b] = await Promise.all([
-      office.claimCard(fresh, "agente-a", "T-00"),
-      office.claimCard(fresh, "agente-b", "T-00"),
+      office.claimCard(fresh, fichaA.id, "T-00"),
+      office.claimCard(fresh, fichaB.id, "T-00"),
     ])
 
     const exitos = [a, b].filter((r) => r.ok)
@@ -286,6 +293,6 @@ describe("Claim de card concurrente a traves de la oficina", () => {
     expect(exitos.length).toBe(1)
     expect(fracasos.length).toBe(1)
     // El que perdio dice por que: el lease lo tiene el otro.
-    expect(fracasos[0]!.reason).toMatch(/tomada por otro/)
+    expect(fracasos[0]!.reason).toMatch(/tomada por otro|pertenece a/)
   })
 })
