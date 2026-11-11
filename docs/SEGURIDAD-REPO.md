@@ -81,3 +81,30 @@ Settings → Saltar al punto → clícalo y listo:
 
 Si algo de la Parte B/C no está activado, el cierre técnico queda a medias:
 los archivos del repo son la mitad grosera; los toggles de la web son la otra.
+
+---
+
+## Auditoria de secretos e historia (v3.1.5 - 2026-11-11)
+
+Escaneo completo ejecutado sobre: historial de git (77 commits, todos los blobs),
+arbol actual, y los 4 tarballs publicados en npm (3.0.4, 3.1.2, 3.1.3, 3.1.4).
+
+Resultado:
+
+- **Sin secretos reales en ninguna fuente.** Ni token npm, ni tokens de GitHub,
+  claves privadas, tokens de Slack/OpenAI/Google, ni credenciales de servicios.
+- **Historial de git**: unicamente el email del autor (casselsmarcos1@gmail.com,
+  campo author de package.json entre v3.0.x; ya removido de HEAD). Se conserva en
+  la historia a proposito: es el email publico de la cuenta npm, reescribir 2 de
+  77 commits romperia clones por cero beneficio.
+- **Tarballs**: AKIAIOSFODNN7EXAMPLE (fixture canonico de AWS para tests) en
+  snapshots de demo del dashboard - falso positivo verificado. .bak stale se
+  colo en 3.1.2/3.1.3 (sin secretos, codigo viejo).
+- **Vulnerabilidad real corregida**: dashboard/server.mjs binea a todas las
+  interfaces (0.0.0.0) y expone datos de la corrida a la red local. Desde
+  v3.1.5 binea a 127.0.0.1. Ademas, los prefix-checks de traversal llevan
+  separador explicito.
+- **Guard durable**: 	ests/packaging.test.ts corre 
+pm pack --dry-run en la
+  suite y aborta el publish si el tarball contiene .bak, .env, .npmrc,
+  .oficina/, .git/, claves, reportes de auditoria o logs, o si excede 3 MB.

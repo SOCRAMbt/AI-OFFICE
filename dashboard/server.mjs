@@ -124,7 +124,10 @@ function parseGates(cardId) {
 function serveArtifactFile(req, res, url, name) {
   const card = url.searchParams.get("card");
   const file = path.join(OFICINA, "artifacts", card || "", name);
-  if (!card || !file.startsWith(path.join(OFICINA, "artifacts")) || !fs.existsSync(file)) {
+  // El prefix-check lleva path.sep: sin él, un sibling (`artifacts-evil`)
+  // pasa el startsWith del directorio legítimo.
+  const artifactsDir = path.join(OFICINA, "artifacts") + path.sep;
+  if (!card || !file.startsWith(artifactsDir) || !fs.existsSync(file)) {
     res.writeHead(404); res.end("not found"); return;
   }
   res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
@@ -150,7 +153,8 @@ function serveStatic(req, res) {
   let urlPath = new URL(req.url, "http://x").pathname;
   if (urlPath === "/") urlPath = "/dashboard.html";
   const filePath = path.join(DASH, path.normalize(urlPath).replace(/^[/\\]/, ""));
-  if (!filePath.startsWith(DASH)) { res.writeHead(403); res.end(); return; }
+  // Con separador: un sibling de dashboard/ no pasa el prefix-check.
+  if (!filePath.startsWith(DASH + path.sep)) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end("not found"); return; }
     res.writeHead(200, { "Content-Type": MIME[path.extname(filePath)] || "application/octet-stream" });
@@ -229,7 +233,11 @@ async function boot() {
     port = portArg + i + 1;                    // otro proyecto: negociar
   }
 
-  server.listen(port, () => {
+  // Bind a loopback SOLAMENTE: el dashboard expone datos de la corrida
+  // (/api/state, /api/evidence, /api/handoff). Sin host explícito, Node
+  // bindeá a 0.0.0.0 — legible desde la red local (WiFi público incluido).
+  // El browser lo abre en localhost, así que loopback no cambia nada legítimo.
+  server.listen(port, "127.0.0.1", () => {
     console.log(`Oficina dashboard → http://localhost:${port}`);
     console.log(`  datos: ${OFICINA}`);
     writeHandshake(port);
