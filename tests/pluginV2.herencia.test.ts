@@ -242,10 +242,7 @@ describe("El subagente hereda el scope", () => {
 })
 
 describe("El dispatch crea subagentes en v2", () => {
-  // Timeout explícito: el dispatch spawnea owners Y pares con esperas reales
-  // del mock; bajo carga (suite completa, máquina fría) puede superar los 20s
-  // default de vitest sin que haya nada roto.
-  it("la tool de dispatch crea una sesion hija y le manda el prompt", { timeout: 90_000 }, async () => {
+  it("la tool de dispatch crea una sesion hija y le manda el prompt", async () => {
     const sesiones: Record<string, Sesion> = { "ses-padre": { id: "ses-padre" } }
     const { tools, creados, prompts } = await arrancar(sesiones)
 
