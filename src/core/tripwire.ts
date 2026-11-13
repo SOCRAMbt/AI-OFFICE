@@ -112,7 +112,6 @@ export async function snapshotTree(
       }
       if (entry.isDirectory()) {
         if (skip.has(entry.name)) continue
-        if (entry.name.startsWith(".") && entry.name !== ".opencode") continue
         await walk(path.join(dir, entry.name))
         if (scanned >= maxFiles) {
           truncated = true
@@ -120,7 +119,7 @@ export async function snapshotTree(
         }
         continue
       }
-      if (!entry.isFile()) continue
+      if (!entry.isFile() && !entry.isSymbolicLink()) continue
 
       const full = path.join(dir, entry.name)
       const relative = path.relative(root, full).replace(/\\/g, "/")
@@ -132,9 +131,9 @@ export async function snapshotTree(
       // que estuviera en el scope nunca se fotografiaría, que es
       // justamente el archivo que más importa vigilar.)
       if (isSensitive(relative)) {
-        let stat: Awaited<ReturnType<typeof fs.stat>>
+        let stat: Awaited<ReturnType<typeof fs.lstat>>
         try {
-          stat = await fs.stat(full)
+          stat = await fs.lstat(full)
         } catch (err) {
           errors.push(`Error stat sensitive file ${relative}: ${String(err)}`)
           continue
@@ -151,9 +150,9 @@ export async function snapshotTree(
       // Los archivos del scope pueden cambiar: no son senal.
       if (matchesScope(relative, scope)) continue
 
-      let stat: Awaited<ReturnType<typeof fs.stat>>
+      let stat: Awaited<ReturnType<typeof fs.lstat>>
       try {
-        stat = await fs.stat(full)
+        stat = await fs.lstat(full)
       } catch (err) {
         errors.push(`Error stat file ${relative}: ${String(err)}`)
         continue

@@ -17,9 +17,23 @@ export class RosterStore {
   /** Lee el roster. Si no existe, uno vacío. */
   async load(runId: string): Promise<Roster> {
     const result = await readJson<Roster>(this.rosterPath)
-    if (result.ok) return result.value
+    if (result.ok) {
+      if (result.value.runId === "default" || runId === "default") {
+        result.value.runId = runId
+        return result.value
+      }
+      if (result.value.runId !== runId) {
+        return {
+          version: 1,
+          runId,
+          agents: {},
+          updatedAt: nowIso(this.clock),
+        }
+      }
+      return result.value
+    }
     return {
-      version: 2,
+      version: 1,
       runId,
       agents: {},
       updatedAt: nowIso(this.clock),
@@ -49,6 +63,7 @@ export class RosterStore {
       helpGiven: 0,
       helpReceived: 0,
       helpedPeers: [],
+      peers: ficha.peers ? [...ficha.peers] : [],
       canDelegate: ficha.canDelegate,
       lastHeartbeat: nowIso(this.clock),
       source: ficha.source,
@@ -58,6 +73,7 @@ export class RosterStore {
     entry.capabilities = [...ficha.capabilities]
     entry.source = ficha.source
     entry.canDelegate = ficha.canDelegate
+    entry.peers = ficha.peers ? [...ficha.peers] : []
     entry.lastHeartbeat = nowIso(this.clock)
     roster.agents[ficha.id] = entry
     return entry

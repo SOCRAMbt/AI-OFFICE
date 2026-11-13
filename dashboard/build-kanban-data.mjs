@@ -217,7 +217,7 @@ function embedInto(html, dataset) {
   if (begin === -1 || end === -1 || end < begin) {
     throw new Error("kanban.html no tiene los markers " + BEGIN + " / " + END)
   }
-  const payload = JSON.stringify(dataset)
+  const payload = JSON.stringify(dataset).replace(/</g, "\\u003c")
   const script = '<script type="application/json" id="kanban-dataset">' + payload + "</script>"
   return html.slice(0, begin + BEGIN.length) + "\n" + script + "\n" + html.slice(end)
 }

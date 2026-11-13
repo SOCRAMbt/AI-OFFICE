@@ -93,7 +93,7 @@ export async function snapshotMesa(office: Office): Promise<MesaSnapshot> {
 
   for (const msg of peerMessages) {
     if (msg.kind !== "HELP_REQUEST") continue
-    if (isExpired(msg)) continue
+    if (office.bus.isExpired(msg)) continue
 
     const answered = peerMessages.some(
       (r) =>
@@ -115,7 +115,7 @@ export async function snapshotMesa(office: Office): Promise<MesaSnapshot> {
   const preguntasAbiertas: MesaSnapshot["preguntasAbiertas"] = []
   for (const msg of peerMessages) {
     if (msg.kind !== "QUESTION") continue
-    if (isExpired(msg)) continue
+    if (office.bus.isExpired(msg)) continue
     const answered = peerMessages.some((r) => r.kind === "ANSWER" && r.inReplyTo === msg.id)
     if (answered) continue
     preguntasAbiertas.push({
@@ -134,11 +134,6 @@ export async function snapshotMesa(office: Office): Promise<MesaSnapshot> {
     preguntasAbiertas,
     iteracion: state.iteration,
   }
-}
-
-function isExpired(message: BusMessage): boolean {
-  const age = (Date.now() - Date.parse(message.createdAt)) / 1000
-  return age > message.ttlSec
 }
 
 /** Renderiza la mesa como markdown, para que un agente la lea. */

@@ -42,15 +42,24 @@ function dashboardDir(): string | undefined {
 
 /** Abre una URL en el navegador del sistema (cross-platform, sin deps). */
 export function openBrowser(url: string): void {
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1):\d+(\/.*)?$/.test(url)) {
+    log.warn("url inválida para abrir el navegador", { url })
+    return
+  }
   try {
     const stdio = { detached: true, stdio: "ignore", windowsHide: true } as const
+    let child
     if (process.platform === "win32") {
-      spawn("cmd", ["/c", "start", "", url], stdio).unref()
+      child = spawn("cmd", ["/c", "start", "", url], stdio)
     } else if (process.platform === "darwin") {
-      spawn("open", [url], stdio).unref()
+      child = spawn("open", [url], stdio)
     } else {
-      spawn("xdg-open", [url], stdio).unref()
+      child = spawn("xdg-open", [url], stdio)
     }
+    child.on("error", (err) => {
+      log.warn("error al abrir el navegador", { url, error: String(err) })
+    })
+    child.unref()
   } catch (err) {
     log.warn("no se pudo abrir el navegador", { url, error: String(err) })
   }

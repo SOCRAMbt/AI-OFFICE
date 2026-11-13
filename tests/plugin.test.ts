@@ -97,7 +97,7 @@ describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
     const { input } = mockHost()
     const hooks = await OficinaPlugin(input)
 
-    // Sin card activa no hay scope: se permite (no hay nada que proteger).
+    // Sin card activa no hay scope: no se muta (status queda ask, no auto-allow).
     const output = { status: "ask" as "ask" | "deny" | "allow" }
     await hooks["permission.ask"]!(
       {
@@ -112,7 +112,7 @@ describe("Plugin OFICINA (v1, OpenCode 1.x)", () => {
       },
       output,
     )
-    expect(output.status).toBe("allow")
+    expect(output.status).toBe("ask")
   })
 
   it("crea la estructura .oficina/ en el proyecto", async () => {

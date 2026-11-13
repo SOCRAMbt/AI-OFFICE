@@ -132,7 +132,8 @@ export function routeCard(
   }
 
   // Reviewer: nunca el owner, idealmente sin colaboración reciente.
-  const candidates = all.filter((a) => a.id !== owner?.id)
+  const effectiveOwnerId = owner?.id ?? card.owner
+  const candidates = all.filter((a) => a.id !== effectiveOwnerId)
   let reviewer = candidates.find((a) => {
     const pair = owner ? owner.helpedPeers.includes(a.id) : false
     const collabs = options.pairCollaborationCount ?? 0
@@ -220,9 +221,9 @@ export function ownerStreak(
   for (let i = order.length - 1; i >= 0; i--) {
     const card = get(order[i]!)
     if (!card) continue
+    if (card.state === "todo") continue
     if (card.type !== type) break
     if (card.owner !== ownerId) break
-    if (card.state === "todo") continue
     streak++
   }
   return streak
@@ -240,7 +241,7 @@ export function fichaFromEntry(entry: RosterEntry, source?: Ficha["source"]): Fi
     scope: { mayTouch: ["**"], forbidden: ["**/*.env"] },
     canDelegate: false,
     delegateBudget: 0,
-    peers: [],
+    peers: entry.peers ? [...entry.peers] : [],
     mustNot: [],
     onFinish: "idle-join",
     escalateTo: "integrator",

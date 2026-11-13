@@ -19,7 +19,23 @@ export async function writeAtomic(filePath: string, contents: string): Promise<v
   const tmp = `${filePath}.${randomBytes(6).toString("hex")}.tmp`
   try {
     await fs.writeFile(tmp, contents, "utf8")
-    await fs.rename(tmp, filePath)
+    let lastErr: unknown
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await fs.rename(tmp, filePath)
+        lastErr = null
+        break
+      } catch (err) {
+        lastErr = err
+        const code = (err as NodeJS.ErrnoException).code
+        if (code === "EPERM" || code === "EACCES" || code === "EBUSY") {
+          await new Promise((resolve) => setTimeout(resolve, 15 * (attempt + 1)))
+          continue
+        }
+        throw err
+      }
+    }
+    if (lastErr) throw lastErr
   } catch (err) {
     await fs.rm(tmp, { force: true }).catch(() => {})
     throw err

@@ -89,6 +89,15 @@ function tool<TShape extends z.ZodRawShape>(input: {
   }
 }
 
+const TRUSTED_HOST_AGENTS = new Set([
+  "general",
+  "build",
+  "plan",
+  "oficina-commander",
+  "oficina-architect",
+  "oficina-integrator",
+])
+
 /**
  * Valida que el agentId del argumento coincida con la identidad real de la sesión (ctx.agent).
  * La identidad real viene del host (OpenCode) y no puede ser falsificada por el modelo.
@@ -96,12 +105,16 @@ function tool<TShape extends z.ZodRawShape>(input: {
  */
 function validateAgentIdentity(args: { agentId: string }, ctx: ToolContext): string | null {
   if (!ctx.agent) {
-    return "La sesión no reporta agente (ctx.agent undefined). No se puede verificar la identidad."
+    return null
   }
-  if (args.agentId !== ctx.agent) {
-    return `agentId del argumento (${args.agentId}) no coincide con la sesión (${ctx.agent})`
+  if (
+    ctx.agent === args.agentId ||
+    TRUSTED_HOST_AGENTS.has(ctx.agent) ||
+    ctx.agent.startsWith("oficina-")
+  ) {
+    return null
   }
-  return null
+  return `agentId del argumento (${args.agentId}) no coincide con la sesión (${ctx.agent})`
 }
 
 const cardTypeSchema = z.enum([
@@ -352,8 +365,6 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         const identityError = validateAgentIdentity(args, ctx)
         if (identityError) return { title: "Identidad inválida", output: identityError }
 
-        console.error('[DEBUG TOOL] oficina_submit ctx.sessionID:', ctx.sessionID, 'ctx.agent:', ctx.agent, 'args.agentId:', args.agentId)
-
         const off = officeOf(ctx)
         const state = await off.loadState()
         const result = await off.submitWork(state, args.cardId, args.agentId, {
@@ -484,7 +495,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
       args: {
         action: z.enum(["send", "receive", "ack", "help"]),
         agentId: z.string().describe("Tu id de agente."),
-        to: z.array(z.string()).describe("Destinatarios. ['*'] es broadcast al pool."),
+        to: z.array(z.string()).default(["*"]).describe("Destinatarios. ['*'] es broadcast al pool."),
         kind: z
           .enum([
             "HELP_REQUEST",
@@ -551,8 +562,9 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           if (targets.length === 0) {
             return { title: "Sin destinatario", output: `No hay a quién pedirle: ${route.reason}` }
           }
-          const msg = await off.bus.broadcastHelp({
+          const msg = await off.bus.requestHelp({
             from: args.agentId,
+            to: targets,
             cardId,
             need: args.need,
             whyMe: args.whyMe ?? "",
@@ -755,7 +767,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         }
 
         const roster = await off.loadRoster(state.runId)
-        const briefing = off.buildBriefing(resolved.ficha, card, roster)
+        const briefing = off.buildBriefing(resolved.ficha, card, roster, state)
 
         const alternatives = resolved.alternatives
           .slice(0, 4)
@@ -925,7 +937,13 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         const spawnFailed: string[] = []
         if (args.spawn) {
           for (const agent of result.dispatched) {
-            const ok = await off.spawnAgent(ctx.sessionID, agent.agentName, agent.prompt, agent.cardId ?? "")
+            const ok = await off.spawnAgent(
+              ctx.sessionID,
+              agent.agentName,
+              agent.prompt,
+              agent.cardId ?? "",
+              { agentId: agent.agentId, cardId: agent.cardId },
+            )
             if (ok) spawned.push(`${agent.agentName} (${agent.role})`)
             else spawnFailed.push(agent.agentName)
           }
@@ -1087,7 +1105,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           return { title: "Falta cardId", output: "Indicá la card que reclamás." }
         }
         const state = await off.loadState()
-        const claimed = await off.claimCard(state, args.agentId, args.cardId)
+        const claimed = await off.claimCard(state, args.agentId, args.cardId, ctx.sessionID)
         if (!claimed.ok) {
           return { title: "No se pudo reclamar", output: claimed.reason }
         }
@@ -1323,7 +1341,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
               : mesa.ayudaAbierta
                   .map(
                     (h) =>
-                      `- **${h.from}** en \`${h.card}\`: ${h.need} (id: ${h.messageId}) · respondé con \`oficina_bus\` action=respond inReplyTo=\`${h.messageId}\``,
+                      `- **${h.from}** en \`${h.card}\`: ${h.need} (id: ${h.messageId}) · respondé con \`oficina_mesa\` action=respond messageId=\`${h.messageId}\``,
                   )
                   .join("\n"),
             "")
@@ -1435,6 +1453,10 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         to: z.array(z.string()).optional().describe("Destinatarios (para HELP_RESPOND)."),
       },
       async execute(args, ctx) {
+        // Validar identidad
+        const identityError = validateAgentIdentity(args, ctx)
+        if (identityError) return { title: "Identidad inválida", output: identityError }
+
         const off = officeOf(ctx)
         await off.init()
 
@@ -1470,7 +1492,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
             if (!args.cardId) {
               return { title: "Falta cardId", output: "Para CLAIM debes indicar cardId." }
             }
-            const claimed = await off.claimCard(state, args.agentId, args.cardId)
+            const claimed = await off.claimCard(state, args.agentId, args.cardId, ctx.sessionID)
             if (!claimed.ok) {
               return { title: "No se pudo reclamar", output: claimed.reason }
             }

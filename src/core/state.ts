@@ -317,7 +317,7 @@ export interface NextCardResult {
  *
  * Empates se rompen por posición en `order`, que el planificador define.
  */
-export function selectNextCard(state: OfficeState): NextCardResult {
+export function selectNextCard(state: OfficeState, agentId?: string): NextCardResult {
   const byOrder = (a: Card, b: Card) => state.order.indexOf(a.id) - state.order.indexOf(b.id)
 
   const ordered = state.order
@@ -327,8 +327,11 @@ export function selectNextCard(state: OfficeState): NextCardResult {
   // 1. Trabajo ya empezado: terminarlo antes de abrir algo nuevo. Una card
   //    en rework tiene contexto, evidencia parcial y un owner esperando: es
   //    la que más rinde continuar.
+  //    Solo devolvemos una card en curso si no tiene owner o si pertenece al agente que llama,
+  //    para evitar inanición de otros agentes.
   const inFlight = ordered
     .filter((c) => c.state === "in_progress" || c.state === "rework")
+    .filter((c) => !c.owner || !agentId || c.owner === agentId)
     .sort(byOrder)
 
   if (inFlight.length > 0) {
@@ -340,10 +343,17 @@ export function selectNextCard(state: OfficeState): NextCardResult {
   const ready = ordered
     .filter((c) => c.state === "todo")
     .filter((c) => c.dependsOn.every((dep) => state.cards[dep]?.state === "done"))
-    .sort(byOrder)
 
   if (ready.length > 0) {
-    const card = ready[0]!
+    const sorted = [...ready].sort((a, b) => {
+      if (agentId) {
+        const aScore = a.owner === agentId ? 0 : !a.owner ? 1 : 2
+        const bScore = b.owner === agentId ? 0 : !b.owner ? 1 : 2
+        if (aScore !== bScore) return aScore - bScore
+      }
+      return byOrder(a, b)
+    })
+    const card = sorted[0]!
     return { card, reason: "card lista (dependencias satisfechas)" }
   }
 

@@ -98,7 +98,12 @@ function aggregate() {
 }
 
 function parseGates(cardId) {
-  const dir = path.join(OFICINA, "artifacts", cardId);
+  const artifactsDir = path.join(OFICINA, "artifacts");
+  const dir = path.join(artifactsDir, cardId || "");
+  const rel = path.relative(artifactsDir, dir);
+  if (!cardId || rel.startsWith("..") || path.isAbsolute(rel)) {
+    return { gates: [], evidence: false, handoff: false };
+  }
   const out = { gates: [], evidence: false, handoff: false };
   if (!fs.existsSync(dir)) return out;
   const gatesFile = path.join(dir, "gates.md");
@@ -123,11 +128,10 @@ function parseGates(cardId) {
 /* sirve un artifact crudo (evidence.md / handoff.md) para abrirlo en pestaña */
 function serveArtifactFile(req, res, url, name) {
   const card = url.searchParams.get("card");
-  const file = path.join(OFICINA, "artifacts", card || "", name);
-  // El prefix-check lleva path.sep: sin él, un sibling (`artifacts-evil`)
-  // pasa el startsWith del directorio legítimo.
-  const artifactsDir = path.join(OFICINA, "artifacts") + path.sep;
-  if (!card || !file.startsWith(artifactsDir) || !fs.existsSync(file)) {
+  const artifactsDir = path.join(OFICINA, "artifacts");
+  const file = path.join(artifactsDir, card || "", name);
+  const rel = path.relative(artifactsDir, file);
+  if (!card || rel.startsWith("..") || path.isAbsolute(rel) || !fs.existsSync(file)) {
     res.writeHead(404); res.end("not found"); return;
   }
   res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
@@ -153,8 +157,8 @@ function serveStatic(req, res) {
   let urlPath = new URL(req.url, "http://x").pathname;
   if (urlPath === "/") urlPath = "/dashboard.html";
   const filePath = path.join(DASH, path.normalize(urlPath).replace(/^[/\\]/, ""));
-  // Con separador: un sibling de dashboard/ no pasa el prefix-check.
-  if (!filePath.startsWith(DASH + path.sep)) { res.writeHead(403); res.end(); return; }
+  const rel = path.relative(DASH, filePath);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end("not found"); return; }
     res.writeHead(200, { "Content-Type": MIME[path.extname(filePath)] || "application/octet-stream" });

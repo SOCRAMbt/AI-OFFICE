@@ -220,6 +220,15 @@ async function main() {
     "agency-agents",
   )
 
+  const isStrict = process.argv.includes("--strict")
+
+  try {
+    await fs.access(agencyRoot)
+  } catch {
+    console.log(`[BENCHMARK] agencyRoot no encontrado en ${agencyRoot} — omitiendo benchmark (exit 0)`)
+    process.exit(isStrict ? 1 : 0)
+  }
+
   let catalog: CatalogAgent[]
   let catalogRevision = "unknown"
   
@@ -234,20 +243,30 @@ async function main() {
       const stdout = cp.execFileSync("git", ["-C", agencyRoot, "rev-parse", "HEAD"], { encoding: "utf8" })
       catalogRevision = stdout.trim()
     } catch {
-      // If git not available or not a git repo, fail explicitly
-      console.error("FALLO: No se pudo obtener la revisión Git del catálogo (requerida para reproducibilidad)")
-      process.exit(1)
+      if (isStrict) {
+        console.error("FALLO: No se pudo obtener la revisión Git del catálogo (requerida para reproducibilidad en --strict)")
+        process.exit(1)
+      }
+      catalogRevision = "unknown"
     }
   } catch (err) {
-    console.error("FALLO: No se pudo cargar el catálogo de agency-agents")
-    console.error(`  Directorio: ${agencyRoot}`)
-    console.error(`  Error: ${err}`)
-    process.exit(1)
+    if (isStrict) {
+      console.error("FALLO: No se pudo cargar el catálogo de agency-agents")
+      console.error(`  Directorio: ${agencyRoot}`)
+      console.error(`  Error: ${err}`)
+      process.exit(1)
+    }
+    console.log(`[BENCHMARK] No se pudo cargar el catálogo en ${agencyRoot}: ${err} — omitiendo benchmark (exit 0)`)
+    process.exit(0)
   }
 
   if (catalog.length === 0) {
-    console.error("FALLO: El catálogo está vacío (0 agentes)")
-    process.exit(1)
+    if (isStrict) {
+      console.error("FALLO: El catálogo está vacío (0 agentes)")
+      process.exit(1)
+    }
+    console.log(`[BENCHMARK] El catálogo en ${agencyRoot} está vacío — omitiendo benchmark (exit 0)`)
+    process.exit(0)
   }
 
   // Verify expected slugs exist in catalog

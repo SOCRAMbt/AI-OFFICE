@@ -123,6 +123,8 @@ export async function withLock<T>(
     try {
       await fs.mkdir(lockPath)
       acquired = true
+      const metaPath = path.join(lockPath, "meta.json")
+      await fs.writeFile(metaPath, JSON.stringify({ pid: process.pid, createdAt: Date.now() }), "utf8").catch(() => {})
       break
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
@@ -146,8 +148,36 @@ export async function withLock<T>(
       try {
         const stat = await fs.stat(lockPath)
         if (Date.now() - stat.mtimeMs > staleMs) {
-          await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
-          continue
+          let isProcessAlive = false
+          try {
+            const metaContent = await fs.readFile(path.join(lockPath, "meta.json"), "utf8")
+            const meta = JSON.parse(metaContent)
+            if (typeof meta.pid === "number") {
+              try {
+                process.kill(meta.pid, 0)
+                isProcessAlive = true
+              } catch (killErr) {
+                if ((killErr as NodeJS.ErrnoException).code === "EPERM") {
+                  isProcessAlive = true
+                } else {
+                  isProcessAlive = false
+                }
+              }
+            }
+          } catch {
+            isProcessAlive = false
+          }
+
+          if (!isProcessAlive) {
+            const staleName = `${lockPath}.stale.${process.pid}.${Date.now()}`
+            try {
+              await fs.rename(lockPath, staleName)
+              await fs.rm(staleName, { recursive: true, force: true }).catch(() => {})
+            } catch {
+              await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
+            }
+            continue
+          }
         }
       } catch {
         // El lock desaparecio entre el mkdir y el stat: reintentar.
@@ -166,8 +196,8 @@ export async function withLock<T>(
   try {
     return await fn()
   } finally {
-    // `rmdir` en vez de `rm -r`: el lock esta siempre vacio, y una sola
-    // llamada al sistema deja menos ventana para la carrera de Windows.
+    const metaPath = path.join(lockPath, "meta.json")
+    await fs.rm(metaPath, { force: true }).catch(() => {})
     await fs.rmdir(lockPath).catch(async () => {
       await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
     })

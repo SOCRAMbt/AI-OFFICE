@@ -13,6 +13,25 @@ import { checkScope, resolveTarget, isInsideRoot } from "../src/core/sandbox.js"
 let tmp: string
 let root: string
 
+async function trySymlink(
+  target: string,
+  linkPath: string,
+  type?: "file" | "dir" | "junction",
+  ctx?: { skip: () => void },
+): Promise<boolean> {
+  try {
+    const symType = process.platform === "win32" && type === "dir" ? "junction" : (type ?? "file")
+    await fs.symlink(target, linkPath, symType)
+    return true
+  } catch (err: any) {
+    if (process.platform === "win32" && (err?.code === "EPERM" || err?.code === "EACCES")) {
+      ctx?.skip()
+      return false
+    }
+    throw err
+  }
+}
+
 beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), "oficina-83test-"))
   root = path.join(tmp, "proyecto")
@@ -130,14 +149,15 @@ describe("Path normalization consistency", () => {
     expect(t.insidePhysically).toBe(true)
   })
 
-  it("symlink escape detection works with non-existent paths", async () => {
+  it("symlink escape detection works with non-existent paths", async (ctx) => {
     const outsideDir = path.join(tmp, "outside")
     await fs.mkdir(outsideDir)
     await fs.writeFile(path.join(outsideDir, "secret.txt"), "x\n")
     
     // Create a symlink inside the project that points outside
     const linkPath = path.join(root, "src", "components", "escape.ts")
-    await fs.symlink(path.join(outsideDir, "secret.txt"), linkPath)
+    const created = await trySymlink(path.join(outsideDir, "secret.txt"), linkPath, "file", ctx)
+    if (!created) return
     
     // Even though the target of the symlink doesn't exist in the project,
     // the symlink itself exists and points outside
