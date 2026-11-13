@@ -29,17 +29,23 @@ afterEach(async () => {
   await fs.rm(tmp, { recursive: true, force: true })
 })
 
-describe("fingerprint(): el mismo error con paths y números distintos es el mismo fingerprint", () => {
+describe("fingerprint(): el mismo error distinto de path es el mismo fingerprint", () => {
   it("normaliza paths absolutas", () => {
     const a = fingerprint("ENOENT C:\\Users\\Marcos\\proyecto\\src\\app.ts line 12")
-    const b = fingerprint("ENOENT C:\\Users\\OtraPersona\\proyecto\\src\\app.ts line 99")
+    const b = fingerprint("ENOENT C:\\Users\\OtraPersona\\proyecto\\src\\app.ts line 12")
     expect(a).toBe(b)
   })
 
-  it("normaliza números y strings literales", () => {
-    const a = fingerprint('expected 3 to be 5 at "foo"')
-    const b = fingerprint('expected 7 to be 9 at "bar"')
+  it("normaliza strings literales", () => {
+    const a = fingerprint('expected "a" to equal "b"')
+    const b = fingerprint('expected "c" to equal "d"')
     expect(a).toBe(b)
+  })
+
+  it("mantiene números distintos como fingerprints distintos (no son el mismo error)", () => {
+    const a = fingerprint("fix 1")
+    const b = fingerprint("fix 2")
+    expect(a).not.toBe(b)
   })
 
   it("distintos errores producen fingerprints distintos", () => {

@@ -17,23 +17,16 @@ export class RosterStore {
   /** Lee el roster. Si no existe, uno vacío. Si existe pero es de otro runId, devuelve uno vacío. */
   async load(runId: string): Promise<Roster> {
     const result = await readJson<Roster>(this.rosterPath)
-    if (!result.ok) {
-      return {
-        version: 2,
-        runId,
-        agents: {},
-        updatedAt: nowIso(this.clock),
-      }
+    const empty = (): Roster => ({ version: 2, runId, agents: {}, updatedAt: nowIso(this.clock) })
+    if (!result.ok) return empty()
+
+    // Tolerante: "default" normaliza al runId vigente
+    if (result.value.runId === "default" || runId === "default") {
+      result.value.runId = runId
+      return result.value
     }
-    // Validar que el roster pertenece a este runId
-    if (result.value.runId !== runId) {
-      return {
-        version: 2,
-        runId,
-        agents: {},
-        updatedAt: nowIso(this.clock),
-      }
-    }
+    // Corrida distinta: roster vacío en vez de arrastrar agentes obsoletos
+    if (result.value.runId !== runId) return empty()
     return result.value
   }
 
@@ -60,6 +53,7 @@ export class RosterStore {
       helpGiven: 0,
       helpReceived: 0,
       helpedPeers: [],
+      peers: ficha.peers ? [...ficha.peers] : [],
       canDelegate: ficha.canDelegate,
       lastHeartbeat: nowIso(this.clock),
       source: ficha.source,
@@ -69,6 +63,7 @@ export class RosterStore {
     entry.capabilities = [...ficha.capabilities]
     entry.source = ficha.source
     entry.canDelegate = ficha.canDelegate
+    entry.peers = ficha.peers ? [...ficha.peers] : []
     entry.lastHeartbeat = nowIso(this.clock)
     roster.agents[ficha.id] = entry
     return entry

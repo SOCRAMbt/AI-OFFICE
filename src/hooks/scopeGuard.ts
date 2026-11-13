@@ -68,7 +68,7 @@ const log = logger("oficina:scope-guard")
  * nombre distinto (`str_replace`, `str_replace_based_edit_tool`,
  * `edit_notebook_file`...). El prefijo cubre la familia entera.
  */
-const FILE_WRITE_TOOLS = new Set([
+export const FILE_WRITE_TOOLS = new Set([
   "edit",
   "write",
   "patch",
@@ -87,7 +87,7 @@ const FILE_WRITE_TOOLS = new Set([
 ])
 
 /** Tools que ejecutan shell. */
-const SHELL_TOOLS = new Set([
+export const SHELL_TOOLS = new Set([
   "bash",
   "shell",
   "run",
@@ -206,20 +206,23 @@ export function pathsFromPatch(patch: string): string[] {
     if (p?.[1]) plus.push(p[1])
   }
 
+  const realMinus = minus.filter((p) => p !== "/dev/null" && p !== "dev/null")
+  const realPlus = plus.filter((p) => p !== "/dev/null" && p !== "dev/null")
   const usaPrefijoGit =
-    minus.length > 0 &&
-    minus.every((p) => p.startsWith("a/")) &&
-    plus.length > 0 &&
-    plus.every((p) => p.startsWith("b/"))
+    (realMinus.length > 0 || realPlus.length > 0) &&
+    realMinus.every((p) => p.startsWith("a/")) &&
+    realPlus.every((p) => p.startsWith("b/"))
 
   const strip = (p: string) => (usaPrefijoGit ? p.slice(2) : p)
 
-  // `--- /dev/null` marca un archivo nuevo: el path real viene del `+++`.
   const out: string[] = []
-  for (const p of [...minus, ...plus]) {
-    if (p === "/dev/null" || p === "dev/null") continue
+  const seen = new Set<string>()
+  for (const p of [...realMinus, ...realPlus]) {
     const clean = strip(p)
-    if (clean) out.push(clean)
+    if (clean && !seen.has(clean)) {
+      seen.add(clean)
+      out.push(clean)
+    }
   }
   return out
 }

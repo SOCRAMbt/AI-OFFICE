@@ -37,40 +37,17 @@ import { z } from "zod"
 import { Office } from "./core/office.js"
 import { buildTools, type OficinaTool } from "./tools/index.js"
 import { analyzeShellCommand, checkScope, type ScopePolicy } from "./core/sandbox.js"
-import { extractCommand, extractPaths, resolveScopeCard } from "./hooks/scopeGuard.js"
+import {
+  extractCommand,
+  extractPaths,
+  resolveScopeCard,
+  FILE_WRITE_TOOLS,
+  SHELL_TOOLS,
+} from "./hooks/scopeGuard.js"
 import { Tripwire } from "./core/tripwire.js"
 import { logger } from "./core/log.js"
 
 const log = logger("oficina:v2")
-
-/** Tools que escriben un archivo. */
-const FILE_WRITE_TOOLS = new Set([
-  "edit",
-  "write",
-  "patch",
-  "multiedit",
-  "apply_patch",
-  "notebook_edit",
-  "str_replace",
-  "str_replace_editor",
-  "edit_file",
-  "edit_notebook_file",
-  "create_file",
-  "write_file",
-  "create_or_update_file",
-])
-
-/** Tools que ejecutan shell. */
-const SHELL_TOOLS = new Set([
-  "bash",
-  "shell",
-  "run",
-  "run_command",
-  "execute_command",
-  "terminal",
-  "powershell",
-  "cmd",
-])
 
 /** Acciones de permiso que implican escribir un archivo. */
 const WRITE_ACTIONS = new Set(["edit", "write", "patch", "multiedit", "apply_patch"])
@@ -155,7 +132,7 @@ export default Plugin.define({
             text: prompt,
             metadata: { oficina: { agent: agentName, description } },
           })
-          return true
+          return child.id
         } catch (err) {
           log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
           return false
@@ -207,18 +184,20 @@ export default Plugin.define({
      * Sin esto, delegar seria un escalon para salirse del scope: el
      * subagente no tendria card y el guard lo dejaria pasar todo.
      */
-    const parentCache = new Map<string, string | undefined>()
+    const parentCache = new Map<string, string>()
 
     const resolveParentSession = async (sessionID: string): Promise<string | undefined> => {
       if (parentCache.has(sessionID)) return parentCache.get(sessionID)
       try {
         const session = (await ctx.session.get({ sessionID })) as { parentID?: string } | undefined
         const parent = session?.parentID
-        parentCache.set(sessionID, parent)
-        return parent
+        if (typeof parent === "string" && parent.length > 0) {
+          parentCache.set(sessionID, parent)
+          return parent
+        }
+        return undefined
       } catch (err) {
         log.debug("no se pudo resolver el padre de la sesion", { sessionID, error: String(err) })
-        parentCache.set(sessionID, undefined)
         return undefined
       }
     }
@@ -281,7 +260,8 @@ export default Plugin.define({
           description: def.description,
           input: toJsonSchema(def.args),
           execute: async (input: unknown, toolCtx: { sessionID: string; agent: string; messageID: string }) => {
-            const result = await def.execute((input ?? {}) as Record<string, unknown>, {
+            const parsed = def.args ? def.args.parse(input ?? {}) : (input ?? {})
+            const result = await def.execute(parsed as Record<string, unknown>, {
               directory: realCwd,
               sessionID: toolCtx.sessionID,
               agent: toolCtx.agent,

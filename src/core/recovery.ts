@@ -246,7 +246,7 @@ export async function reconcile(
         repaired: false,
       })
       if (autoRepair && !dryRun) {
-        await office.leases.release(taskId, "desconocido").catch(() => false)
+        await office.leases.forceRelease(taskId).catch(() => false)
         const last = issues[issues.length - 1]!
         last.repaired = true
       }

@@ -33,6 +33,25 @@ import {
 let tmp: string
 let root: string
 
+async function trySymlink(
+  target: string,
+  linkPath: string,
+  type?: "file" | "dir" | "junction",
+  ctx?: { skip: () => void },
+): Promise<boolean> {
+  try {
+    const symType = process.platform === "win32" && type === "dir" ? "junction" : (type ?? "file")
+    await fs.symlink(target, linkPath, symType)
+    return true
+  } catch (err: any) {
+    if (process.platform === "win32" && (err?.code === "EPERM" || err?.code === "EACCES")) {
+      ctx?.skip()
+      return false
+    }
+    throw err
+  }
+}
+
 beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), "oficina-sandbox-"))
   root = path.join(tmp, "proyecto")
@@ -108,10 +127,11 @@ describe("Paths absolutos", () => {
 })
 
 describe("Escape por symlink", () => {
-  it("rechaza un symlink que apunta afuera del proyecto", async () => {
+  it("rechaza un symlink que apunta afuera del proyecto", async (ctx) => {
     const fuera = path.join(tmp, "secreto.txt")
     await fs.writeFile(fuera, "clave\n")
-    await fs.symlink(fuera, path.join(root, "src", "components", "link.ts"))
+    const created = await trySymlink(fuera, path.join(root, "src", "components", "link.ts"), "file", ctx)
+    if (!created) return
 
     const v = await checkScope(root, "src/components/link.ts", policy)
     expect(v.allowed).toBe(false)
@@ -119,34 +139,38 @@ describe("Escape por symlink", () => {
     expect(v.symlinks.length).toBeGreaterThan(0)
   })
 
-  it("rechaza un symlink a un DIRECTORIO fuera", async () => {
+  it("rechaza un symlink a un DIRECTORIO fuera", async (ctx) => {
     const fueraDir = path.join(tmp, "fuera")
     await fs.mkdir(fueraDir)
-    await fs.symlink(fueraDir, path.join(root, "src", "components", "linkdir"))
+    const created = await trySymlink(fueraDir, path.join(root, "src", "components", "linkdir"), "dir", ctx)
+    if (!created) return
 
     const v = await checkScope(root, "src/components/linkdir/nuevo.ts", policy)
     expect(v.allowed).toBe(false)
     expect(v.kind).toBe("symlink-escape")
   })
 
-  it("rechaza un symlink roto (no sabemos a donde apunta)", async () => {
-    await fs.symlink(path.join(tmp, "no-existe-este"), path.join(root, "src", "components", "roto.ts"))
+  it("rechaza un symlink roto (no sabemos a donde apunta)", async (ctx) => {
+    const created = await trySymlink(path.join(tmp, "no-existe-este"), path.join(root, "src", "components", "roto.ts"), "file", ctx)
+    if (!created) return
     const v = await checkScope(root, "src/components/roto.ts", policy)
     expect(v.allowed).toBe(false)
   })
 
-  it("acepta un symlink que apunta DENTRO del proyecto y evalua el path real", async () => {
+  it("acepta un symlink que apunta DENTRO del proyecto y evalua el path real", async (ctx) => {
     // `alias.ts` -> `Button.tsx`. Ambos estan en el scope, asi que pasa.
-    await fs.symlink(path.join(root, "src", "components", "Button.tsx"), path.join(root, "src", "components", "alias.ts"))
+    const created = await trySymlink(path.join(root, "src", "components", "Button.tsx"), path.join(root, "src", "components", "alias.ts"), "file", ctx)
+    if (!created) return
     const v = await checkScope(root, "src/components/alias.ts", policy)
     expect(v.allowed).toBe(true)
   })
 
-  it("el scope se evalua contra el path REAL, no contra el alias", async () => {
+  it("el scope se evalua contra el path REAL, no contra el alias", async (ctx) => {
     // `alias.ts` vive en `src/components/` (dentro del scope) pero apunta a
     // `src/server/api.ts`, que esta en forbidden. Escribir por el alias
     // debe rechazarse: el scope es del path real.
-    await fs.symlink(path.join(root, "src", "server", "api.ts"), path.join(root, "src", "components", "alias.ts"))
+    const created = await trySymlink(path.join(root, "src", "server", "api.ts"), path.join(root, "src", "components", "alias.ts"), "file", ctx)
+    if (!created) return
     const v = await checkScope(root, "src/components/alias.ts", policy)
     expect(v.allowed).toBe(false)
     // Y el motivo es el del path real, no el del alias.

@@ -43,10 +43,12 @@ export interface CommandRunner {
 /** Runner real por defecto. */
 export const defaultRunner: CommandRunner = (command, args, cwd) =>
   new Promise((resolve) => {
+    const isWinBatch = process.platform === "win32" && /^(npm|pnpm|yarn|npx)(\.cmd)?$/i.test(command)
+    const file = isWinBatch ? (command.toLowerCase().endsWith(".cmd") ? command : `${command}.cmd`) : command
     execFile(
-      command,
+      file,
       args,
-      { cwd, timeout: 10 * 60_000, maxBuffer: 8 * 1024 * 1024, shell: false },
+      { cwd, timeout: 10 * 60_000, maxBuffer: 8 * 1024 * 1024, shell: isWinBatch },
       (err, stdout, stderr) => {
         const code = err && typeof (err as NodeJS.ErrnoException & { code?: number }).code === "number"
           ? (err as unknown as { code: number }).code
@@ -401,9 +403,9 @@ export async function runSecurityGate(
   _runner: CommandRunner = defaultRunner,
 ): Promise<GatePhaseResult[]> {
   const results: GatePhaseResult[] = []
+  const hits = await scanForSecrets(projectRoot, scope)
 
-  for (const { label, pattern } of SECRET_PATTERNS) {
-    const hits = await scanForSecrets(projectRoot, scope)
+  for (const { label } of SECRET_PATTERNS) {
     const relevant = hits.filter((h) => h.label === label)
 
     if (relevant.length > 0) {

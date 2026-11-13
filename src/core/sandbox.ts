@@ -124,6 +124,23 @@ export async function canonicalizePhysical(target: string): Promise<string> {
   }
 }
 
+const IS_WINDOWS = process.platform === "win32"
+
+/**
+ * En Windows, normaliza los componentes de una ruta eliminando puntos y espacios finales
+ * por segmento (comportamiento de Win32 API), preservando '.' y '..' y la letra de unidad.
+ */
+export function normalizeWindowsSegments(p: string): string {
+  return p
+    .split(/[/\\]/)
+    .map((seg, idx) => {
+      if (idx === 0 && /^[a-zA-Z]:$/.test(seg)) return seg
+      if (seg === "." || seg === "..") return seg
+      return seg.replace(/[. ]+$/, "")
+    })
+    .join(path.sep)
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Glob a regex
  * ──────────────────────────────────────────────────────────────────────────── */
@@ -145,7 +162,7 @@ export function globToRegex(glob: string): RegExp {
     .replace(/\*/g, "[^/]*")
     .replace(/\u0000/g, "(?:.*/)?")
     .replace(/\u0001/g, ".*")
-  return new RegExp(`^${escaped}$`)
+  return new RegExp(`^${escaped}$`, IS_WINDOWS ? "i" : undefined)
 }
 
 /** Normaliza un glob: sin `./` inicial, sin `/` inicial, con `/` como separador. */
@@ -172,8 +189,6 @@ export function matchesScope(relativePath: string, globs: string[]): boolean {
 /* ────────────────────────────────────────────────────────────────────────────
  * Contención
  * ──────────────────────────────────────────────────────────────────────────── */
-
-const IS_WINDOWS = process.platform === "win32"
 
 /** Normaliza para comparar: en Windows las rutas son case-insensitive. */
 function comparable(p: string): string {
@@ -261,6 +276,7 @@ async function realpathBestEffort(target: string): Promise<{ resolved: string; e
 async function findSymlinks(
   root: string,
   absolute: string,
+  physicalRoot?: string,
 ): Promise<{ symlinks: string[]; escapes: boolean }> {
   const symlinks: string[] = []
   let escapes = false
@@ -291,7 +307,8 @@ async function findSymlinks(
       escapes = true
       continue
     }
-    if (!isInsideRoot(root, target)) escapes = true
+    const inside = isInsideRoot(root, target) || (physicalRoot ? isInsideRoot(physicalRoot, target) : false)
+    if (!inside) escapes = true
   }
 
   return { symlinks, escapes }
@@ -312,34 +329,52 @@ async function findSymlinks(
  * Si se proporciona `preNormalizedRoot`, se usa directamente (evita canonizar dos veces).
  */
 export async function resolveTarget(root: string, rawPath: string, preNormalizedRoot?: string): Promise<ResolvedTarget & { projectRoot: string }> {
+  // En Windows: rechazar streams alternativos NTFS (colon después de la letra de unidad)
+  if (IS_WINDOWS) {
+    const afterDrive = rawPath.replace(/^[a-zA-Z]:/, "")
+    if (afterDrive.includes(":")) {
+      throw new Error(`NTFS alternate data streams are not supported: ${rawPath}`)
+    }
+  }
+
   // Canonizar el root con la función canónica ÚNICA
   const projectRoot = preNormalizedRoot ?? await canonicalizeLexical(root)
+  const { resolved: physicalRoot } = await realpathBestEffort(projectRoot)
+
+  const effectiveRawPath = IS_WINDOWS ? normalizeWindowsSegments(rawPath) : rawPath
   
   // Path absoluto léxico (sin canonizar) para detección de symlinks
-  const isAbsoluteInput = path.isAbsolute(rawPath)
+  const isAbsoluteInput = path.isAbsolute(effectiveRawPath)
   const absoluteLexical = isAbsoluteInput
-    ? path.resolve(rawPath)
-    : path.join(projectRoot, rawPath)
+    ? path.resolve(effectiveRawPath)
+    : path.join(projectRoot, effectiveRawPath)
   
   // Canonizar target con la MISMA función que el root para contención
   const targetCanonical = isAbsoluteInput
-    ? await canonicalizeLexical(rawPath)
-    : await canonicalizeLexical(path.join(projectRoot, rawPath))
+    ? await canonicalizeLexical(effectiveRawPath)
+    : await canonicalizeLexical(path.join(projectRoot, effectiveRawPath))
   
   // Para verificación física: resolver symlinks del target canonizado
   const { resolved, exists } = await realpathBestEffort(targetCanonical)
   
   // Detección de symlinks: walk léxico sin canonizar
-  const { symlinks, escapes } = await findSymlinks(projectRoot, absoluteLexical)
+  const { symlinks, escapes } = await findSymlinks(projectRoot, absoluteLexical, physicalRoot)
 
   // Contención: AMBOS usan paths canonizados con la MISMA función
   const insideLexically = isInsideRoot(projectRoot, targetCanonical)
-  const insidePhysically = insideLexically && !escapes && isInsideRoot(projectRoot, resolved)
+  const insidePhysically =
+    insideLexically &&
+    !escapes &&
+    (isInsideRoot(projectRoot, resolved) || isInsideRoot(physicalRoot, resolved))
+
+  const relPhysical = isInsideRoot(projectRoot, resolved)
+    ? path.relative(projectRoot, resolved)
+    : path.relative(physicalRoot, resolved)
 
   return {
     absolute: targetCanonical,
     resolved,
-    relative: toPosix(path.relative(projectRoot, resolved)),
+    relative: toPosix(relPhysical),
     lexicalRelative: toPosix(path.relative(projectRoot, targetCanonical)),
     symlinks,
     exists,
@@ -384,6 +419,7 @@ export const SENSITIVE_PATTERNS: readonly string[] = [
   "**/service-account*.json",
   "**/.docker/config.json",
   "**/.opencode/opencode.json",
+  "**/.opencode/agents/**",
 ]
 
 /**
@@ -453,6 +489,8 @@ export interface ScopeVerdict {
 export const OFFICE_WRITABLE: readonly string[] = [
   ".oficina/artifacts/**",
   ".oficina/fichas/**",
+  ".oficina/board.md",
+  ".oficina/context.md",
 ]
 
 export interface ScopeCheckOptions {
@@ -485,10 +523,31 @@ export async function checkScope(
     const projectRoot = await canonicalizeLexical(root)
     return deny("invalid", "La ruta contiene un byte NUL.", projectRoot, "")
   }
+  if (IS_WINDOWS) {
+    const afterDrive = rawPath.replace(/^[a-zA-Z]:/, "")
+    if (afterDrive.includes(":")) {
+      const projectRoot = await canonicalizeLexical(root)
+      return deny("invalid", `Ruta no válida: stream NTFS alternativo detectado en \`${rawPath}\`.`, projectRoot, rawPath)
+    }
+  }
 
   // Canonizar root léxicamente, luego resolver target con el root ya canonizado
   const projectRoot = await canonicalizeLexical(root)
-  const target = await resolveTarget(root, rawPath, projectRoot)
+  let target: ResolvedTarget & { projectRoot: string }
+  try {
+    target = await resolveTarget(root, rawPath, projectRoot)
+  } catch (err) {
+    return {
+      ...deny(
+        "invalid",
+        `Ruta no válida: ${(err as Error).message}`,
+        projectRoot,
+        rawPath,
+      ),
+      resolved: "",
+      symlinks: [],
+    }
+  }
 
   // 1. Fuera del proyecto (por `..` o por path absoluto).
   if (!target.insideLexically) {
@@ -556,15 +615,37 @@ export async function checkScope(
     }
   }
 
-  // 5. Canal de entrega de la oficina: siempre escribible.
+  // 5. Protección de estado interno de .oficina y canal de entrega.
   const officeWritable = options.officeWritable ?? OFFICE_WRITABLE
-  if (matchesScope(target.relative, [...officeWritable])) {
+  const isInsideOficina =
+    target.relative === ".oficina" ||
+    target.relative.startsWith(".oficina/") ||
+    target.lexicalRelative === ".oficina" ||
+    target.lexicalRelative.startsWith(".oficina/")
+
+  if (isInsideOficina) {
+    const isAllowedOficina =
+      matchesScope(target.relative, [...officeWritable]) ||
+      matchesScope(target.lexicalRelative, [...officeWritable])
+    if (isAllowedOficina) {
+      return {
+        allowed: true,
+        kind: "allowed",
+        reason: "ok",
+        resolved: target.resolved,
+        relative: target.relative,
+        symlinks: target.symlinks,
+      }
+    }
     return {
-      allowed: true,
-      kind: "allowed",
-      reason: "ok",
+      ...deny(
+        "forbidden",
+        `\`${target.relative}\`: estado interno del motor (.oficina) protegido. ` +
+          `Solo se pueden escribir artefactos y fichas de entrega.`,
+        projectRoot,
+        target.relative,
+      ),
       resolved: target.resolved,
-      relative: target.relative,
       symlinks: target.symlinks,
     }
   }
@@ -627,6 +708,8 @@ export interface ShellCandidate {
    * autorizar en blindness.
    */
   uncertain: boolean
+  path?: string
+  reason?: string
 }
 
 /** Quita comillas y comillas invertidas de un token de shell. */
@@ -683,31 +766,46 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   // Ojo: el parámetro `uncertain` tiene que viajar al resultado. Antes,
   // target no-indefinido jamás se marcaba uncertain: un `pip install` era
   // "certeza de escritura" sobre el paquete — bloqueado por error.
-  const add = (target: string | undefined, op: string, uncertain = false) => {
+  const add = (target: string | undefined, op: string, uncertain = false, extra?: { path?: string; reason?: string }) => {
     if (target === undefined) {
-      out.push({ target: "", op, uncertain: true })
+      out.push({ target: "", op, uncertain: true, path: extra?.path ?? ".", reason: extra?.reason ?? "uncertain target" })
       return
     }
     const clean = unquote(target).trim()
-    if (!clean || clean === "-" || clean === "&1") return
-    out.push({ target: clean, op, uncertain })
+    if (
+      !clean ||
+      clean === "-" ||
+      clean === "&1" ||
+      clean === "&2" ||
+      clean === "2>&1" ||
+      clean === "1>&2" ||
+      clean === ">&2" ||
+      clean === "/dev/null" ||
+      clean === "$null"
+    ) return
+    out.push({
+      target: clean,
+      op,
+      uncertain,
+      ...(extra?.path ? { path: extra.path } : {}),
+      ...(extra?.reason ? { reason: extra.reason } : {}),
+    })
   }
 
-  // Redirecciones: > >> 2> &> |>
-  // Excluir 2>, 2>&1, &>, &>1, 1>, 2>&1, etc. (son descriptores, no archivos)
-  const redirect = /(?:^|[^0-9>|&])(?:\d*>>?|&>>?|\|>)\s*("[^"]*"|'[^']*'|[^\s;|&>]+)/g
+  // Redirecciones: > >> 2> &> |> (excluyendo => y -> para funciones flecha)
+  const redirect = /(?:^|[^0-9>|&=-])(?:\d*>>?|&>>?|\|>)\s*("[^"]*"|'[^']*'|[^\s;|&>]+)/g
   for (const m of command.matchAll(redirect)) {
     add(m[1], "redirect")
   }
 
   // tee
-  for (const m of command.matchAll(/\btee\b((?:\s+-{1,2}\S+)*)\s+("[^"]*"|'[^']*'|[^\s;|&]+)/g)) {
+  for (const m of command.matchAll(/\btee\b((?:\s+-{1,2}\S+)*)\s+("[^"]*"|'[^']*'|[^\s;|&>\r\n]+)/g)) {
     add(m[2], "tee")
   }
 
   // cp / mv / install -> destino = ultimo argumento
   // install (pip/npm/pnpm/yarn/poetry/uv/brew/apt/cargo install/add) -> target es incierto (paquete, no archivo)
-  for (const m of command.matchAll(/\b(cp|mv|install)\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+  for (const m of command.matchAll(/\b(cp|mv|install)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const verb = m[1] ?? "cp"
     const args = plainTokens(m[2] ?? "")
     if (args.length === 0) {
@@ -737,21 +835,21 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   }
 
   // rm -> todos los argumentos son blancos
-  for (const m of command.matchAll(/\brm\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+  for (const m of command.matchAll(/\brm\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const args = plainTokens(m[1] ?? "")
     if (args.length === 0) add(undefined, "rm", true)
     else for (const a of args) add(a, "rm")
   }
 
   // mkdir / touch / truncate / mktemp
-  for (const m of command.matchAll(/\b(mkdir|touch|truncate)\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+  for (const m of command.matchAll(/\b(mkdir|touch|truncate)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const args = plainTokens(m[2] ?? "")
     if (args.length === 0) add(undefined, m[1] ?? "mkdir", true)
     else for (const a of args) add(a, m[1] ?? "mkdir")
   }
 
   // sed -i
-  for (const m of command.matchAll(/\bsed\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+  for (const m of command.matchAll(/\bsed\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const raw = m[1] ?? ""
     if (!/(^|\s)-[a-zA-Z]*i/.test(raw)) continue
     const args = plainTokens(raw.replace(/(^|\s)-[a-zA-Z]*i(\S*)/, " "))
@@ -760,17 +858,17 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   }
 
   // dd of=
-  for (const m of command.matchAll(/\bdd\b[^\n;|&]*?\bof=("[^"]*"|'[^']*'|\S+)/g)) {
+  for (const m of command.matchAll(/\bdd\b[^\r\n;|&>]*?\bof=("[^"]*"|'[^']*'|\S+)/g)) {
     add(m[1], "dd")
   }
 
   // curl -o / wget -O
-  for (const m of command.matchAll(/\b(curl|wget)\b[^\n;|&]*?\s-[oO]\s*("[^"]*"|'[^']*'|\S+)/g)) {
+  for (const m of command.matchAll(/\b(curl|wget)\b[^\r\n;|&>]*?\s-[oO]\s*("[^"]*"|'[^']*'|\S+)/g)) {
     add(m[2], m[1] ?? "curl")
   }
 
   // git checkout / restore / clean
-  for (const m of command.matchAll(/\bgit\s+(?:checkout|restore|clean)\b([^\n;|&]*)/g)) {
+  for (const m of command.matchAll(/\bgit\s+(?:checkout|restore|clean)\b([^\r\n;|&>]*)/g)) {
     const rest = (m[1] ?? "").trim()
     const afterDash = /--\s+(.+)$/.exec(rest)
     if (afterDash) {
@@ -786,21 +884,111 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   }
 
   // chmod / chown
-  for (const m of command.matchAll(/\b(chmod|chown)\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+  for (const m of command.matchAll(/\b(chmod|chown)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const target = lastToken(plainTokens(m[2] ?? ""))
     add(target, m[1] ?? "chmod")
   }
 
-  // Interpreters embebidos: python -c / node -e / ruby -e / perl -e.
-  // OJO: el flag es `-c` en python y `-e` en node/ruby/perl. Un regex con
-  // `-e?` matcheaba el guion suelto y nunca llegaba al codigo.
-  const INTERPRETER = /\b(python3?|node|ruby|perl)\b\s+(?:-[ec]\s+|--eval\s+)?("[^"]*"|'[^']*')/g
+  // PowerShell: Set-Content, Add-Content, Clear-Content
+  for (const m of command.matchAll(/\b(Set-Content|Add-Content|Clear-Content)\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[2] ?? ""
+    const pathMatch = /-(?:Path|LiteralPath)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (pathMatch?.[1]) {
+      add(pathMatch[1], m[1] ?? "Set-Content")
+    } else {
+      const tokens = plainTokens(raw)
+      add(tokens[0], m[1] ?? "Set-Content", tokens.length === 0)
+    }
+  }
+
+  // PowerShell: Out-File
+  for (const m of command.matchAll(/\bOut-File\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[1] ?? ""
+    const fileMatch = /-(?:FilePath|LiteralPath|Path)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (fileMatch?.[1]) {
+      add(fileMatch[1], "Out-File")
+    } else {
+      const tokens = plainTokens(raw)
+      add(tokens[0], "Out-File", tokens.length === 0)
+    }
+  }
+
+  // PowerShell: New-Item
+  for (const m of command.matchAll(/\bNew-Item\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[1] ?? ""
+    const pathMatch = /-(?:Path|Name)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (pathMatch?.[1]) {
+      add(pathMatch[1], "New-Item")
+    } else {
+      const tokens = plainTokens(raw)
+      add(tokens[0], "New-Item", tokens.length === 0)
+    }
+  }
+
+  // PowerShell: Remove-Item
+  for (const m of command.matchAll(/\bRemove-Item\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[1] ?? ""
+    const pathMatch = /-(?:Path|LiteralPath)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (pathMatch?.[1]) {
+      add(pathMatch[1], "Remove-Item")
+    } else {
+      const tokens = plainTokens(raw)
+      if (tokens.length === 0) add(undefined, "Remove-Item", true)
+      else for (const t of tokens) add(t, "Remove-Item")
+    }
+  }
+
+  // PowerShell: Copy-Item, Move-Item
+  for (const m of command.matchAll(/\b(Copy-Item|Move-Item)\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[2] ?? ""
+    const destMatch = /-(?:Destination)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (destMatch?.[1]) {
+      add(destMatch[1], m[1] ?? "Copy-Item")
+    } else {
+      const tokens = plainTokens(raw)
+      if (tokens.length === 0) {
+        add(undefined, m[1] ?? "Copy-Item", true)
+      } else {
+        const dest = tokens.length >= 2 ? tokens[tokens.length - 1] : tokens[0]
+        add(dest, m[1] ?? "Copy-Item")
+      }
+    }
+  }
+
+  // PowerShell: Rename-Item
+  for (const m of command.matchAll(/\bRename-Item\b([^\r\n;|&>]*)/gi)) {
+    const raw = m[1] ?? ""
+    const newNameMatch = /-NewName\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
+    if (newNameMatch?.[1]) {
+      add(newNameMatch[1], "Rename-Item")
+    }
+    const tokens = plainTokens(raw)
+    if (tokens.length === 0 && !newNameMatch) {
+      add(undefined, "Rename-Item", true)
+    } else {
+      for (const t of tokens) add(t, "Rename-Item")
+    }
+  }
+
+  // PowerShell: Invoke-WebRequest -OutFile, iwr -OutFile, curl -OutFile
+  for (const m of command.matchAll(/\b(?:Invoke-WebRequest|iwr|curl)\b[^\r\n;|&>]*?-OutFile\s+("[^"]*"|'[^']*'|\S+)/gi)) {
+    add(m[1], "Invoke-WebRequest -OutFile")
+  }
+
+  // PowerShell / .NET: [System.IO.File]::Write*
+  for (const m of command.matchAll(/(?:^|[^a-zA-Z0-9_])\[System\.IO\.File\]::Write\w*\s*\(\s*("[^"]*"|'[^']*'|[^,\s)]+)/gi)) {
+    add(m[1], "[System.IO.File]::Write")
+  }
+
+  // Interpreters embebidos: python -c / node -e / ruby -e / perl -e / bun -e / etc.
+  const INTERPRETER = /\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b(?:\s+--?[a-zA-Z0-9_-]+)*\s+(?:-[ec]\s+|--eval\s+|-[cC]ommand\s+|\/[ckCK]\s+)("[^"]*"|'[^']*')/g
   for (const m of command.matchAll(INTERPRETER)) {
     const code = unquote(m[2] ?? "")
     const literales = [...code.matchAll(/["']([^"']{2,})["']/g)].map((x) => x[1] ?? "")
     const paths = literales.filter((s) => s.includes("/") || /\.[A-Za-z0-9]{1,6}$/.test(s))
+    const op = `${m[1]} -c`
     if (paths.length === 0) {
-      add(undefined, `${m[1] ?? "python"} -c`, true)
+      add(undefined, op, true, { path: ".", reason: `interpreter eval: ${m[1]}` })
       continue
     }
     // Detectar flags de salida: -o, --out, --output
@@ -814,19 +1002,22 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
         break
       }
     }
-    for (const p of paths) add(p, `${m[1] ?? "python"} -c`)
-    if (outPath.length > 0) add(outPath, `${m[1] ?? "python"} -c`, false)
+    for (const p of paths) add(p, op, false, { path: p, reason: `interpreter path: ${p}` })
+    if (outPath.length > 0) add(outPath, op, false, { path: outPath, reason: `interpreter output: ${outPath}` })
   }
 
-  // Heredoc a un interpreter: el codigo entra por stdin, no se puede ver.
-  for (const m of command.matchAll(/\b(python3?|node|ruby|perl)\b\s*<<-?\s*['"]?\w+['"]?/g)) {
-    add(undefined, `${m[1] ?? "python"} heredoc`, true)
+  // Heredoc a un interpreter
+  for (const m of command.matchAll(/\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b\s*<<-?\s*['"]?\w+['"]?/g)) {
+    add(undefined, `${m[1]} heredoc`, true, { path: ".", reason: `interpreter heredoc: ${m[1]}` })
   }
 
-  // Escrituras que no sabemos interpretar: el verbo esta pero no el target.
-  if (/\b(python3?|node|ruby|perl)\b\s+(?:-[ec]\s+|--eval\s+|<<)/.test(command)) {
-    const yaCubierto = out.some((c) => c.op.includes("-c") || c.op.includes("heredoc"))
-    if (!yaCubierto) out.push({ target: "", op: "interpreter", uncertain: true })
+  // Cualquier otra invocación de interprete con flags de ejecución (-e, -c, --eval, -Command, -File, /c)
+  const INTERPRETER_INVOCATION = /\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b(?:\s+--?[a-zA-Z0-9_-]+)*\s+(?:-[ec]\b|--eval\b|-[cC]ommand\b|-[fF]ile\b|\/[ckCK]\b|<<)/i
+  if (INTERPRETER_INVOCATION.test(command)) {
+    const yaCubierto = out.some((c) => c.op.includes("-c") || c.op.includes("heredoc") || c.uncertain)
+    if (!yaCubierto) {
+      out.push({ target: "", op: "interpreter", uncertain: true, path: ".", reason: "interpreter invocation" })
+    }
   }
 
   // Deduplicar por (op, target).

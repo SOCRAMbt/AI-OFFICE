@@ -33,11 +33,12 @@ import { listDirs, listFiles, readText } from "./fsx.js"
 
 /** Parsea frontmatter YAML simple (clave: valor, sin anidación). */
 export function parseFrontmatter(content: string): { data: Record<string, string>; body: string } {
-  if (!content.startsWith("---")) return { data: {}, body: content }
-  const end = content.indexOf("\n---", 3)
-  if (end === -1) return { data: {}, body: content }
-  const block = content.slice(3, end)
-  const body = content.slice(end + 4)
+  const norm = content.replace(/\r\n/g, "\n")
+  if (!norm.startsWith("---")) return { data: {}, body: norm }
+  const end = norm.indexOf("\n---", 3)
+  if (end === -1) return { data: {}, body: norm }
+  const block = norm.slice(3, end)
+  const body = norm.slice(end + 4)
   const data: Record<string, string> = {}
   for (const line of block.split("\n")) {
     const m = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line)
@@ -63,8 +64,9 @@ export function normalizeHeading(raw: string): string {
  * sea estable.
  */
 export function parseSections(body: string): Record<string, string> {
+  const norm = body.replace(/\r\n/g, "\n")
   const sections: Record<string, string> = {}
-  const lines = body.split("\n")
+  const lines = norm.split("\n")
 
   let currentKey = ""
   let buffer: string[] = []
@@ -404,6 +406,7 @@ export async function loadDynamicAgents(projectRoot: string): Promise<CatalogAge
     const files = await listFiles(agentsDir)
     for (const file of files) {
       if (!file.endsWith(".md")) continue
+      if (file.startsWith("oficina-")) continue
 
       const full = path.join(agentsDir, file)
       const content = await readText(full)
@@ -416,20 +419,6 @@ export async function loadDynamicAgents(projectRoot: string): Promise<CatalogAge
       const displayName = data.name || titleize(slug)
       const description = data.description || firstParagraph(body)
 
-      // Extraer capabilities de la sección "Advanced Capabilities" del cuerpo
-      // (el frontmatter parser simple no maneja arrays YAML)
-      const advancedSection = findSection(sections, "Advanced Capabilities", "Advanced")
-      let capabilities: string[] = []
-      if (advancedSection) {
-        // La sección Advanced Capabilities tiene los tokens separados por espacios
-        capabilities = advancedSection.trim().split(/\s+/).filter(Boolean)
-      }
-      // Fallback: extraer del displayName/description como en el catálogo principal
-      if (capabilities.length === 0) {
-        const partial = { displayName, description, missions: [], deliverables: [], advanced: [] }
-        capabilities = extractCapabilities(partial)
-      }
-
       const missions = extractMissionLabels(findSection(sections, "Core Mission", "Mission"))
       const deliverables = extractMissionLabels(
         findSection(sections, "Technical Deliverables", "Deliverables"),
@@ -438,6 +427,9 @@ export async function loadDynamicAgents(projectRoot: string): Promise<CatalogAge
         findSection(sections, "Advanced Capabilities", "Advanced"),
       )
       const rules = extractListItems(findSection(sections, "Critical Rules", "Rules"))
+
+      const partial = { displayName, description, missions, deliverables, advanced }
+      const capabilities = extractCapabilities(partial)
 
       out.push({
         slug,

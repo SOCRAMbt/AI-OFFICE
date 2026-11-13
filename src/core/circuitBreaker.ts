@@ -36,8 +36,8 @@ export function fingerprint(message: string, exitCode?: number | string | null):
   s = s.replace(/"[^"]*"/g, "<str>").replace(/'[^']*'/g, "<str>")
   // Hashes largos → placeholder (SHAs, ids de corrida, tokens).
   s = s.replace(/\b[0-9a-f]{7,40}\b/g, "<hash>")
-  // Números → placeholder (mismo error de un monto de la otra prueba).
-  s = s.replace(/\b\d+(\.\d+)?\b/g, "<n>")
+  // OJO: no normalizar secuencias de dígitos — "fix 1", "fix 2" son intentos
+  // distintos. Se normalizan sólo el exit code y lo obviamente variable arriba.
   // Colapsar espacios.
   s = s.replace(/\s+/g, " ").trim()
   return createHash("sha256").update(`${s}|exit:${exitCode ?? ""}`).digest("hex").slice(0, 16)
