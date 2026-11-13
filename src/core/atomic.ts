@@ -175,6 +175,68 @@ export async function withLock<T>(
 }
 
 /**
+ * Lock exclusivo por archivo con `O_EXCL` (`fs.open` con `wx`), con TTL.
+ *
+ * `withLock` usa directorios (`mkdir`), que es atómico pero persiste como
+ * directorio y el stale-break consulta solo mtime. `withWxLock` crea un
+ * archivo-lock: único en disco, con pid adentro, TTL por mtime y breaker
+ * de locks vencidos — un proceso muerto deja
+ * el lock un rato, pero no para siempre, igual que el mkdir-lock.
+ *
+ * En Windows, `EPERM` sobre un lock que otro proceso está borrando es
+ * transitorio: se reintenta. `EACCES` también se trata como transitorio.
+ */
+export async function withWxLock<T>(
+  lockFile: string,
+  fn: () => Promise<T>,
+  options: LockOptions = {},
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 10_000
+  const staleMs = options.staleMs ?? 30_000
+  const deadline = Date.now() + timeoutMs
+
+  await fs.mkdir(path.dirname(lockFile), { recursive: true })
+
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined
+  while (Date.now() < deadline && !handle) {
+    try {
+      handle = await fs.open(lockFile, "wx")
+      await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), "utf8")
+      break
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === "EEXIST" || code === "EPERM" || code === "EACCES") {
+        // Lock tomado (o Windows pasando por un rename). Breaker de vencidos:
+        try {
+          const stat = await fs.stat(lockFile)
+          if (Date.now() - stat.mtimeMs > staleMs) {
+            await fs.rm(lockFile, { force: true }).catch(() => {})
+            continue
+          }
+        } catch {
+          // Desapareció entre open y stat: reintentar.
+          continue
+        }
+        await sleep(15 + Math.floor(Math.random() * 35))
+        continue
+      }
+      throw err
+    }
+  }
+
+  if (!handle) {
+    throw new Error(`[oficina] no se pudo tomar el wx-lock ${lockFile} en ${timeoutMs}ms`)
+  }
+
+  try {
+    return await fn()
+  } finally {
+    await handle.close().catch(() => {})
+    await fs.rm(lockFile, { force: true }).catch(() => {})
+  }
+}
+
+/**
  * Asigna un numero de secuencia unico dentro de un directorio.
  *
  * La asignacion y la escritura tienen que ocurrir **bajo el mismo lock**.
@@ -188,7 +250,7 @@ export async function allocateSeq(
   options: LockOptions = {},
 ): Promise<number> {
   const lockPath = path.join(channelDir, ".seq.lock")
-  return withLock(
+  return withWxLock(
     lockPath,
     async () => {
       const entries = await fs.readdir(channelDir).catch(() => [] as string[])

@@ -142,7 +142,7 @@ async function main(): Promise<number> {
       const cards = Object.values(state.cards)
       const done = cards.filter((c) => c.state === "done")
       const pending = cards.filter((c) => c.state !== "done")
-      const blocked = cards.filter((c) => c.state === "blocked" || c.state === "escalated")
+      const blocked = cards.filter((c) => c.state === "blocked" || c.state === "escalated" || c.state === "blocked_escalated")
       const dead = office.rosterStore.deadAgents(roster, office.limits.heartbeatSec * 3)
 
       const payload = {
@@ -215,6 +215,7 @@ async function main(): Promise<number> {
         DONE: [],
         BLOCKED: [],
         ESCALATED: [],
+        BLOCKED_ESCALATED: [],
       }
       for (const id of state.order) {
         const card = state.cards[id]

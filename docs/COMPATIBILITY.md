@@ -57,15 +57,15 @@ viviera dentro de cada hook, las dos copias se desincronizarían.
 |---|---|---|
 | `@opencode/plugin` | `^2.1.2` | Compilación con `strict` + `noUncheckedIndexedAccess` contra los tipos reales. Un hook que no exista en el tipo **no compila**. |
 | `@opencode-ai/plugin` | `^1.15.11` *(peer opcional)* | Solo lo necesita el entry `./v1`. |
-| OpenCode CLI | `2.1.1` | Probado con el servicio real: el plugin carga, registra las 16 tools y responde. |
-| Node.js | `>=20` | CI corre la matriz `[20, 22]` en `ubuntu-latest` y `windows-latest`. |
+| OpenCode CLI | `2.1.1` | Probado con el servicio real: el plugin carga, registra las 18 tools y responde. |
+| Node.js | `>=22` | CI corre la matriz `[22, 24]` en `ubuntu-latest` y `windows-latest`. |
 | TypeScript | `>=5.8` | `tsc --noEmit` en modo `strict`. |
 
 ## Hooks que usa el plugin v2
 
 | Hook | Para qué | Si el host no lo soporta |
 |---|---|---|
-| `ctx.tool.transform` | Registra las 16 tools | **Sin tools, la oficina no existe.** |
+| `ctx.tool.transform` | Registra las 18 tools | **Sin tools, la oficina no existe.** |
 | `ctx.tool.hook("execute.before")` | Guard de scope + armado del tripwire | El scope pasa a ser una instrucción. |
 | `ctx.tool.hook("execute.after")` | Tripwire: detecta escrituras coladas | No hay detección. |
 | `ctx.permission.hook("evaluate")` | Segunda capa: `deny` real | Queda solo el guard propio. |
@@ -79,7 +79,7 @@ El CI corre la matriz completa:
 
 ```
 os:   [ubuntu-latest, windows-latest]
-node: [20, 22]
+node: [22, 24]
 ```
 
 En cada combinación: `npm run typecheck`, `npm run test`, `npm run build`,
@@ -102,7 +102,7 @@ instalan y que las tools responden.
 
 | Requisito | Por qué |
 |---|---|
-| Node >= 20 | `fs.promises`, `structuredClone`, ESM estable. |
+| Node >= 22 | `fs.promises`, `structuredClone`, ESM estable. |
 | Un repo de `agency-agents` (opcional) | Sin él, la fábrica de roles funciona igual, pero los agentes salen de la plantilla genérica en vez del catálogo curado. |
 | npm CLI >= 11.15 (opcional) | Solo para `npm stage publish`, el flujo de publicación por etapas de npm. La oficina no lo usa: publica directo. |
 

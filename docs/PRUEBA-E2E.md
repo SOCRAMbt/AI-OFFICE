@@ -47,7 +47,7 @@ $PROY    = "C:\prueba-oficina"
 ```powershell
 $cfg = "$env:USERPROFILE\.config\opencode"
 Set-Location $cfg
-npm install oficina-opencode@3.0.4 --no-audit --no-fund --prefer-online
+npm install oficina-opencode@3.2.0 --no-audit --no-fund --prefer-online
 node ".\node_modules\oficina-opencode\dist\cli.js" install --target $cfg --json
 ```
 
@@ -98,11 +98,11 @@ npm pack --dry-run
 | Comando | Esperado |
 |---|---|
 | `typecheck` | 0 errores |
-| `test` | `Test Files 26 passed (26)` · `Tests 419 passed (419)` |
+| `test` | `Test Files 38 passed (38)` · `Tests 522 passed (522)` |
 | `build` | sin errores |
 | `docs:check` | `README.md: al dia` · `docs/QUE-ES.md: al dia` |
 | `bench:selection` | `completo 71%` y le gana a `keywords 48%` y `solo-nombre 52%` |
-| `pack --dry-run` | 173 archivos, ~328 KB |
+| `pack --dry-run` | 240 archivos, ~2.7 MB (verificado con npm pack --dry-run) |
 
 > **El `docs:check` es una trampa real.** Si bumpeás la versión y no corrés
 > `npm run docs:sync`, falla. Es el mecanismo de doc autogenerada funcionando.
@@ -132,7 +132,7 @@ Get-Content "$env:USERPROFILE\.local\share\opencode\log\opencode.log" -Tail 400 
 Buscá esta línea:
 
 ```
-INFO oficina:v2: plugin inicializado {"directory":"C:\\prueba-oficina",...,"tools":16}
+INFO oficina:v2: plugin inicializado {"directory":"C:\\prueba-oficina",...,"tools":18}
 ```
 
 Si aparece `failed to load plugin target=oficina`, el problema es la versión: OpenCode
@@ -467,7 +467,7 @@ y `C:\prueba-oficina\.oficina\evidence\<card>.json` (el grafo de evidencia).
 
 ## Lo que NO se testea acá
 
-- **La suite automatizada** (419 tests) ya cubre: sandbox, guard de scope, herencia de
+- **La suite automatizada** (522 tests) ya cubre: sandbox, guard de scope, herencia de
   scope en subagentes, concurrencia, atomicidad, evidencia, gates, costo, recovery,
   matcher, dispatch, router, state machine, CLI, docsync.
   Corré `npm test` para eso.

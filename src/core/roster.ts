@@ -14,16 +14,27 @@ export class RosterStore {
     private readonly clock: () => number = Date.now,
   ) {}
 
-  /** Lee el roster. Si no existe, uno vacío. */
+  /** Lee el roster. Si no existe, uno vacío. Si existe pero es de otro runId, devuelve uno vacío. */
   async load(runId: string): Promise<Roster> {
     const result = await readJson<Roster>(this.rosterPath)
-    if (result.ok) return result.value
-    return {
-      version: 2,
-      runId,
-      agents: {},
-      updatedAt: nowIso(this.clock),
+    if (!result.ok) {
+      return {
+        version: 2,
+        runId,
+        agents: {},
+        updatedAt: nowIso(this.clock),
+      }
     }
+    // Validar que el roster pertenece a este runId
+    if (result.value.runId !== runId) {
+      return {
+        version: 2,
+        runId,
+        agents: {},
+        updatedAt: nowIso(this.clock),
+      }
+    }
+    return result.value
   }
 
   /** Escribe el roster. */

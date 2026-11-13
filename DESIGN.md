@@ -143,3 +143,48 @@ Antes de dar por terminado un README o una landing:
 - `docs/ARCHITECTURE.md` — la arquitectura en detalle, para el que quiera el porqué.
 - `skills/oficina/reference/mesh.md` — el protocolo de la malla.
 - `tests/` — la prueba de que los números del README son ciertos.
+
+---
+
+## v3.2.0 â€” Blueprint de evoluciÃ³n (13 nov 2026)
+
+Decisiones de arquitectura por pilar. Fuente de verdad para la implementaciÃ³n.
+
+### 1. Modo lite (CÃ©lula) vs Full
+- `state.mode: "full" | "lite"` (default `full`, migraciÃ³n aditiva).
+- HeurÃ­stica auto-triage (`core/triage.ts`): 1 card + objetivo â‰¤140 chars + â‰¤3 criterios â†’ lite. `commands/oficina.md` expone `/oficina lite` y `--full`.
+- En lite el dispatch capa 2 agentes (1 ejecutor + 1 revisor, invariante ownerâ‰ reviewer) y registra el modo en el bus.
+
+### 2. Circuit Breaker + BLOCKED_ESCALATED
+- `CardState` gana `blocked_escalated` (terminal).
+- `core/circuitBreaker.ts`: fingerprint = sha256(mensaje normalizado sin paths/nÃºmeros/timestamps); 3 fallos idÃ©nticos consecutivos o 5 intentos totales â†’ `blocked_escalated`: se libera el lease bajo `withRunLock` y se escribe `artifacts/<id>/blocked.md`.
+- El DAG no bloquea: cards `blocked_escalated` no son elegibles en `selectNextCard`, el resto continÃºa; la auto-continuaciÃ³n se detiene solo para esa card.
+
+### 3. Matching â‰¥ 0.70
+- `DEFAULT_LIMITS.minCatalogCoverage: 0.7` (antes 0.6). Factory persiste agentes con `generated_by: factory`, `created_for_task`, `stack_tags` en frontmatter y catÃ¡logo vivo.
+
+### 4. Traits
+- Directorio `traits/` packado: typescript-strict, vitest-testing, windows-powershell, postgres-migrations, markdown-docs.
+- `core/traits.ts`: `auditRepo(root)` detecta tags (typescript, vitest, postgres, windows, posix, markdown, react) desde package.json/tsconfig/lockfiles/OS.
+- El dispatch inyecta solo traits relevantes en `## Active Environment & Stack Traits` antes del briefing.
+
+### 5. Escrituras atÃ³micas NTFS/POSIX
+- `writeAtomic`: tmp `<target>.<pid>.<rand>.tmp` mismo dir + rename con reintentos exponenciales ante EPERM/EBUSY (5 intentos, 20â†’320ms).
+- `allocateSeq` y leases usan `fs.open(wx)` con lock-file TTL (staleMs + breaker), no solo mkdir.
+
+### 6. Memoria episÃ³dica
+- `core/memory.ts`: `.oficina/memory.md`, tope 150 lÃ­neas, FIFO. Entradas por gate run, por failure pattern (fingerprint) y por outcome agent-vs-factory.
+- El dispatch inyecta 8 lÃ­neas resumen en el prompt; el dashboard la lee en `/api/memory`.
+
+### 7. Dashboard v3.2.0
+- EstÃ©tica Linear/Grafana oscura; monospace para IDs; sin CDNs externos.
+- Header global: Modo (FULL/LITE), estado, tiempo, contadores, Circuit Breaker.
+- Kanban Queued / In Progress / In Review / Done / Blocked con intentos y lease.
+- Live Gates panel PASS/FAIL/RUNNING + stdout desplegable.
+- SSE con cursor (`/api/events`) + reconexiÃ³n Last-Event-ID; se elimina el fallback demo (desconectado conserva Ãºltimo snapshot con banner stale).
+- Bus inspector filtrable + Roster view + Memory viewer (`/api/memory`).
+- Bind loopback (ya en 3.1.5), prefix-check con separador (3.1.5).
+
+### Migraciones de estado
+- `migrateState` tolera estados nuevos/desconocidos sin re-escribir cards.
+- `version: 2` sigue siendo el schema; `blocked_escalated` pertenece al enum `CardState`; runs de v3.1.x cargan sin pÃ©rdida (campos nuevos aditivos).

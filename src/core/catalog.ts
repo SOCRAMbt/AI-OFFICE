@@ -951,8 +951,8 @@ export function matchCapabilities(
  * mitad y un complemento cubre la otra mitad, el objetivo **está cubierto**
  * y no hace falta fabricar un rol.
  *
- * La cobertura se mide como:Concepts cubiertos por el panel / concepts
- * pedidos. El umbral de 0.6 significa "el equipo cubre el 60% de lo que
+ * La cobertura se mide como: conceptos cubiertos por el panel / conceptos
+ * pedidos. El umbral de 0.7 significa "el equipo cubre el 70% de lo que
  * la card pide". Por debajo, se fabrica el rol.
  */
 export function resolveRole(
@@ -1036,7 +1036,7 @@ export function buildPanel(
 ): RolePanel {
   const maxComplements = options.maxComplements ?? 3
   const minComplementCoverage = options.minComplementCoverage ?? 0.15
-  const minCoverage = options.minCoverage ?? 0.6
+  const minCoverage = options.minCoverage ?? 0.7
   /**
    * El minimo de cobertura es un filtro, no un dato.
    *
@@ -1046,7 +1046,7 @@ export function buildPanel(
    * ServiceNow, porque era el primero con la palabra "code".
    *
    * Y con un minimo fijo tampoco alcanza: con 2 capabilities, 1 de 2 da 0.5
-   * y el minimo de 0.6 seria inalcanzable SIEMPRE. Por eso hay dos bandas:
+   * y el minimo de 0.7 seria inalcanzable SIEMPRE. Por eso hay dos bandas:
    *
    * - **Banda 1** (cobertura >= minCoverage): match solido.
    * - **Banda 2** (cubre >= 1 capability y cobertura >= minCoverage/2): el

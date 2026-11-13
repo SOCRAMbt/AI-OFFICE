@@ -306,7 +306,10 @@ describe("Ciclo completo de la oficina", () => {
       state = await office.loadState()
       const r = await office.submitReview(state, "T-00", fichaB.id, "rejected", {
         review: "finding",
-        reason: `falla ${i}`,
+        // Errores distintos para no detonar el circuit breaker (que existe
+        // justo para repetidos idénticos). El test quiere la escalada por
+        // rechazos acumulados de review, no por fingerprint repetido.
+        reason: `falla ${["convergencia", "integracion", "validacion"][i]!}`,
       })
       state = await office.loadState()
       action = r.action

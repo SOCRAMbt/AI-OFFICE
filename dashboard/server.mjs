@@ -91,6 +91,7 @@ function aggregate() {
     runId: stateFile.runId || rosterFile.runId || null,
     objective: stateFile.objective || "",
     status: stateFile.status || "unknown",
+    mode: stateFile.mode || "full",
     cards: stateFile.cards || {},
     agents: rosterFile.agents || {},
     bus: listBus(),
@@ -120,10 +121,14 @@ function parseGates(cardId) {
   return out;
 }
 
+/** Id de card: solo caracteres seguros (previene traversal en cualquier endpoint). */
+const CARD_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
+
 /* sirve un artifact crudo (evidence.md / handoff.md) para abrirlo en pestaña */
 function serveArtifactFile(req, res, url, name) {
   const card = url.searchParams.get("card");
-  const file = path.join(OFICINA, "artifacts", card || "", name);
+  if (!card || !CARD_ID_RE.test(card)) { res.writeHead(404); res.end("not found"); return; }
+  const file = path.join(OFICINA, "artifacts", card, name);
   // El prefix-check lleva path.sep: sin él, un sibling (`artifacts-evil`)
   // pasa el startsWith del directorio legítimo.
   const artifactsDir = path.join(OFICINA, "artifacts") + path.sep;
@@ -134,14 +139,16 @@ function serveArtifactFile(req, res, url, name) {
   res.end(fs.readFileSync(file));
 }
 
-/* ---- Watch: recursively notify SSE clients ---- */
+/* ---- Watch: recursively notify SSE clients, con cursor monotónico ---- */
 const sseClients = new Set();
 let watchReady = false;
+let sseCursor = 0;
 function watchOficina() {
   if (!fs.existsSync(OFICINA)) return;
   try {
     fs.watch(OFICINA, { recursive: true }, () => {
-      const msg = "event: change\ndata: {}\n\n";
+      sseCursor += 1;
+      const msg = `id: ${sseCursor}\nevent: change\ndata: {"cursor":${sseCursor}}\n\n`;
       for (const res of sseClients) res.write(msg);
     });
     watchReady = true;
@@ -175,21 +182,57 @@ function serveApi(req, res, url) {
   }
   if (url.pathname === "/api/artifacts") {
     const card = url.searchParams.get("card");
-    if (!card) { sendJson({ gates: [] }, 400); return; }
+    if (!card || !CARD_ID_RE.test(card)) { sendJson({ error: "invalid card id" }, 400); return; }
     sendJson(parseGates(card));
+    return;
+  }
+  // Gates de TODAS las cards: el dashboard pinta el tablero completo en una llamada.
+  if (url.pathname === "/api/gates") {
+    const state = readJson(path.join(OFICINA, "state.json")) || {};
+    const cards = Object.values(state.cards || {});
+    const out = [];
+    for (const card of cards) {
+      const g = parseGates(card.id);
+      out.push({ cardId: card.id, state: card.state, gates: g.gates });
+    }
+    sendJson({ cards: out });
+    return;
+  }
+  if (url.pathname === "/api/memory") {
+    const file = path.join(OFICINA, "memory.md");
+    try {
+      const text = fs.readFileSync(file, "utf8");
+      res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(text);
+    } catch {
+      res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "no-store" });
+      res.end("memory.md todavía no existe — la oficina lo crea en el primer cierre.");
+    }
     return;
   }
   if (url.pathname === "/api/evidence") { serveArtifactFile(req, res, url, "evidence.md"); return; }
   if (url.pathname === "/api/handoff") { serveArtifactFile(req, res, url, "handoff.md"); return; }
   if (url.pathname === "/api/events") {
+    // SSE limpio: sin Last-Event-ID = envío inmediato `sync` + cursor para reconexión.
+    const lastEventId = Number(req.headers["last-event-id"] || 0);
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-store",
       Connection: "keep-alive",
     });
     res.write("retry: 3000\n\n");
+    sseCursor += 1;
+    // Reconexión: si el cliente viene de un cursor menor o no sabe nada, mandamos sync.
+    if (lastEventId <= 0 || lastEventId < sseCursor) {
+      res.write(`id: ${sseCursor}\nevent: sync\ndata: {"cursor":${sseCursor}}\n\n`);
+    }
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
+    // Heartbeat cada 15s para detect connection drop
+    const hb = setInterval(() => {
+      try { res.write(": ping\n\n"); } catch { clearInterval(hb); }
+    }, 15000);
+    req.on("close", () => clearInterval(hb));
     return;
   }
   res.writeHead(404); res.end();

@@ -13,13 +13,33 @@ import { existsSync } from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
 
-/** Escribe un archivo de forma atómica: tmp + rename. */
+/** Escribe un archivo de forma atómica: tmp único + rename con backoff ante EPERM/EBUSY (NTFS). */
 export async function writeAtomic(filePath: string, contents: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const tmp = `${filePath}.${randomBytes(6).toString("hex")}.tmp`
+  const tmp = `${filePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`
   try {
     await fs.writeFile(tmp, contents, "utf8")
-    await fs.rename(tmp, filePath)
+    // `rename` sobre el target con observadores abiertos (antivirus, otra
+    // sesión de OpenCode, tail -f) falla en Windows con EPERM/EBUSY. Es
+    // transitorio: backoff exponencial con 5 intentos antes de rendirse.
+    const delays = [20, 40, 80, 160, 320]
+    let lastErr: unknown = null
+    for (let i = 0; i <= delays.length; i++) {
+      try {
+        await fs.rename(tmp, filePath)
+        lastErr = null
+        break
+      } catch (err) {
+        lastErr = err
+        const code = (err as NodeJS.ErrnoException).code
+        if (i < delays.length && (code === "EPERM" || code === "EBUSY")) {
+          await new Promise((r) => setTimeout(r, delays[i]))
+          continue
+        }
+        throw err
+      }
+    }
+    if (lastErr) throw lastErr
   } catch (err) {
     await fs.rm(tmp, { force: true }).catch(() => {})
     throw err
@@ -49,7 +69,9 @@ export async function readJson<T>(filePath: string): Promise<
 > {
   try {
     const raw = await fs.readFile(filePath, "utf8")
-    return { ok: true, value: JSON.parse(raw) as T }
+    // Strip UTF-8 BOM if present (U+FEFF)
+    const cleanRaw = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw
+    return { ok: true, value: JSON.parse(cleanRaw) as T }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code
     if (code === "ENOENT") return { ok: false, kind: "not-found" }

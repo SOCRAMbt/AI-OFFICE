@@ -1,121 +1,279 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Oficina &#183; Sala de Operaciones</title>
-<meta name="description" content="Dashboard visual en tiempo real de la Oficina de Agents: mesa, bus de mensajes, kanban de cards y gates de calidad.">
-<meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="dashboard.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="referrer" content="no-referrer" />
+<title>AI-OFFICE — Control de corrida</title>
+<style>
+  :root {
+    --bg: #0B0D10; --surface: #14181D; --border: #232A32;
+    --text: #E6EAF0; --muted: #8B97A6;
+    --ok: #4ADE80; --warn: #FBBF24; --danger: #F87171; --accent: #4ADE80;
+    --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh }
+
+  /* Header */
+  header.top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 1.25rem; padding: .65rem 1.1rem; border-bottom: 1px solid var(--border); background: rgba(11,13,16,.92); backdrop-filter: blur(8px) }
+  .brand { font-family: var(--mono); font-weight: 700; letter-spacing: .08em; color: var(--text) }
+  .brand small { color: var(--accent); }
+  .pill { font-family: var(--mono); font-size: .72rem; padding: .2rem .55rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+  .pill.mode { color: var(--ok); border-color: #1f3a2a }
+  .pill.mode.lite { color: var(--warn); border-color: #3a3220 }
+  .pill.status { color: var(--ok); border-color: #1f3a2a }
+  .pill.status.running { color: var(--accent); border-color: #1f3a2a }
+  .pill.status.paused { color: var(--warn); }
+  .pill.status.blocked_escalated { color: var(--danger); border-color: #3a2020 }
+  .spacer { flex: 1 }
+  .metric { font-family: var(--mono); font-size: .78rem; color: var(--muted) }
+  .metric b { color: var(--text) }
+  #elapsed { color: var(--text) }
+  .badge-cb { background: #2a1414; border: 1px solid #3a2020; color: var(--danger); font-family: var(--mono); padding: .2rem .6rem; border-radius: 4px; display: none }
+  .badge-cb.on { display: inline-block }
+
+  /* stale banner — desconectado conserva el último snapshot real */
+  #staleBanner { display: none; background: #2a2014; border-bottom: 1px solid #4a3a20; color: var(--warn); padding: .35rem 1.1rem; font-family: var(--mono); font-size: .75rem }
+  #staleBanner.show { display: block }
+
+  /* Tabs */
+  nav.tabs { display: flex; gap: .25rem; padding: .45rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg) }
+  nav.tabs button { font-family: var(--mono); background: transparent; border: 0; color: var(--muted); padding: .5rem .9rem; border-radius: 6px; cursor: pointer; text-transform: uppercase; letter-spacing: .05em; font-size: .72rem }
+  nav.tabs button:hover { color: var(--text); background: #181d24 }
+  nav.tabs button.active { color: var(--bg); background: var(--accent) }
+
+  main { padding: 1rem 1.2rem; max-width: 1500px; margin: 0 auto }
+  .tab-panel { display: none }
+  .tab-panel.active { display: block }
+
+  h2.title { font-size: .75rem; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: .7rem }
+
+  /* Kanban */
+  .board { display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: .6rem }
+  .col { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; min-height: 420px; display: flex; flex-direction: column }
+  .col header { font-family: var(--mono); font-size: .72rem; color: var(--muted); display:flex; justify-content: space-between; padding: .6rem .7rem; border-bottom: 1px solid var(--border) }
+  .col .cnt { color: var(--text) }
+  .card { border-bottom: 1px solid var(--border); padding: .6rem .7rem; font-size: .82rem }
+  .card:last-child { border-bottom: 0 }
+  .card .id { font-family: var(--mono); color: var(--muted); font-size: .7rem }
+  .card .t { margin: .15rem 0 .35rem; line-height: 1.3 }
+  .card .meta { font-family: var(--mono); font-size: .68rem; color: var(--muted); display: flex; gap: .5rem; flex-wrap: wrap }
+  .cb { color: var(--danger) }
+
+  /* Gates */
+  .gate-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .7rem; margin-bottom: .5rem }
+  .gate-card .head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem }
+  .gate-card .id { font-family: var(--mono); color: var(--muted) }
+  .gate-card .badge { font-family: var(--mono); font-size: .68rem; padding: .15rem .45rem; border-radius: 4px; border: 1px solid var(--border) }
+  .gate-card .badge.pass { color: var(--ok); border-color: #1f3a2a }
+  .gate-card .badge.fail { color: var(--danger); border-color: #3a2020 }
+  .gate-card .badge.not_run { color: var(--warn); border-color: #3a3220 }
+  .gate-card .badge.na { color: var(--muted) }
+  .gate-detail { margin-top: .5rem; font-family: var(--mono); font-size: .7rem; color: var(--muted); white-space: pre-wrap; max-height: 180px; overflow: auto; border-top: 1px solid var(--border); padding-top: .5rem }
+
+  /* Bus */
+  .bus-filter { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: .45rem .7rem; font-family: var(--mono); margin-bottom: .6rem }
+  .msg { border-left: 3px solid var(--border); padding: .35rem .7rem; margin-bottom: .45rem; background: var(--surface); border-radius: 0 6px 6px 0 }
+  .msg .from { font-family: var(--mono); font-size: .72rem; color: var(--muted) }
+  .msg .body { color: var(--text); font-size: .82rem }
+  .msg .kind { font-family: var(--mono); font-size: .7rem; color: var(--accent) }
+  details.jsonBody summary { cursor:pointer; font-family: var(--mono); color: var(--muted); font-size:.72rem }
+
+  /* Roster / Memory */
+  table.roster { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: .78rem }
+  table.roster th, table.roster td { border-bottom: 1px solid var(--border); padding: .45rem .6rem; text-align: left }
+  table.roster th { color: var(--muted); font-weight: 600 }
+  .stale { color: var(--warn) }
+  pre.memory { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .8rem; font-family: var(--mono); font-size: .76rem; max-height: 60vh; overflow: auto; white-space: pre-wrap; color: var(--text) }
+
+  @media (max-width: 1000px) { .board { grid-template-columns: repeat(2, 1fr) } }
+  @media (max-width: 640px) { .board { grid-template-columns: 1fr } header.top { flex-wrap: wrap } }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+</style>
 </head>
 <body>
-<a class="skip-link" href="#main-content">Saltar al contenido</a>
-<div class="app">
 
-  <!-- ================= HEADER ================= -->
-  <header class="topbar">
-    <div class="brand">
-      <h1>Oficina</h1>
-      <span class="run-id" id="run-id">sin corrida</span>
-    </div>
-    <span class="conn" id="conn" data-state="offline" role="status" aria-live="polite">
-      <span class="dot" aria-hidden="true"></span>
-      <span id="conn-label">Conectando&#8230;</span>
-    </span>
-    <div class="spacer"></div>
-    <button class="btn" id="btn-replay" aria-pressed="false" title="Reproducir la sesi&oacute;n paso a paso (R)">Replay</button>
-    <button class="btn" id="btn-theme" title="Cambiar tema (T)">Tema</button>
-  </header>
+<header class="top">
+  <div class="brand">AI<small>-</small>OFFICE</div>
+  <span class="pill mode" id="modePill">FULL</span>
+  <span class="pill status" id="statusPill">—</span>
+  <span class="metric"><b id="cardsDone">0</b>/<span id="cardsTotal">0</span> cards</span>
+  <span class="metric">⏱ <b id="elapsed">00:00</b></span>
+  <span class="badge-cb" id="cbBadge">⛔ CIRCUIT BREAKER <b id="cbCount">0</b></span>
+  <div class="spacer"></div>
+  <span class="metric" title="ID de la corrida">run <b id="runId">—</b></span>
+</header>
+<div id="staleBanner">⚠ desconectado — datos de hace <b id="staleSecs">0</b>s (la UI no reemplaza por demo)</div>
+<nav class="tabs" role="tablist">
+  <button role="tab" class="active" data-tab="board">Kanban</button>
+  <button role="tab" data-tab="gates">Gates</button>
+  <button role="tab" data-tab="bus">Bus / Peer Mesh</button>
+  <button role="tab" data-tab="roster">Roster</button>
+  <button role="tab" data-tab="memory">Memory</button>
+</nav>
 
-  <div class="demo-banner" id="demo-banner" hidden>
-    Modo demo: no hay corrida activa en <code>.oficina/</code>. Los datos que ves son simulados.
-  </div>
-
-  <!-- ================= METRICAS ================= -->
-  <section class="metrics" aria-label="M&eacute;tricas de la corrida">
-    <div class="metric"><b id="m-cards">0</b><span>cards</span></div>
-    <div class="metric"><b id="m-active">0</b><span>trabajando</span></div>
-    <div class="metric"><b id="m-free">0</b><span>libres</span></div>
-    <div class="metric"><b id="m-msgs">0</b><span>mensajes bus</span></div>
-    <div class="metric" data-hot="true"><b id="m-blocked">0</b><span>bloqueadas</span></div>
-    <div class="metric"><b id="m-done">0</b><span>done</span></div>
+<main>
+  <section class="tab-panel active" id="panel-board" role="tabpanel">
+    <h2 class="title">Tablero de la corrida</h2>
+    <div class="board" id="kanban"></div>
   </section>
 
-  <!-- ================= MAIN ================= -->
-  <main class="main" id="main-content">
-
-    <!-- IZQUIERDA: mesa + gates -->
-    <section class="panel" aria-labelledby="h-mesa">
-      <header>
-        <h2 id="h-mesa">Mesa</h2>
-        <span class="count" id="mesa-count"></span>
-      </header>
-      <div class="panel-body">
-        <div class="mesa-wrap">
-          <svg id="mesa-svg" viewBox="0 0 360 360" role="img" aria-label="Mesa de la oficina: agentes y su estado"></svg>
-        </div>
-        <div class="mesa-legend">
-          <span><i style="background:var(--accent)"></i>trabajando</span>
-          <span><i style="background:var(--ok)"></i>libres</span>
-          <span><i style="background:var(--err)"></i>sin heartbeat</span>
-          <span><i style="background:var(--card-escalated)"></i>card sin owner</span>
-        </div>
-        <div class="gates-panel" id="gates" aria-label="Gates de calidad">
-          <div class="gates-links">
-            <a href="#" id="link-evidence" hidden>evidence.md</a>
-            <a href="#" id="link-handoff" hidden>handoff.md</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CENTRO: bus -->
-    <section class="panel" aria-labelledby="h-bus">
-      <header>
-        <h2 id="h-bus">Bus de mensajes</h2>
-        <span class="count" id="bus-count"></span>
-      </header>
-      <div class="panel-body">
-        <div class="bus-stream" id="bus-stream" role="log" aria-live="polite"></div>
-      </div>
-    </section>
-
-    <!-- DERECHA: jefe -->
-    <section class="panel panel-right" aria-labelledby="h-chief">
-      <header>
-        <h2 id="h-chief">Decisiones del jefe</h2>
-        <span class="count" id="chief-count"></span>
-      </header>
-      <div class="panel-body">
-        <div class="chief-feed" id="chief-feed" aria-live="polite"></div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ================= KANBAN ================= -->
-  <section class="board-section" aria-labelledby="h-board">
-    <h2 id="h-board" class="board-title">Cards</h2>
-    <div class="board" id="board"></div>
+  <section class="tab-panel" id="panel-gates" role="tabpanel">
+    <h2 class="title">Live Gates — resultado real de los comandos</h2>
+    <div id="gatesList"></div>
   </section>
 
-  <!-- ================= REPLAY ================= -->
-  <footer class="replay" id="replay" hidden>
-    <button class="btn" id="btn-play" aria-label="Reproducir replay" aria-pressed="false">
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>
-    </button>
-    <input type="range" id="replay-range" min="0" max="0" value="0" aria-label="Posici&oacute;n de replay">
-    <span class="clock" id="replay-clock">00:00:00</span>
-  </footer>
+  <section class="tab-panel" id="panel-bus" role="tabpanel">
+    <h2 class="title">Bus / Peer Mesh — feed cronológico</h2>
+    <input class="bus-filter" id="busFilter" placeholder="Filtrar por agente, canal, tipo de mensaje…" />
+    <div id="busFeed"></div>
+  </section>
 
-  <div class="toasts" id="toasts" aria-live="polite"></div>
-</div>
+  <section class="tab-panel" id="panel-roster" role="tabpanel">
+    <h2 class="title">Roster — agentes desplegados en esta corrida</h2>
+    <table class="roster" id="rosterTable"></table>
+  </section>
 
-<script type="module" src="dashboard.js"></script>
+  <section class="tab-panel" id="panel-memory" role="tabpanel">
+    <h2 class="title">Memory.md — episodios consolidados</h2>
+    <pre class="memory" id="memoryView">cargando…</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { lastOk: 0, data: null, gates: null };
+
+const GROUPS = [
+  { name: "Queued", match: (c) => c.state === "todo" },
+  { name: "In Progress", match: (c) => c.state === "in_progress" },
+  { name: "In Review", match: (c) => c.state === "review" || c.state === "rework" },
+  { name: "Done", match: (c) => c.state === "done" },
+  { name: "Blocked", match: (c) => c.state === "blocked" || c.state === "escalated" || c.state === "blocked_escalated" },
+];
+const STATE_ICON = { todo: "…", in_progress: "▶", review: "◉", rework: "↺", done: "✓", blocked: "⛔", escalated: "❗", blocked_escalated: "⛔" };
+
+document.querySelectorAll("nav.tabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + btn.dataset.tab));
+    if (btn.dataset.tab === "memory") loadMemory();
+    if (btn.dataset.tab === "gates") loadGates();
+  });
+});
+
+let lastFetchOk = 0;
+function markFresh() { lastFetchOk = Date.now(); $("staleBanner").classList.remove("show"); }
+function markStale() {
+  $("staleBanner").classList.add("show");
+  $("staleSecs").textContent = Math.round((Date.now() - lastFetchOk) / 1000);
+}
+setInterval(() => { if (lastFetchOk && Date.now() - lastFetchOk > 8000) markStale(); }, 1000);
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    state.data = data; lastFetchOk = Date.now(); markFresh();
+    render(data);
+  } catch (err) {
+    console.error("fetch falló", err); markStale();
+  }
+}
+
+function render(data) {
+  const cards = Object.values(data.cards || {});
+  const cb = cards.filter((c) => c.state === "blocked_escalated").length;
+  const done = cards.filter((c) => c.state === "done").length;
+
+  $("modePill").textContent = (data.mode || "full").toUpperCase();
+  $("modePill").classList.toggle("lite", (data.mode || "full") === "lite");
+  $("statusPill").textContent = (data.status || "—").toUpperCase();
+  $("statusPill").className = "pill status " + (data.status || "");
+  $("cardsDone").textContent = done;
+  $("cardsTotal").textContent = cards.length;
+  $("runId").textContent = data.runId || "—";
+  $("cbCount").textContent = cb;
+  $("cbBadge").classList.toggle("on", cb > 0);
+  const started = data.createdAt ? new Date(data.createdAt) : null;
+  $("elapsed").textContent = started ? hhmmss(Date.now() - started.getTime()) : "—";
+
+  $("kanban").innerHTML = GROUPS.map((g) => {
+    const items = cards.filter(g.match).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const head = `<div class="col"><header><span>${g.name}</span><span class="cnt">${items.length}</span></header>`;
+    const body = items.map((c) => `
+      <article class="card">
+        <div class="id">${esc(c.id)} ${STATE_ICON[c.state] || ""}</div>
+        <div class="t">${esc(c.title)}</div>
+        <div class="meta"><span>owner: ${esc(c.owner || "—")}</span><span>intentos: ${c.attempts || 0}</span>${c.state === "blocked_escalated" ? '<span class="cb">CB</span>' : ""}</div>
+      </article>`).join("");
+    return head + body + "</div>";
+  }).join("");
+
+  renderBus(data.bus || []);
+  renderRoster(data.agents || {});
+}
+
+function renderBus(messages) {
+  const q = ($("busFilter").value || "").toLowerCase().trim();
+  const feed = [...messages].reverse().slice(0, 120);
+  const rows = feed
+    .filter((m) => !q || [m.from, m.kind, m.subject, JSON.stringify(m.body)].join(" ").toLowerCase().includes(q))
+    .map((m) => `
+      <article class="msg">
+        <div><span class="kind">${esc(m.kind || "?")}</span> <span class="from">${esc(m.from || "?")} → ${esc((m.to || []).join(",") || "?")}</span></div>
+        <div class="body">${esc(m.subject || "")}</div>
+        <details class="jsonBody"><summary>payload</summary><pre class="gate-detail">${esc(JSON.stringify(m.body, null, 2))}</pre></details>
+      </article>`).join("");
+  $("busFeed").innerHTML = rows || '<div class="card"><div class="meta">sin mensajes aún</div></div>';
+}
+$("busFilter").addEventListener("input", () => state.data && renderBus(state.data.bus || []));
+
+function renderRoster(agents) {
+  const rows = Object.values(agents).map((a) => {
+    const hb = a.lastHeartbeat ? Date.now() - new Date(a.lastHeartbeat).getTime() : Number.POSITIVE_INFINITY;
+    const stale = hb > 5 * 60 * 1000;
+    return `<tr><td>${esc(a.id)}</td><td>${esc(a.role)}</td><td>${esc(a.state)}</td><td>${esc(a.currentCard || "—")}</td><td class="${stale ? "stale" : ""}">${stale ? "heartbeat viejo" : "vivo"}</td></tr>`;
+  }).join("");
+  $("rosterTable").innerHTML = `<thead><tr><th>id</th><th>rol</th><th>estado</th><th>card</th><th>heartbeat</th></tr></thead><tbody>${rows || "<tr><td colspan='5'>sin agentes desplegados</td></tr>"}</tbody>`;
+}
+
+async function loadGates() {
+  try {
+    const res = await fetch("/api/gates", { cache: "no-store" });
+    const data = await res.json();
+    $("gatesList").innerHTML = data.cards.map((c) => `
+      <div class="gate-card">
+        <div class="head"><span class="id">${esc(c.cardId)} · ${esc(c.state)}</span><span class="badge ${esc((c.gates.find(g => g.status === "fail")?.status) || "pass")}">${c.gates.length ? (c.gates.some(g => g.status === "fail") ? "FAIL" : "PASS") : "NOT RUN"}</span></div>
+        <div class="gate-detail">${c.gates.map((g) => `${g.status.toUpperCase()}  ${g.phase || g.name}${g.command ? "  (" + g.command + ")" : ""}`).join("\n") || "sin gates corridos"}</div>
+      </div>`).join("");
+  } catch { $("gatesList").innerHTML = "<p class='meta'>/api/gates no disponible</p>"; }
+}
+
+async function loadMemory() {
+  try {
+    const res = await fetch("/api/memory", { cache: "no-store" });
+    $("memoryView").textContent = await res.text();
+  } catch {
+    $("memoryView").textContent = "no se pudo leer memory.md";
+  }
+}
+
+function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function hhmmss(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const p = (n) => String(n).padStart(2, "0"); return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`; }
+
+// SSE: eventos reales del motor. Apóyate en retry; el cursor se manda en Last-Event-ID.
+if (window.EventSource) {
+  const es = new EventSource("/api/events");
+  es.addEventListener("change", () => refresh());
+  es.addEventListener("sync", () => refresh());
+  es.onerror = () => markStale();
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
 </body>
 </html>

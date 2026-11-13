@@ -181,12 +181,16 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
             }),
           )
           .describe("Las cards del plan, en orden de ejecución."),
+        mode: z
+          .enum(["full", "lite", "auto"])
+          .optional()
+          .describe("Modo de ejecución: auto = heurística de auto-triage (default) · lite = Modo Célula (1 Ejecutor + 1 Revisor Cruzado) · full = Modo Completo."),
       },
       async execute(args, ctx) {
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState(args.objective)
-        const updated = await off.savePlan(state, args.cards as never)
+        const updated = await off.savePlan(state, args.cards as never, { mode: args.mode })
         // El plan marca el arranque de la corrida: acá se abre el dashboard
         // visual (la URL viaja en la salida para que el modelo la reporte).
         let dashUrl: string | undefined
@@ -220,7 +224,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         "Muestra el estado de la oficina: cards, sus owners, revisiones pendientes, agentes libres, agentes muertos y presupuesto. " +
         "Usá esto para saber en qué punto estás antes de actuar.",
       args: {
-        filter: z.enum(["all", "todo", "in_progress", "review", "done", "blocked", "escalated"]).default("all"),
+        filter: z.enum(["all", "todo", "in_progress", "review", "done", "blocked", "escalated", "blocked_escalated"]).default("all"),
       },
       async execute(args, ctx) {
         const off = officeOf(ctx)
@@ -1202,7 +1206,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         "despacha y no se gastan mas tokens. Con `resume` vuelve. Usalo si la corrida se esta " +
         "descontrolando, si el costo se dispara o si querés revisar antes de seguir.",
       args: {
-        action: z.enum(["halt", "resume"]).default("halt"),
+        action: z.enum(["halt", "resume", "release"]).default("halt"),
         reason: z.string().optional().describe("Por que frenas (para halt)."),
         agentId: z.string().describe("Tu id de agente (obligatorio para auditoría)."),
       },
@@ -1221,6 +1225,27 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
             title: "Corrida reanudada",
             output: "La corrida vuelve a avanzar. El freno de emergencia quedó desactivado.",
             metadata: { halted: false },
+          }
+        }
+
+        if (args.action === "release") {
+          // Buscar la sesión del agente actual
+          let targetSession: string | null = null
+          for (const [sid, s] of Object.entries(state.sessions)) {
+            if (s.agentId === args.agentId) {
+              targetSession = sid
+              break
+            }
+          }
+          if (!targetSession) {
+            return { title: "No se encontró sesión", output: `No hay sesión activa para el agente ${args.agentId}` }
+          }
+          off.releaseSession(state, targetSession)
+          await off.saveState(state)
+          return {
+            title: "Binding liberado",
+            output: `Sesión ${targetSession} desvinculada de su card. El agente ${args.agentId} ya no tiene scope restringido.`,
+            metadata: { released: true, sessionId: targetSession },
           }
         }
 
@@ -1376,7 +1401,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
             (a) => a.state !== "retired" && a.state !== "idle_available" && Date.parse(a.lastHeartbeat) < Date.now() - 180_000,
           )
           const pendingCards = Object.values(state.cards).filter((c) => c.state !== "done").length
-          const blockedCards = Object.values(state.cards).filter((c) => c.state === "blocked" || c.state === "escalated").length
+          const blockedCards = Object.values(state.cards).filter((c) => c.state === "blocked" || c.state === "escalated" || c.state === "blocked_escalated").length
           sections.push(
             `## Salud de la corrida`,
             "",

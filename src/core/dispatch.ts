@@ -34,6 +34,8 @@ import type { Card, CatalogAgent, Ficha, OfficeState, Roster, RosterEntry } from
 import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
 import { createFicha, createPersistentAgent } from "./factory.js"
+import { memorySummary } from "./memory.js"
+import { auditRepo, loadTraits, selectTraitsForCard } from "./traits.js"
 import { ensureDir, nowIso, stableHash, writeAtomic } from "./fsx.js"
 import { renderEnvironmentSheet } from "./environment.js"
 import type { Office } from "./office.js"
@@ -97,6 +99,8 @@ export function agentNameFor(role: string): string {
   return `oficina-${slug}`.slice(0, 48)
 }
 
+import type { TraitInfo } from "./traits.js"
+
 /**
  * Construye el prompt de arranque de un agente.
  *
@@ -104,8 +108,16 @@ export function agentNameFor(role: string): string {
  * 1. El prompt de origen del catálogo (verbatim) — de ahí viene la especialidad.
  * 2. La ficha — el contrato del rol: scope, peers, límites.
  * 3. El briefing — la misión de esta card en concreto.
+ * El peso de cada uno y el modo cell se pesan aquí: la `memory` y los
+ * `traits` del stack detectado del repo.
  */
-export function buildAgentPrompt(ficha: Ficha, briefing: Briefing, isPeer = false): string {
+export function buildAgentPrompt(
+  ficha: Ficha,
+  briefing: Briefing,
+  isPeer = false,
+  memory?: string,
+  traits?: TraitInfo[],
+): string {
   const sections: string[] = []
 
   // La hoja de entorno va PRIMERO: antes de que el agente toque shell o
@@ -196,6 +208,33 @@ export function buildAgentPrompt(ficha: Ficha, briefing: Briefing, isPeer = fals
     )
   }
 
+  // Memoria episódica del proyecto (memory.md). Determinística, rotada a
+  // 150 líneas. Evita que el agente repita errores que la oficina ya pagó.
+  // Traits activos del stack detectado en el repo. Únicamente los relevantes.
+  if (traits && traits.length > 0) {
+    sections.push(
+      [
+        "## Active Environment & Stack Traits",
+        "",
+        "Estos traits fueron auditados automáticamente en este repo; aplicá los que correspondan a tu card:",
+        "",
+        ...traits.flatMap((t) => [`### ${t.title}`, "", t.body, ""]),
+      ].join("\n"),
+    )
+  }
+
+  if (memory) {
+    sections.push(
+      [
+        "## Lo que ya sabés (memory.md del proyecto)",
+        "",
+        memory,
+        "",
+        "Usá este resumen: no repitas gates que ya fallaron por lo mismo, ni enfoques ya aplicados.",
+      ].join("\n"),
+    )
+  }
+
   return sections.join("\n\n---\n\n")
 }
 
@@ -204,11 +243,16 @@ export function buildAgentPrompt(ficha: Ficha, briefing: Briefing, isPeer = fals
  *
  * Se escribe en `.opencode/agents/` del proyecto: queda versionado con el
  * repo, es reproducible, y la próxima sesión el agente ya está registrado.
+ *
+ * Los agentes fabricados persisten además con metadatos de origen:
+ * `generated_by: factory`, `created_for_task`, `stack_tags` — para que el
+ * catálogo vivo sepa quién los generó, para qué tarea y con qué stack.
  */
 export async function materializeAgent(
   projectRoot: string,
   ficha: Ficha,
   briefing: Briefing,
+  factoryMeta?: { createdForTask?: string; stackTags?: string[] },
 ): Promise<string> {
   const dir = path.join(projectRoot, ".opencode", "agents")
   await ensureDir(dir)
@@ -216,11 +260,19 @@ export async function materializeAgent(
   const name = agentNameFor(ficha.role)
   const file = path.join(dir, `${name}.md`)
 
+  const isFactory = ficha.source?.kind === "factory"
   const frontmatter = [
     "---",
     `description: ${ficha.displayName} — ${ficha.capabilities.slice(0, 5).join(", ") || "especialista de la oficina"}`,
     "mode: subagent",
     "hidden: true",
+    ...(isFactory
+      ? [
+          "generated_by: factory",
+          `created_for_task: ${(factoryMeta?.createdForTask ?? "").replace(/\n/g, " ").trim()}`,
+          `stack_tags: ${(factoryMeta?.stackTags ?? []).join(", ")}`,
+        ]
+      : []),
     "permission:",
     "  edit: allow",
     "  shell: allow",
@@ -292,15 +344,18 @@ export async function dispatchOffice(
   const alreadyDeployed = new Map(options.existing.map((e) => [e.role, e]))
 
   let agentsDispatched = 0
+  const liteMode = state.mode === "lite"
   const maxAgents = options.maxAgents
 
   for (const cardId of state.order) {
     const card = state.cards[cardId]
     if (!card) continue
     if (card.owner) continue
+    // Modo Célula: 1 Ejecutor. Una card por corrida.
+    if (liteMode && result.dispatched.length >= 1) break
 
     const panel: RolePanel = buildPanel(options.catalog, card.requiredCapabilities, {
-      maxComplements: options.maxComplements,
+      maxComplements: liteMode ? 0 : options.maxComplements,
       minCoverage: options.minCoverage,
     })
 
@@ -445,6 +500,8 @@ async function instantiateFactory(
     scope: { mayTouch: card.scope.mayTouch, forbidden: card.scope.forbidden },
     canDelegate: true,
     objective: options.objective,
+    createdForTask: card.title,
+    stackTags: capabilities,
     mission: `Entregar ${card.title} cumpliendo exactamente: ${card.acceptance.join("; ")}.`,
     failureModes: [
       "El entregable no compila o el gate falla",
@@ -495,8 +552,15 @@ async function instantiateFactory(
   })
 
   const briefing = office.buildBriefing(ficha, card, roster)
-  const agentFile = await materializeAgent(options.projectRoot, ficha, briefing)
-  const prompt = buildAgentPrompt(ficha, briefing)
+  const memory = await memorySummary(office.paths.officeDir, 6)
+  const stackTags = await auditRepo(options.projectRoot)
+  const traitIds = selectTraitsForCard(stackTags, card.requiredCapabilities)
+  const traits = await loadTraits(options.projectRoot, traitIds)
+  const agentFile = await materializeAgent(options.projectRoot, ficha, briefing, {
+    createdForTask: card.title,
+    stackTags: card.requiredCapabilities,
+  })
+  const prompt = buildAgentPrompt(ficha, briefing, false, memory, traits)
 
   roster.agents[ficha.id] = {
     id: ficha.id,
@@ -597,8 +661,12 @@ async function instantiate(
   }
 
   const briefing = office.buildBriefing(ficha, card, roster)
+  const memory = await memorySummary(office.paths.officeDir, 6)
+  const stackTags = await auditRepo(options.projectRoot)
+  const traitIds = selectTraitsForCard(stackTags, card.requiredCapabilities)
+  const traits = await loadTraits(options.projectRoot, traitIds)
   const agentFile = await materializeAgent(options.projectRoot, ficha, briefing)
-  const prompt = buildAgentPrompt(ficha, briefing, isPeer)
+  const prompt = buildAgentPrompt(ficha, briefing, isPeer, memory, traits)
 
   roster.agents[ficha.id] = {
     id: ficha.id,

@@ -3,7 +3,7 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v3.1.5 |
+| **Paquete** | `oficina-opencode` v3.2.0 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
@@ -349,3 +349,23 @@ Es la diferencia entre un asistente que responde y una oficina que entrega.
 **¿Querés ver los detalles técnicos?** → [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
 **¿Querés ver cómo se usa?** → [`README.md`](../README.md)
 **¿Querés ver el protocolo completo?** → [`skills/oficina/`](../skills/oficina/)
+
+---
+
+## 12. Qu� hay de nuevo en v3.2.0 (y qu� sigue siendo limitaci�n)
+
+**Lo nuevo:**
+
+- **Modo C�lula** (/oficina lite): 1 Ejecutor + 1 Revisor Cruzado, briefing compacto; auto-degrada cuando el objetivo es chico y aislado.
+- **Circuit Breaker** (BLOCKED_ESCALATED): 3 fallos id�nticos seguidos o 5 intentos totales bloquean la card y liberan el lease; el resto del DAG avanza.
+- **Traits**: el dispatch inyecta solo los traits del stack detectado (TypeScript strict, Vitest, Windows/PowerShell�).
+- **Memoria epis�dica** .oficina/memory.md: hasta 150 l�neas con rotaci�n FIFO; al reabrir una corrida, el dispatch recibe el resumen.
+- **Matching = 0.70**.
+- **Dashboard SSE en vivo** (dark, Linear/Grafana-like): tabboard, gates detallados por card, bus inspector y visor de memory.md.
+
+**Lo que sigue siendo l�mite, sin excusas:**
+
+- Un plugin de OpenCode **no es un sandbox de OS**. Un interpreter embebido con escritura (python -c, 
+ode -e, heredocs) puede escapar al guard; el tripwire lo **detecta despu�s**, no lo revierte.
+- La evidencia demuestra criterios de aceptaci�n, no que el producto sea el correcto. La decisi�n sigue siendo tuya.
+- El dashboard es para localhost: bindea a 127.0.0.1 y **no tiene autenticaci�n**. No lo expongas a la red.

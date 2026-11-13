@@ -40,6 +40,10 @@ export interface FactoryInput {
   objective?: string
   /** Lo que la card necesita saber. */
   mission?: string
+  /** T�tulo de la card/tarea para la que se fabric�. */
+  createdForTask?: string
+  /** Stack/capabilities concretas para indexar el agente fabricado. */
+  stackTags?: string[]
   /** Áreas donde este rol suele meterse en problemas. */
   failureModes?: string[]
 }
@@ -346,7 +350,13 @@ export function agentSlugFromRole(role: string): string {
 /**
  * Genera el frontmatter YAML para el archivo de agente.
  */
-function generateAgentFrontmatter(displayName: string, description: string, vibe: string, capabilities: string[]): string {
+function generateAgentFrontmatter(
+  displayName: string,
+  description: string,
+  vibe: string,
+  capabilities: string[],
+  meta?: { createdForTask?: string; stackTags?: string[] },
+): string {
   const capsYaml = capabilities.length > 0
     ? "\n  " + capabilities.map(c => `- ${c}`).join("\n  ")
     : ""
@@ -356,6 +366,9 @@ function generateAgentFrontmatter(displayName: string, description: string, vibe
     `description: ${description}`,
     `vibe: ${vibe}`,
     `mode: subagent`,
+    `generated_by: factory`,
+    `created_for_task: ${(meta?.createdForTask ?? "").replace(/\n/g, " ").trim()}`,
+    `stack_tags: ${(meta?.stackTags ?? capabilities).join(", ")}`,
     `permission:`,
     `  edit: allow`,
     `  shell: allow`,
@@ -493,7 +506,7 @@ export async function createPersistentAgent(
   const description = `${displayName} — ${capabilities.slice(0, 5).join(", ") || "especialista de la oficina"}`
   const vibe = `Rol fabricado para esta corrida: ${capabilities.slice(0, 3).join(", ")}.`
 
-  const frontmatter = generateAgentFrontmatter(displayName, description, vibe, capabilities)
+  const frontmatter = generateAgentFrontmatter(displayName, description, vibe, capabilities, { createdForTask: input.createdForTask, stackTags: input.stackTags })
   const body = generateAgentBody(displayName, input.role, capabilities, mission, failureModes, input.objective)
 
   await writeAtomic(filePath, `${frontmatter}${body}\n`)

@@ -29,9 +29,10 @@
  */
 
 import path from "node:path"
+import fs from "node:fs/promises"
 import type { Limits } from "./types.js"
 import { nowIso, readJson, writeJsonAtomic } from "./fsx.js"
-import { withLock, writeExclusive } from "./atomic.js"
+import { withWxLock, writeExclusive } from "./atomic.js"
 import { safeId } from "./ids.js"
 
 export interface Lease {
@@ -102,7 +103,7 @@ export class LeaseStore {
   async acquire(taskId: string, agentId: string): Promise<Lease | undefined> {
     const file = this.file(taskId)
 
-    return withLock(this.lockPath(taskId), async () => {
+    return withWxLock(this.lockPath(taskId), async () => {
       const current = await this.get(taskId)
       if (current && !this.isExpired(current) && current.agentId !== agentId) {
         return undefined
@@ -147,6 +148,20 @@ export class LeaseStore {
       expiresAt: nowIso(() => this.clock() - 1),
     })
     return true
+  }
+
+  /**
+   * Borra el lease definitivamente (uso: BLOCKED_ESCALATED). Bajo el mismo
+   * lock de la adquisición: un takeover concurrente no puede tomarlo a
+   * medio camino. Owner check included.
+   */
+  async remove(taskId: string, agentId: string): Promise<boolean> {
+    return withWxLock(this.lockPath(taskId), async () => {
+      const current = await this.get(taskId)
+      if (!current || current.agentId !== agentId) return false
+      await fs.rm(this.file(taskId), { force: true })
+      return true
+    })
   }
 
   /** Lee un lease. */

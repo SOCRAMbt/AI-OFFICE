@@ -37,6 +37,9 @@ import {
 } from "./briefing.js"
 import { routeCard, routeHelp, ownerStreak, type RouteResult } from "./router.js"
 import { decideRetry, recordRejection, recordApproval } from "./retry.js"
+import { recordGateOutcome, recordFailureFingerprint, recordClose } from "./memory.js"
+import { shouldUseLite, normalizeModeArg } from "./triage.js"
+import { recordFailure, blockReason } from "./circuitBreaker.js"
 import { detectTooling, runTechnicalGates, runSecurityGate, consolidate, type CommandRunner, type Tooling } from "./gates.js"
 import { ensureDir, exists, nowIso, readJson, readText, shortId, writeJsonAtomic, writeAtomic } from "./fsx.js"
 import { cardDir, resolvePaths, type ResolvedPaths } from "./paths.js"
@@ -221,6 +224,15 @@ export class Office {
 
   async loadRoster(runId: string): Promise<Roster> {
     return this.rosterStore.load(runId)
+  }
+
+  /** Carga el runId más reciente desde el archivo de estado, si existe. */
+  async loadLatestRunId(): Promise<string | null> {
+    const result = await readJson<{ runId?: string }>(this.paths.statePath)
+    if (result.ok && result.value?.runId) {
+      return result.value.runId
+    }
+    return null
   }
 
   async saveRoster(roster: Roster): Promise<void> {
@@ -485,7 +497,8 @@ export class Office {
    * `protocolo.md` y `bus.md`. El agente **no arranca sin `misiones.md`**.
    */
   async deploy(ficha: Ficha, card?: Card, roster?: Roster, state?: OfficeState): Promise<RosterEntry> {
-    const currentRoster = roster ?? (await this.loadRoster(ficha.id))
+    const runId = state?.runId ?? (await this.loadLatestRunId()) ?? shortId("run")
+    const currentRoster = roster ?? (await this.loadRoster(runId))
     const entry = await this.rosterStore.upsert(currentRoster, ficha, "deployed")
     await this.saveRoster(currentRoster)
 
@@ -521,6 +534,7 @@ export class Office {
       gate: string
       dependsOn?: string[]
     }>,
+    options?: { mode?: "full" | "lite" | "auto" },
   ): Promise<OfficeState> {
     const assigned: Card[] = []
 
@@ -551,6 +565,32 @@ export class Office {
       state.cards[id] = card
       state.order.push(id)
       assigned.push(card)
+    }
+
+    // Modo de ejecución: auto-triage determinístico, o explícito vía mode.
+    {
+      const requested = normalizeModeArg(options?.mode)
+      const triage =
+        requested === "auto"
+          ? shouldUseLite({ objective: state.objective, cards: cards.map((c) => ({ acceptance: c.acceptance, scope: c.scope })) })
+          : { useLite: requested === "lite", reason: `explícito (--${requested})` }
+      state.mode = requested === "lite" || (requested === "auto" && triage.useLite) ? "lite" : "full"
+      state.decisions.push({
+        at: nowIso(this.options.clock),
+        cardId: "—",
+        decision: state.mode === "lite" ? "replan" : "approved",
+        reason: `modo ${state.mode}: ${triage.reason}`,
+        actor: "integrator",
+      })
+      if (state.mode === "lite") {
+        await this.bus.send(CHANNELS.flow, {
+          from: "integrator",
+          to: ["integrator"],
+          kind: "NOTICE",
+          subject: "modo-lite",
+          body: { mode: "lite", reason: triage.reason, objective: state.objective.slice(0, 160) },
+        })
+      }
     }
 
     // Routing determinista de owner y reviewer.
@@ -657,6 +697,18 @@ export class Office {
     }
   }
 
+  /** Libera el binding de una sesión (cardId = null). Usado para liberar el scope del agente director. */
+  releaseSession(state: OfficeState, sessionId: string): void {
+    const existing = state.sessions[sessionId]
+    if (existing) {
+      state.sessions[sessionId] = {
+        ...existing,
+        cardId: null,
+        updatedAt: nowIso(this.options.clock),
+      }
+    }
+  }
+
   /** Card en curso de una sesión. */
   sessionCard(state: OfficeState, sessionId: string): Card | undefined {
     const binding = state.sessions[sessionId]
@@ -690,6 +742,37 @@ export class Office {
     if (binding.agentId !== agentId) return { ok: false, reason: `sesión ${sessionId} bindeada a ${binding.agentId}, no a ${agentId}` }
     if (binding.cardId !== cardId) return { ok: false, reason: `sesión ${sessionId} bindeada a card ${binding.cardId}, no a ${cardId}` }
     return { ok: true, reason: "" }
+  }
+
+  /** Escribe el artefacto de bloqueo con el historial de intentos. */
+  private async writeBlockedArtifact(
+    cardId: string,
+    reason: string,
+    history: Array<{ at: string; fingerprint: string; message: string }>,
+  ): Promise<void> {
+    const dir = cardDir(this.paths, cardId)
+    await ensureDir(dir)
+    const lines = [
+      `# ${cardId} — BLOCKED_ESCALATED`,
+      "",
+      `**Causa raíz:** ${reason}`,
+      `**Fecha:** ${nowIso(this.options.clock)}`,
+      "",
+      "## Historial de intentos",
+      "",
+      "| # | Fingerprint | Error (200c) | At |",
+      "|---|-------------|--------------|----|",
+      ...history.map(
+        (h, i) => `| ${i + 1} | ${h.fingerprint} | ${h.message.replace(/\|/g, "\\|")} | ${h.at} |`,
+      ),
+      "",
+      "## Qué hacer",
+      "",
+      "- El resto del DAG sigue avanzando: esta card es terminal y no es elegible en `selectNextCard`.",
+      "- Para rearmar: revisar `review.md`/`gates.md`, corregir la causa raíz y reasignar con `oficina_assign` tras un replan.",
+      "- No reintentar con el mismo error: el fingerprint demuestra que ya se intentó `n` veces.",
+    ]
+    await writeAtomic(path.join(dir, "blocked.md"), lines.join("\n"))
   }
 
   /** Valida que el agente exista en el roster. */
@@ -895,8 +978,50 @@ export class Office {
       }
 
       recordRejection(card, payload.reason ?? "sin motivo declarado")
-      const decision = decideRetry(card, this.limits)
-      transitionCard(freshState, cardId, "rework", { result: card.result })
+      // Circuit breaker: 3 fallos idénticos o 5 intentos totales hacen la
+      // card terminal BLOCKED_ESCALATED — no otra vuelta de rework.
+      const failure = recordFailure(card, payload.reason ?? "rechazado por el reviewer")
+      try {
+        await recordFailureFingerprint(
+          this.paths.officeDir,
+          cardId,
+          failure.verdict.fingerprint,
+          payload.reason ?? "rechazado por el reviewer",
+        )
+      } catch {
+        // best-effort
+      }
+      if (failure.verdict.blocked) {
+        const reason = blockReason(failure.verdict.consecutive, failure.verdict.total)
+        freshState.cards[cardId] = failure.card
+        transitionCard(freshState, cardId, "blocked_escalated", {
+          result: `${reason} — último fallo: ${(payload.reason ?? "").slice(0, 200)}`,
+        })
+        freshState.decisions.push({
+          at: nowIso(this.options.clock),
+          cardId,
+          decision: "escalated",
+          reason,
+          actor: reviewerId,
+        })
+        await this.writeBlockedArtifact(cardId, reason, failure.card.failureHistory ?? [])
+        // Liberar el lease atómicamente: bajo el lock de corrida en el que
+        // ya corremos. La card bloqueada no retiene la exclusividad.
+        await this.leases.remove(cardId, freshState.cards[cardId]!.owner ?? reviewerId)
+        await this.bus.send(CHANNELS.flow, {
+          from: reviewerId,
+          to: ["integrator"],
+          kind: "NOTICE",
+          subject: cardId,
+          body: { blocked_escalated: true, reason, fingerprint: failure.verdict.fingerprint },
+        })
+        await this.saveState(freshState)
+        return { ok: true, reason, action: "blocked_escalated" }
+      }
+
+      freshState.cards[cardId] = failure.card
+      const decision = decideRetry(freshState.cards[cardId]!, this.limits)
+      transitionCard(freshState, cardId, "rework", { result: freshState.cards[cardId]!.result })
       freshState.decisions.push({
         at: nowIso(this.options.clock),
         cardId,
@@ -945,6 +1070,52 @@ export class Office {
     await ensureDir(dir)
     const { renderGate } = await import("./gates.js")
     await writeAtomic(path.join(dir, "gates.md"), renderGate(result))
+    // Memoria episódica: registrar los fallos de gate (los gates OK no se guardan).
+    try {
+      await recordGateOutcome(
+        this.paths.officeDir,
+        cardId,
+        technical.map((t) => ({ phase: t.phase, outcome: t.outcome, exitCode: t.exitCode ?? null, output: t.output })),
+      )
+    } catch {
+      // La memoria es best-effort: no bloquea el gate.
+    }
+
+    // Circuit breaker: un gate que falla por lo mismo 3 veces seguidas (o
+    // la card acumula 5 intentos) deja de reintentarse — BLOCKED_ESCALATED,
+    // lease liberado, resto del DAG sigue. Bajo el run-lock para no pisar
+    // un fallo concurrente de otra card.
+    if (!result.passed) {
+      const fail = technical.find((t) => t.outcome === "fail" || t.outcome === "not_run")
+      const source = fail?.output ?? requirements[0]?.reason ?? `gate no aprobado (${result.technicalOutcome},${result.securityOutcome},${result.requirementsOutcome})`
+      await this.withRunLock(state, async (freshState) => {
+        const freshCard = freshState.cards[cardId]
+        if (!freshCard) return
+        const applied = recordFailure(freshCard, (source ?? "").slice(0, 2000), fail?.exitCode)
+        freshState.cards[cardId] = applied.card
+        if (applied.verdict.blocked) {
+          const reason = blockReason(applied.verdict.consecutive, applied.verdict.total)
+          transitionCard(freshState, cardId, "blocked_escalated", { result: reason })
+          freshState.decisions.push({
+            at: nowIso(this.options.clock),
+            cardId,
+            decision: "escalated",
+            reason,
+            actor: "integrator",
+          })
+          await this.writeBlockedArtifact(cardId, reason, applied.card.failureHistory ?? [])
+          await this.leases.remove(cardId, freshState.cards[cardId]!.owner ?? "")
+          await this.bus.send(CHANNELS.flow, {
+            from: "integrator",
+            to: ["integrator"],
+            kind: "NOTICE",
+            subject: cardId,
+            body: { blocked_escalated: true, reason, fingerprint: applied.verdict.fingerprint },
+          })
+        }
+        await this.saveState(freshState)
+      })
+    }
 
     return result
   }
@@ -1017,6 +1188,11 @@ export class Office {
     }
 
     transitionCard(state, cardId, "done")
+    try {
+      await recordClose(this.paths.officeDir, cardId, card.owner ?? "")
+    } catch {
+      // best-effort
+    }
     await this.saveState(state)
 
     const roster = await this.loadRoster(state.runId)

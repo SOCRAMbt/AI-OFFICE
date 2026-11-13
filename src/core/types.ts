@@ -63,7 +63,7 @@ export const DEFAULT_LIMITS: Limits = {
   leaseTtlSec: 1800,
   heartbeatSec: 60,
   maxReviewRejections: 3,
-  minCatalogCoverage: 0.6,
+  minCatalogCoverage: 0.7,
   gateRequiredBeforeDone: true,
   evidenceRequiredBeforeDone: true,
   reviewerNeqOwner: true,
@@ -90,6 +90,8 @@ export type CardState =
   | "done"
   | "blocked"
   | "escalated"
+  /** Terminal bloqueada por el circuit breaker (3 fallos idénticos o 5 intentos totales). */
+  | "blocked_escalated"
 
 /** Dominios particionados de los tres coordinadores. */
 export type CoordinatorDomain = "command" | "arch" | "flow"
@@ -197,6 +199,8 @@ export interface Card {
   helpRequests: string[]
   /** Cuántos saltos lleva la cadena de ayuda de esta card. */
   helpHops: number
+  /** Historial de fallos del circuit breaker (aditivo, opcional). */
+  failureHistory?: Array<{ fingerprint: string; message: string; at: string }>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -386,6 +390,8 @@ export interface OfficeState {
    * el motor necesita saber contra qué card está trabajando esa sesión.
    */
   sessions: Record<string, SessionBinding>
+  /** Modo de ejecución: `full` arquitectura de 4 capas, `lite` Modo Célula (1 ejecutor +1 revisor). */
+  mode?: "full" | "lite"
 }
 
 export interface SessionBinding {

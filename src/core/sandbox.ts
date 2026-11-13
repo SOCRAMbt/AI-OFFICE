@@ -680,6 +680,9 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   const out: ShellCandidate[] = []
   if (typeof command !== "string" || command.trim().length === 0) return out
 
+  // Ojo: el parámetro `uncertain` tiene que viajar al resultado. Antes,
+  // target no-indefinido jamás se marcaba uncertain: un `pip install` era
+  // "certeza de escritura" sobre el paquete — bloqueado por error.
   const add = (target: string | undefined, op: string, uncertain = false) => {
     if (target === undefined) {
       out.push({ target: "", op, uncertain: true })
@@ -687,10 +690,11 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
     const clean = unquote(target).trim()
     if (!clean || clean === "-" || clean === "&1") return
-    out.push({ target: clean, op, uncertain: false })
+    out.push({ target: clean, op, uncertain })
   }
 
   // Redirecciones: > >> 2> &> |>
+  // Excluir 2>, 2>&1, &>, &>1, 1>, 2>&1, etc. (son descriptores, no archivos)
   const redirect = /(?:^|[^0-9>|&])(?:\d*>>?|&>>?|\|>)\s*("[^"]*"|'[^']*'|[^\s;|&>]+)/g
   for (const m of command.matchAll(redirect)) {
     add(m[1], "redirect")
@@ -702,15 +706,34 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   }
 
   // cp / mv / install -> destino = ultimo argumento
+  // install (pip/npm/pnpm/yarn/poetry/uv/brew/apt/cargo install/add) -> target es incierto (paquete, no archivo)
   for (const m of command.matchAll(/\b(cp|mv|install)\s+((?:[^\s;|&]|\s)+?)(?:\s*[;|&]|$)/g)) {
+    const verb = m[1] ?? "cp"
     const args = plainTokens(m[2] ?? "")
     if (args.length === 0) {
-      add(undefined, m[1] ?? "cp", true)
+      add(undefined, verb, true)
+      continue
+    }
+    if (verb === "install") {
+      // install: el "destino" no es un archivo local, es un paquete. Marcar uncertain.
+      // Si hay flags como --out/-o/--target, el último argumento de ese flag sí es path.
+      // (plainTokens descarta los flags con "-": hay que preservarlos aparte.)
+      const raw = (m[2] ?? "").trim()
+      const rawTokens = raw.split(/\s+/).filter(Boolean)
+      const OUTPUT_FLAGS = new Set(["-o", "--out", "--output", "--target", "--target-dir", "--prefix"])
+      let dest = ""
+      for (let i = 0; i < rawTokens.length; i++) {
+        if (OUTPUT_FLAGS.has(rawTokens[i]!) && i + 1 < rawTokens.length) {
+          dest = unquote(rawTokens[i + 1]!)
+          break
+        }
+      }
+      add(dest || args[args.length - 1], verb, !dest)
       continue
     }
     // `cp -r a b c` -> el destino es `c`; `cp a b` -> `b`.
     const dest = args.length >= 2 ? args[args.length - 1] : args[0]
-    add(dest, m[1] ?? "cp")
+    add(dest, verb)
   }
 
   // rm -> todos los argumentos son blancos
@@ -780,7 +803,19 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
       add(undefined, `${m[1] ?? "python"} -c`, true)
       continue
     }
+    // Detectar flags de salida: -o, --out, --output
+    let outPath: string = ""
+    const tokens = code.split(/\s+/)
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i] as string
+      if (["-o", "--out", "--output"].includes(token)) {
+        const next = tokens[i + 1]
+        outPath = next !== undefined ? next : ""
+        break
+      }
+    }
     for (const p of paths) add(p, `${m[1] ?? "python"} -c`)
+    if (outPath.length > 0) add(outPath, `${m[1] ?? "python"} -c`, false)
   }
 
   // Heredoc a un interpreter: el codigo entra por stdin, no se puede ver.
@@ -803,3 +838,5 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     return true
   })
 }
+
+

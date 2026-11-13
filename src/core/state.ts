@@ -13,23 +13,25 @@ import { nowIso } from "./fsx.js"
 
 /** Transiciones válidas de card. Todo lo demás es un bug del motor. */
 export const CARD_TRANSITIONS: Record<CardState, readonly CardState[]> = {
-  todo: ["in_progress", "blocked", "escalated"],
-  in_progress: ["review", "rework", "blocked", "escalated"],
-  review: ["done", "rework", "blocked", "escalated"],
+  todo: ["in_progress", "blocked", "escalated", "blocked_escalated"],
+  in_progress: ["review", "rework", "blocked", "escalated", "blocked_escalated"],
+  review: ["done", "rework", "blocked", "escalated", "blocked_escalated"],
   // Desde rework se puede volver a trabajo o re-entregar directamente a
   // revisión: si el owner corrigió y volvió a entregar, la card vuelve al
   // ciclo sin pasar obrigatoriamente por in_progress.
-  rework: ["in_progress", "review", "blocked", "escalated"],
+  rework: ["in_progress", "review", "blocked", "escalated", "blocked_escalated"],
   done: ["rework"],
   blocked: ["todo", "in_progress", "escalated"],
   escalated: ["todo", "in_progress", "rework"],
+  // Terminal por circuit breaker: solo vuelve manualmente con un replan.
+  blocked_escalated: ["todo"],
 }
 
 /** Estados terminales de una card. */
 export const TERMINAL_CARD_STATES: readonly CardState[] = ["done"]
 
 /** Estados que bloquean el avance del plan. */
-export const BLOCKING_CARD_STATES: readonly CardState[] = ["blocked", "escalated"]
+export const BLOCKING_CARD_STATES: readonly CardState[] = ["blocked", "escalated", "blocked_escalated"]
 
 export class InvalidTransitionError extends Error {
   constructor(

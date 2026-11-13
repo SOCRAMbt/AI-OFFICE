@@ -256,3 +256,42 @@ Detalle no obvio: la migraciÃ³n se persiste en disco la primera vez, para no mig
 | Shelling out a `grep` para el gate de secretos | No existe en Windows; el gate fallarÃ­a por la razÃ³n equivocada |
 | `transition: all` en cualquier UI | Anima `box-shadow` en repaint, no en compositor |
 | Auto-approve cuando los tests pasan | Los tests no miden correctitud, seguridad ni alcance. El gate tÃ©cnico es uno de dos: el security gate tambiÃ©n tiene que pasar |
+
+---
+
+## 10. Evolución v3.2.0: Circuit Breaker, Traits, Memoria y Modo lite
+
+### 10.1 Circuit Breaker y BLOCKED_ESCALATED
+
+El motor distinguía rework/replan/escalate pero no veía el patrón"tres fallos idénticos seguidos". v3.2.0 agrega core/circuitBreaker.ts:
+
+- fingerprint = sha256(mensaje normalizado CASO-INSENSITIVE, paths absolutas stripadas, strings literales, números y hashes normalizados + exit code).
+- 3 fingerprints idénticos consecutivos ó 5 intentos totales ? locked_escalated.
+- El lease se libera atómicamente (LeaseStore.remove, bajo withWxLock) y la card queda terminal: selectNextCard no la elige; el DAG continúa para las demás.
+- Se escribe rtifacts/<id>/blocked.md con la causa raíz + historial completo de fingerprints.
+
+### 10.2 Matching = 0.70 y catálogo vivo
+
+DEFAULT_LIMITS.minCatalogCoverage = 0.7. El catálogo vivio sigue 258 roles; por debajo del umbral, createPersistentAgent fabrica uno con metadatos de origen obligatorios:
+
+`yaml
+generated_by: factory
+created_for_task: <título de la card>
+stack_tags: <capabilities requeridas>
+`
+
+### 10.3 Traits: entorno inyectado, no al azar
+
+core/traits.ts audita el repo (deps de package.json, 	sconfig.json strict, lockfiles, process.platform, docs/) y carga solo los traits relevantes desde 	raits/ (packado con el paquete y preferido desde el repo). El dispatch inyecta una sección ## Active Environment & Stack Traits antes del briefing del agente.
+
+### 10.4 Escrituras atómicas NTFS/POSIX
+
+writeAtomic ahora: tmp único <target>.<pid>.<random>.tmp en el mismo directorio + rename con reintentos exponenciales ante EPERM/EBUSY (5 intentos, 20-320ms). llocateSeq y leases usan locks por archivo s.open(wx) con TTL (breaker de locks vencidos) en vez de solo mkdir.
+
+### 10.5 Memoria episódica
+
+core/memory.ts: .oficina/memory.md, tope 150 líneas, FIFO. Registra fallos de gate (fase, exit code, 160 chars de output), fingerprints de circuitos disparados y cierres de card. El dispatch inyecta un resumen de 6-8 líneas en cada briefing y /api/memory la muestra en el dashboard.
+
+### 10.6 Modo Célula (/oficina lite)
+
+core/triage.ts: degradación determinística a Modo Célula cuando el objetivo cabe en 1 card ? =140 chars ? =3 criterios ? sin palabras de refactor/migración/arquitectura. En lite, dispatchOffice solo materializa el primario de la primera card ejecutable (sin complementos peer mesh) y expectativa owner ? reviewer sigue siendo invariante. El modo persiste en state.mode; el usuario puede forzar Full con --full.
