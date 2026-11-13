@@ -32,7 +32,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import type { Limits } from "./types.js"
 import { nowIso, readJson, writeJsonAtomic } from "./fsx.js"
-import { withWxLock, writeExclusive } from "./atomic.js"
+import { withLock, withWxLock, writeExclusive } from "./atomic.js"
 import { safeId } from "./ids.js"
 
 export interface Lease {
@@ -123,31 +123,49 @@ export class LeaseStore {
     })
   }
 
-  /** Renueva el lease. Devuelve `undefined` si ya no lo tenés. */
+  /** Renueva el lease. Devuelve `undefined` si ya no lo tenés o si expiró. */
   async heartbeat(taskId: string, agentId: string): Promise<Lease | undefined> {
-    const current = await this.get(taskId)
-    if (!current || current.agentId !== agentId) return undefined
-    const now = this.clock()
-    const next: Lease = {
-      ...current,
-      expiresAt: new Date(now + this.limits.leaseTtlSec * 1000).toISOString(),
-      heartbeatAt: nowIso(() => now),
-      renewals: current.renewals + 1,
-    }
-    await writeJsonAtomic(this.file(taskId), next)
-    return next
+    return withLock(this.lockPath(taskId), async () => {
+      const current = await this.get(taskId)
+      if (!current || current.agentId !== agentId || this.isExpired(current)) return undefined
+      const now = this.clock()
+      const next: Lease = {
+        ...current,
+        expiresAt: new Date(now + this.limits.leaseTtlSec * 1000).toISOString(),
+        heartbeatAt: nowIso(() => now),
+        renewals: current.renewals + 1,
+      }
+      await writeJsonAtomic(this.file(taskId), next)
+      return next
+    })
   }
 
   /** Libera el lease. */
   async release(taskId: string, agentId: string): Promise<boolean> {
-    const current = await this.get(taskId)
-    if (!current) return false
-    if (current.agentId !== agentId) return false
-    await writeJsonAtomic(this.file(taskId), {
-      ...current,
-      expiresAt: nowIso(() => this.clock() - 1),
+    return withLock(this.lockPath(taskId), async () => {
+      const current = await this.get(taskId)
+      if (!current) return false
+      if (current.agentId !== agentId) return false
+      await writeJsonAtomic(this.file(taskId), {
+        ...current,
+        expiresAt: nowIso(() => this.clock() - 1),
+      })
+      return true
     })
-    return true
+  }
+
+  /** Fuerza la liberación (borrado) del lease, sin importar el owner. */
+  async forceRelease(taskId: string): Promise<boolean> {
+    const file = this.file(taskId)
+    return withLock(this.lockPath(taskId), async () => {
+      try {
+        await fs.unlink(file)
+        return true
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return false
+        throw err
+      }
+    })
   }
 
   /**

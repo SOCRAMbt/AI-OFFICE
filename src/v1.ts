@@ -50,9 +50,10 @@ const log = logger("oficina")
 function toV1Tools(defs: Record<string, OficinaTool>): Record<string, ToolDefinition> {
   const out: Record<string, ToolDefinition> = {}
   for (const [name, def] of Object.entries(defs)) {
+    const shape = def.args && "shape" in def.args ? (def.args as { shape: unknown }).shape : {}
     out[name] = v1Tool({
       description: def.description,
-      args: def.args as never,
+      args: shape as never,
       execute: def.execute as never,
     }) as ToolDefinition
   }
@@ -266,19 +267,16 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
       try {
         const type = String(permission.type ?? "")
         if (!["edit", "write", "patch", "multiedit"].includes(type)) {
-          output.status = "allow"
           return
         }
         const patterns = permission.pattern
         const lista = Array.isArray(patterns) ? patterns : patterns ? [patterns] : []
         if (lista.length === 0) {
-          output.status = "allow"
           return
         }
 
         const scope = await scopeOf(permission.sessionID)
         if (!scope) {
-          output.status = "allow"
           return
         }
 
@@ -290,13 +288,9 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
             return
           }
         }
-        output.status = "allow"
       } catch (err) {
-        // Ante la duda, se permite: este hook es una capa extra, no la
-        // unica. Si el guard propio falla, es un bug de la oficina, no una
-        // violacion del usuario.
+        // Ante la duda, no se muta output.status
         log.debug("fallo en permission.ask", { error: String(err) })
-        output.status = "allow"
       }
     },
 

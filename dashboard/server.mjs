@@ -99,7 +99,12 @@ function aggregate() {
 }
 
 function parseGates(cardId) {
-  const dir = path.join(OFICINA, "artifacts", cardId);
+  const artifactsDir = path.join(OFICINA, "artifacts");
+  const dir = path.join(artifactsDir, cardId || "");
+  const rel = path.relative(artifactsDir, dir);
+  if (!cardId || rel.startsWith("..") || path.isAbsolute(rel)) {
+    return { gates: [], evidence: false, handoff: false };
+  }
   const out = { gates: [], evidence: false, handoff: false };
   if (!fs.existsSync(dir)) return out;
   const gatesFile = path.join(dir, "gates.md");
@@ -128,11 +133,11 @@ const CARD_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
 function serveArtifactFile(req, res, url, name) {
   const card = url.searchParams.get("card");
   if (!card || !CARD_ID_RE.test(card)) { res.writeHead(404); res.end("not found"); return; }
-  const file = path.join(OFICINA, "artifacts", card, name);
-  // El prefix-check lleva path.sep: sin él, un sibling (`artifacts-evil`)
-  // pasa el startsWith del directorio legítimo.
-  const artifactsDir = path.join(OFICINA, "artifacts") + path.sep;
-  if (!card || !file.startsWith(artifactsDir) || !fs.existsSync(file)) {
+  // Contención por path.relative: `..` no pasa, rutas absolutas no pasan.
+  const artifactsDir = path.join(OFICINA, "artifacts");
+  const file = path.join(artifactsDir, card, name);
+  const relArtifact = path.relative(artifactsDir, file);
+  if (relArtifact.startsWith("..") || path.isAbsolute(relArtifact) || !fs.existsSync(file)) {
     res.writeHead(404); res.end("not found"); return;
   }
   res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
@@ -160,8 +165,8 @@ function serveStatic(req, res) {
   let urlPath = new URL(req.url, "http://x").pathname;
   if (urlPath === "/") urlPath = "/dashboard.html";
   const filePath = path.join(DASH, path.normalize(urlPath).replace(/^[/\\]/, ""));
-  // Con separador: un sibling de dashboard/ no pasa el prefix-check.
-  if (!filePath.startsWith(DASH + path.sep)) { res.writeHead(403); res.end(); return; }
+  const rel = path.relative(DASH, filePath);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end("not found"); return; }
     res.writeHead(200, { "Content-Type": MIME[path.extname(filePath)] || "application/octet-stream" });

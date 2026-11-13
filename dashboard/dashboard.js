@@ -99,6 +99,11 @@ function renderMesa() {
     ? `${agents.length} agentes ${SYM.middot} ${ownerless.length} cards sin owner`
     : "sin agentes";
 
+  const activeCount = agents.filter((a) => a.state === "working").length;
+  const freeCount = agents.filter((a) => a.state === "idle_available" || a.canAccept).length;
+  if (el.mActive) el.mActive.textContent = String(activeCount);
+  if (el.mFree) el.mFree.textContent = String(freeCount);
+
   const mk = (tag, attrs) => {
     const e = document.createElementNS(NS, tag);
     for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
@@ -167,8 +172,9 @@ function renderMesa() {
    ============================================================ */
 function renderBus() {
   const msgs = state.bus;
-  if (Number(el.busStream.dataset.len || 0) === msgs.length) return;
-  el.busStream.dataset.len = msgs.length;
+  const sig = msgs.length + ":" + (msgs[msgs.length - 1]?.id || "");
+  if (el.busStream.dataset.sig === sig) return;
+  el.busStream.dataset.sig = sig;
   // rendimiento: cap de render (guideline: listas grandes se virtualizan/cortan)
   const MAX = 200;
   const shown = msgs.slice(-MAX);
@@ -216,8 +222,9 @@ function renderBus() {
    ============================================================ */
 function renderChief() {
   const msgs = state.bus.filter((m) => JEFES.has(m.from));
-  if (Number(el.chiefFeed.dataset.len || 0) === msgs.length) return;
-  el.chiefFeed.dataset.len = msgs.length;
+  const sig = msgs.length + ":" + (msgs[msgs.length - 1]?.id || "");
+  if (el.chiefFeed.dataset.sig === sig) return;
+  el.chiefFeed.dataset.sig = sig;
   el.chiefCount.textContent = String(msgs.length);
   el.chiefFeed.innerHTML = "";
   const frag = document.createDocumentFragment();

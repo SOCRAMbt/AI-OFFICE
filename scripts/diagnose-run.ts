@@ -88,7 +88,8 @@ interface State {
   iteration: number
   cards: Record<string, Card>
   order: string[]
-  budget: { cardsUsed: number; maxCards: number; agentCallsUsed: number; maxAgentCalls: number; spawnsUsed: number; maxSpawnsTotal: number }
+  budget?: { cardsUsed: number; maxCards: number; agentCallsUsed: number; maxAgentCalls: number; spawnsUsed: number; maxSpawnsTotal: number }
+  limits?: { maxCards: number; maxAgentCalls?: number; maxSpawnsTotal?: number; maxSpawnsPerCard?: number }
   halt: { reason: string; at: string; by: string } | null
   sessions: Record<string, { agentId: string; cardId: string | null; autoResumes: number }>
   pendingGates: string[]
@@ -150,11 +151,17 @@ export async function diagnose(dir: string): Promise<DiagnoseResult> {
   console.log(`${C.azul}1. ESTADO${C.reset}`)
   dim(`objetivo: ${state.objective}`)
   dim(`run: ${state.runId} · status: ${state.status} · iteración: ${state.iteration}`)
-  dim(
-    `presupuesto: ${state.budget.cardsUsed}/${state.budget.maxCards} cards · ` +
-      `${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls} llamadas · ` +
-      `${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal} spawns`,
-  )
+  if (state.budget) {
+    dim(
+      `presupuesto: ${state.budget.cardsUsed}/${state.budget.maxCards} cards · ` +
+        `${state.budget.agentCallsUsed}/${state.budget.maxAgentCalls} llamadas · ` +
+        `${state.budget.spawnsUsed}/${state.budget.maxSpawnsTotal} spawns`,
+    )
+  } else {
+    const cardsCount = Object.keys(state.cards ?? {}).length
+    const maxCards = state.limits?.maxCards ?? 50
+    dim(`cards: ${cardsCount}/${maxCards} cards`)
+  }
   if (state.halt) {
     aviso(`FRENADA: ${state.halt.reason} (por ${state.halt.by} a las ${state.halt.at})`)
   }
@@ -243,7 +250,7 @@ export async function diagnose(dir: string): Promise<DiagnoseResult> {
 
     if (files.includes("gates.md")) {
       const gates = await fs.readFile(path.join(dir, "gates.md"), "utf8")
-      const fallo = /\| (build|typecheck|lint|test|secrecy|diff|verify) \|[^|]*\|\s*(FAIL|NOT RUN|na)/i.exec(gates)
+      const fallo = /\| (build|typecheck|lint|test|secrecy|diff|verify) \|[^|]*\|\s*(FAIL|NOT RUN)/i.exec(gates)
       if (fallo) mal(`${id}: una fase del gate no pasó (${fallo[1]})`)
       else ok(`${id}: gates en PASS`)
     }
@@ -369,7 +376,7 @@ export async function diagnose(dir: string): Promise<DiagnoseResult> {
       for (const l of filas) {
         if (/\|\s*NA\s*\|/i.test(l)) {
           const cols = l.split("|").map((c) => c.trim())
-          const motivo = cols[4] ?? ""
+          const motivo = cols[6] || cols[5] || ""
           if (motivo.length < 5) naSinMotivo.push(`${id}: NA sin motivo`)
         }
       }
@@ -430,7 +437,7 @@ export async function diagnose(dir: string): Promise<DiagnoseResult> {
   {
     const huerfanas = state.order.filter((id) => {
       const c = state.cards[id]
-      return c && !c.owner && c.state !== "done"
+      return c && !c.owner && c.state !== "done" && c.state !== "todo"
     })
     checkSoft(huerfanas.length === 0, "ninguna card sin owner", huerfanas.join(" · "))
   }
@@ -452,10 +459,17 @@ export async function diagnose(dir: string): Promise<DiagnoseResult> {
   {
     const b = state.budget
     const excedido: string[] = []
-    if (b.cardsUsed > b.maxCards) excedido.push(`cards ${b.cardsUsed}/${b.maxCards}`)
-    if (b.agentCallsUsed > b.maxAgentCalls)
-      excedido.push(`llamadas ${b.agentCallsUsed}/${b.maxAgentCalls}`)
-    if (b.spawnsUsed > b.maxSpawnsTotal) excedido.push(`spawns ${b.spawnsUsed}/${b.maxSpawnsTotal}`)
+    if (b) {
+      if (b.cardsUsed > b.maxCards) excedido.push(`cards ${b.cardsUsed}/${b.maxCards}`)
+      if (b.agentCallsUsed > b.maxAgentCalls)
+        excedido.push(`llamadas ${b.agentCallsUsed}/${b.maxAgentCalls}`)
+      if (b.spawnsUsed > b.maxSpawnsTotal) excedido.push(`spawns ${b.spawnsUsed}/${b.maxSpawnsTotal}`)
+    } else if (state.limits) {
+      const cardsCount = Object.keys(state.cards ?? {}).length
+      if (cardsCount > state.limits.maxCards) {
+        excedido.push(`cards ${cardsCount}/${state.limits.maxCards}`)
+      }
+    }
     check(excedido.length === 0, "presupuesto respetado", excedido.join(" · "))
   }
 

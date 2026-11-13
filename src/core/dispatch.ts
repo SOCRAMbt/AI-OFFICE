@@ -174,7 +174,7 @@ export function buildAgentPrompt(
       "Estás en una mesa con otros agentes. Cada uno tiene lo suyo, pero se hablan:",
       "",
       "- **Si te trabás o te falta contexto:** pedí ayuda por el bus (`oficina_bus` action=`help`). No te tragues el trabajo de otro.",
-      "- **Si te sobra tiempo:** ofrecé ayuda o reclamá una card sin owner (`oficina_bus` action=`claim`).",
+      "- **Si te sobra tiempo:** ofrecé ayuda o reclamá una card sin owner (`oficina_mesa` action=`claim`).",
       "- **Si alguien te pregunta:** contestá por el bus. No te quedes mudo.",
       "- **Si tu scope no alcanza:** pedí ampliación por el bus. No te lo expies por tu cuenta.",
       "- **Si encontrás algo que otro está haciendo:** avisá por el bus antes de tocarlo.",
@@ -375,7 +375,7 @@ export async function dispatchOffice(
     // Un rol fabricado con el contexto de la card es infinitamente mas
     // util que un rol del catalogo que no tiene nada que ver.
     if (!panel.primary) {
-      const fabricando = await instantiateFactory(office, roster, card, options)
+      const fabricando = await instantiateFactory(office, roster, card, options, state)
       if (!fabricando) {
         result.unassigned.push(cardId)
         result.notes.push(
@@ -415,6 +415,7 @@ export async function dispatchOffice(
       [],
       false,
       undefined, // No reutilizar primarios entre tarjetas: cada card tiene su owner único
+      state,
     )
     if (!primary) {
       result.unassigned.push(cardId)
@@ -446,6 +447,7 @@ export async function dispatchOffice(
         contributes,
         true,
         alreadyDeployed.get(complement.agent.slug),
+        state,
       )
       if (!peer) continue
       agentsDispatched += 1
@@ -488,6 +490,7 @@ async function instantiateFactory(
   roster: Roster,
   card: Card,
   options: DispatchOptions,
+  state?: OfficeState,
 ): Promise<DispatchedAgent | undefined> {
   const capabilities = card.requiredCapabilities.length > 0 ? card.requiredCapabilities : ["implementacion"]
   const role = `implementador-${capabilities.slice(0, 2).join("-")}`.replace(/[^a-z0-9-]+/gi, "-").toLowerCase()
@@ -551,7 +554,7 @@ async function instantiateFactory(
     ],
   })
 
-  const briefing = office.buildBriefing(ficha, card, roster)
+  const briefing = office.buildBriefing(ficha, card, roster, state)
   const memory = await memorySummary(office.paths.officeDir, 6)
   const stackTags = await auditRepo(options.projectRoot)
   const traitIds = selectTraitsForCard(stackTags, card.requiredCapabilities)
@@ -576,6 +579,7 @@ async function instantiateFactory(
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    peers: ficha.peers ? [...ficha.peers] : [],
     canDelegate: false,
     lastHeartbeat: nowIso(),
     source: ficha.source,
@@ -608,6 +612,7 @@ async function instantiate(
   contributes: string[],
   isPeer: boolean,
   reused: RosterEntry | undefined,
+  state?: OfficeState,
 ): Promise<DispatchedAgent | undefined> {
   const role = catalogAgent.slug
   // Usar cardId en el ID para evitar colisiones cuando el mismo rol sirve a múltiples cards.
@@ -660,7 +665,7 @@ async function instantiate(
     escalateTo: "integrator",
   }
 
-  const briefing = office.buildBriefing(ficha, card, roster)
+  const briefing = office.buildBriefing(ficha, card, roster, state)
   const memory = await memorySummary(office.paths.officeDir, 6)
   const stackTags = await auditRepo(options.projectRoot)
   const traitIds = selectTraitsForCard(stackTags, card.requiredCapabilities)
@@ -682,6 +687,7 @@ async function instantiate(
     helpGiven: 0,
     helpReceived: 0,
     helpedPeers: [],
+    peers: ficha.peers ? [...ficha.peers] : [],
     canDelegate: false,
     lastHeartbeat: nowIso(),
     source: ficha.source,

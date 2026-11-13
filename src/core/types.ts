@@ -201,6 +201,8 @@ export interface Card {
   helpHops: number
   /** Historial de fallos del circuit breaker (aditivo, opcional). */
   failureHistory?: Array<{ fingerprint: string; message: string; at: string }>
+  /** Timestamp de última actualización. */
+  updatedAt?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -276,6 +278,8 @@ export interface RosterEntry {
   helpReceived: number
   /** Pares con los que ya colaboraron, para rotar. */
   helpedPeers: string[]
+  /** Pares declarados en la ficha. */
+  peers?: string[]
   /** Puede despachar el equipo (oficina_dispatch): viene de la ficha. */
   canDelegate: boolean
   lastHeartbeat: string
@@ -421,6 +425,11 @@ export interface Escalation {
   options: EscalationOption[]
   recommendation: string
   status: "open" | "resolved"
+  reason?: string
+  agentId?: string | null
+  detail?: string
+  createdAt?: string
+  resolved?: boolean
 }
 
 export interface EscalationOption {

@@ -18,6 +18,8 @@
 import path from "node:path"
 import fs from "node:fs/promises"
 import { readJson, writeJsonAtomic } from "./fsx.js"
+import { withLock } from "./atomic.js"
+import { safeId } from "./ids.js"
 import {
   buildEvidenceGraph,
   canCloseCard,
@@ -49,7 +51,9 @@ export class EvidenceStore {
   ) {}
 
   private file(cardId: string): string {
-    return path.join(this.dir, `${cardId}.json`)
+    const safe = safeId(cardId)
+    if (!safe) throw new Error(`[oficina] cardId no seguro: "${cardId}"`)
+    return path.join(this.dir, `${safe}.json`)
   }
 
   /** Lee los nodos de evidencia de una card. */
@@ -67,12 +71,15 @@ export class EvidenceStore {
 
   /** Agrega un nodo de evidencia, deduplicando por id. */
   async add(cardId: string, node: EvidenceNode): Promise<EvidenceNode[]> {
-    const nodes = await this.nodes(cardId)
-    const index = nodes.findIndex((n) => n.id === node.id)
-    if (index >= 0) nodes[index] = node
-    else nodes.push(node)
-    await this.save(cardId, nodes)
-    return nodes
+    const filePath = this.file(cardId)
+    return withLock(`${filePath}.lock`, async () => {
+      const nodes = await this.nodes(cardId)
+      const index = nodes.findIndex((n) => n.id === node.id)
+      if (index >= 0) nodes[index] = node
+      else nodes.push(node)
+      await this.save(cardId, nodes)
+      return nodes
+    })
   }
 
   /** Construye el grafo de una card. */

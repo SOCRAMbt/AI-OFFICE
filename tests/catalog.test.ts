@@ -447,4 +447,21 @@ describe("Factory", () => {
     expect(titleize("frontend-developer")).toBe("Frontend Developer")
     expect(titleize("qa_engineer")).toBe("Qa Engineer")
   })
+
+  it("parseFrontmatter y parseSections manejan saltos de línea Windows CRLF (\\r\\n)", () => {
+    const crlfContent = "---\r\nname: Windows Agent\r\ndescription: Test CRLF\r\nvibe: fast\r\n---\r\n\r\n## Core Mission\r\n\r\n### Build Things\r\nDo things fast\r\n\r\n## Technical Deliverables\r\n\r\n### Output Files\r\nDeliverables\r\n"
+    const lfContent = crlfContent.replace(/\r\n/g, "\n")
+
+    const crlfFm = parseFrontmatter(crlfContent)
+    const lfFm = parseFrontmatter(lfContent)
+    expect(crlfFm.data).toEqual(lfFm.data)
+    expect(crlfFm.data.name).toBe("Windows Agent")
+    expect(crlfFm.data.description).toBe("Test CRLF")
+    expect(crlfFm.data.vibe).toBe("fast")
+
+    const crlfSections = parseSections(crlfFm.body)
+    const lfSections = parseSections(lfFm.body)
+    expect(crlfSections).toEqual(lfSections)
+    expect(crlfSections["Core Mission"]).toContain("### Build Things")
+  })
 })

@@ -124,7 +124,7 @@ export function createSessionIdleHook(office: Office, options: SessionIdleOption
 
       sections.push(
         "",
-        "Usá `oficina_board` para el panorama, `oficina_assign` para tomar trabajo, `oficina_bus` (action=read) para leer el bus,",
+        "Usá `oficina_board` para el panorama, `oficina_assign` para tomar trabajo, `oficina_mesa` (action=read) para leer tus mensajes,",
         "y `oficina_mesa` (action=view) para ver la mesa.",
         "",
         "No declares la corrida terminada mientras queden cards sin DONE. Si estás trabado, pedí ayuda por el bus o escalá.",

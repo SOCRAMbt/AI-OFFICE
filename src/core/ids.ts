@@ -1,3 +1,5 @@
+import path from "node:path"
+
 /**
  * IDs seguros para usar como nombre de archivo.
  *
@@ -14,6 +16,9 @@
  *
  * Un id es "seguro" si:
  *   - no contiene separadores de ruta (`/` ni `\`)
+ *   - no contiene `:`
+ *   - no termina en punto o espacio
+ *   - no es un dispositivo reservado de Windows (`con`, `prn`, `aux`, `nul`, `com1-9`, `lpt1-9`)
  *   - no contiene `..` como segmento
  *   - no contiene caracteres de control ni NUL
  *   - no empieza por `.` (evita `.`, `..` y ocultos accidentales)
@@ -29,6 +34,9 @@
 
 /** Separadores de ruta. El guion NO va acá: `e-frontend-developer` es válido. */
 const SEPARATORS = /[/\\]/
+
+/** Nombres de dispositivos reservados en Windows (DOS legacy). */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i
 
 /** Longitud máxima de un id de archivo. */
 export const MAX_ID_LENGTH = 96
@@ -51,10 +59,13 @@ function hasControlChars(value: string): boolean {
  */
 export function safeId(raw: string | undefined | null): string | undefined {
   if (typeof raw !== "string") return undefined
+  // Rechazar espacios o puntos finales
+  if (/[.\s]$/.test(raw)) return undefined
   const trimmed = raw.trim()
   if (!trimmed) return undefined
   if (trimmed.length > MAX_ID_LENGTH) return undefined
   if (SEPARATORS.test(trimmed)) return undefined
+  if (trimmed.includes(":")) return undefined
   if (hasControlChars(trimmed)) return undefined
   // `..` es un segmento de traversal aunque no tenga separadores, y
   // cualquier id que lo contenga es sospechoso (`a..b` no es un id real).
@@ -62,6 +73,8 @@ export function safeId(raw: string | undefined | null): string | undefined {
   // Un id no puede empezar con punto: produciría rutas ocultas y, en
   // algunos sistemas, rutas relativas al directorio actual.
   if (trimmed.startsWith(".")) return undefined
+  // Dispositivos reservados en Windows
+  if (WINDOWS_RESERVED.test(trimmed)) return undefined
   return trimmed
 }
 
@@ -79,5 +92,5 @@ export function isSafeId(raw: string | undefined | null): boolean {
 export function safeJoin(dir: string, id: string | undefined | null, suffix = ""): string | undefined {
   const safe = safeId(id)
   if (!safe) return undefined
-  return `${dir}/${safe}${suffix}`
+  return path.join(dir, `${safe}${suffix}`)
 }

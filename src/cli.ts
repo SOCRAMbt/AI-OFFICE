@@ -211,6 +211,7 @@ async function main(): Promise<number> {
       const groups: Record<string, typeof state.order> = {
         TODO: [],
         IN_PROGRESS: [],
+        REWORK: [],
         REVIEW: [],
         DONE: [],
         BLOCKED: [],

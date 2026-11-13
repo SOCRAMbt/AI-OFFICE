@@ -13,15 +13,15 @@ import { existsSync } from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
 
-/** Escribe un archivo de forma atómica: tmp único + rename con backoff ante EPERM/EBUSY (NTFS). */
+/** Escribe un archivo de forma atómica: tmp único + rename con backoff ante EPERM/EBUSY/EACCES (NTFS). */
 export async function writeAtomic(filePath: string, contents: string): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
   const tmp = `${filePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`
   try {
     await fs.writeFile(tmp, contents, "utf8")
     // `rename` sobre el target con observadores abiertos (antivirus, otra
-    // sesión de OpenCode, tail -f) falla en Windows con EPERM/EBUSY. Es
-    // transitorio: backoff exponencial con 5 intentos antes de rendirse.
+    // sesión de OpenCode, tail -f) falla en Windows con EPERM/EBUSY/EACCES.
+    // Es transitorio: backoff exponencial (20→320ms), 5 intentos.
     const delays = [20, 40, 80, 160, 320]
     let lastErr: unknown = null
     for (let i = 0; i <= delays.length; i++) {
@@ -32,7 +32,7 @@ export async function writeAtomic(filePath: string, contents: string): Promise<v
       } catch (err) {
         lastErr = err
         const code = (err as NodeJS.ErrnoException).code
-        if (i < delays.length && (code === "EPERM" || code === "EBUSY")) {
+        if (i < delays.length && (code === "EPERM" || code === "EACCES" || code === "EBUSY")) {
           await new Promise((r) => setTimeout(r, delays[i]))
           continue
         }
