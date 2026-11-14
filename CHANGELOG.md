@@ -1,4 +1,29 @@
 
+## [3.2.6] — 2026-11-14
+
+**Fix definitivo del arranque en frío: la oficina never cae a fallback nunca más por falta de un delegador.**
+
+### El problema que parecía recurrente
+
+Raíz real: en un root sin agentes, `oficina_dispatch` requiere un agente del roster con `canDelegate`. Roster vacío => toda llamada rechazada => la sesión cae "en fallback" (subagentes genéricos) y demo info reporta "no está desplegado". En cada sesión nueva. Siempre.
+
+### Fix definitivo
+
+- `src/core/bootstrap.ts` (nuevo): `bootstrapIntegratorIfNeeded(office, ctxAgentId)`. Si ningún agente del roster tiene `canDelegate` Y la identidad del host está en `TRUSTED_HOST_AGENTS` (build|general|plan|oficina-*), la oficina **se auto-despliega** un "Integrator (builtin)" builtin con `canDelegate: true` y nombre de sesión (`build` en la práctica de Marcos).
+- El wrapper de `buildTools` ejecuta este bootstrap **antes** de cada tool. Idempotente: si ya hay delegator, no-op.
+- Identidad preservada: sólo hosts confiables (OpenCode directs) auto-despliegan; sesiones con ids arbitrarios NO (siguen recibiendo rechazo con `Solo agentes con canDelegate`).
+- Funciona para ambos entries (v1 y v2) porque ambos pasan por `buildTools`.
+
+### Tests
+
+- `tests/coldStart.test.ts` (+3): auto-despliegue en `oficina_plan`, auto-despliegue en `oficina_dispatch`, trust boundary (no confiable no auto-despliega).
+- Suite: 571/571 verde.
+
+### Resuelto para Marcos (el issue de "que no sea exclusivo")
+
+Con 3.2.6, cualquier ventana OpenCode confiable levanta automáticamente su oficina en su propio root: no hace falta desplegar nada. `/oficina` desde cualquier sesión, en cualquier directorio, autogenera el delegator.
+
+
 ## [3.2.5] — 2026-11-14
 
 **Fix: los subagentes heredan el modelo del tap padre.**

@@ -16,6 +16,7 @@ import { CHANNELS } from "../core/bus.js"
 import { Office, renderFicha } from "../core/office.js"
 import { renderBriefing } from "../core/briefing.js"
 import { dispatchOffice, reviveOwner } from "../core/dispatch.js"
+import { bootstrapIntegratorIfNeeded } from "../core/bootstrap.js"
 import { snapshotMesa, renderMesa } from "../core/mesa.js"
 
 /**
@@ -165,7 +166,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
     return office
   }
 
-  return {
+  const defs: Record<string, OficinaTool> = {
     /**
      * Guarda el plan de cards. El modelo propone; el código valida y rutea.
      */
@@ -1690,7 +1691,23 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         }
       },
     }),
+  } as Record<string, OficinaTool>
+
+  // v3.2.6: arranque en frío — si no hay ningún agente con canDelegate en
+  // el roster y la sesión es de host confiable (build|general|plan|oficina-*),
+  // se auto-despliega un Comandante builtin. Idempotente.
+  const wrapped: Record<string, OficinaTool> = {}
+  for (const [name, t] of Object.entries(defs)) {
+    wrapped[name] = {
+      ...t,
+      execute: (async (args: unknown, ctx: { directory: string; sessionID: string; agent: string; messageID: string }) => {
+        const off = officeOf(ctx)
+        try { await bootstrapIntegratorIfNeeded(off, ctx.agent) } catch { /* best-effort */ }
+        return t.execute(args as never, ctx)
+      }) as never,
+    }
   }
+  return wrapped
 }
 
 function safeJson(text: string): Record<string, unknown> {

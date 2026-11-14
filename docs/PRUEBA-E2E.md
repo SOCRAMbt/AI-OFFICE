@@ -98,7 +98,7 @@ npm pack --dry-run
 | Comando | Esperado |
 |---|---|
 | `typecheck` | 0 errores |
-| `test` | `Test Files 44 passed (42)` · `Tests 568 passed (568)` |
+| `test` | `Test Files 45 passed (42)` · `Tests 571 passed (571)` |
 | `build` | sin errores |
 | `docs:check` | `README.md: al dia` · `docs/QUE-ES.md: al dia` |
 | `bench:selection` | `completo 71%` y le gana a `keywords 48%` y `solo-nombre 52%` |
@@ -467,7 +467,7 @@ y `C:\prueba-oficina\.oficina\evidence\<card>.json` (el grafo de evidencia).
 
 ## Lo que NO se testea acá
 
-- **La suite automatizada** (568 tests) ya cubre: sandbox, guard de scope, herencia de
+- **La suite automatizada** (571 tests) ya cubre: sandbox, guard de scope, herencia de
   scope en subagentes, concurrencia, atomicidad, evidencia, gates, costo, recovery,
   matcher, dispatch, router, state machine, CLI, docsync.
   Corré `npm test` para eso.
