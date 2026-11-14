@@ -13,3 +13,4 @@ coverage/
 .opencode/
 # PERO los agentes fabricados se guardan para el catálogo vivo:
 !.opencode/agents/
+.oficina-demo/

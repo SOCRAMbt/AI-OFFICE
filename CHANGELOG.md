@@ -1,4 +1,35 @@
 
+## [3.2.2] — 2026-11-14
+
+Dashboard **AI-OFFICE v3.3.0** recreado desde la referencia visual + corrección del crash del server por OOM.
+
+### Dashboard v3.3.0
+
+- Rediseño completo de `dashboard/dashboard.html` al look AI-OFFICE v3.3.0: topbar (Run + copiar, Mode violeta, Status pulsante, Started/Duration ticking, Escalate/Stop Run), AGENTS con waveforms animadas, **mesa redonda cenital** (CSS/SVG, cero assets), Message Bus con Live/SSE, GATES agregando el último resultado por fase, **CIRCUIT BREAKER con estado real** derivado de `failureHistory`/`blocked_escalated`, RECENT ACTIVITY desde `state.decisions`, TASK BOARD 5 columnas con chips de rama/paperclip/done-check/chip Typecheck, barra de métricas (progreso %, duración, throughput tasks/h; Tokens honesto `—` porque el host OpenCode no expone conteo).
+- **Agentes exactos, cero relleno**: la mesa y el panel muestran exactamente los agentes que la corrida despachó (0 es 0, 3 es 3, 10 es 10). Los tamaños se adaptan con la densidad (`low|mid|high`) según la cantidad.
+- **Estados vacíos honestos**: sin corrida — mesa vacía, «Bus en silencio», gates/actividad/board vacíos, métricas 0/0.
+- Layout de 4 columnas como la referencia (AGENTS | Mesa | Message Bus | Gates+Activity).
+- `POST /api/dashboard-message`: el operador puede enviar mensajes al bus del dashboard (canal `bus/dashboard/`, wx, 500 chars).
+- `/api/state` agrega `decisions`, `server.uptimeSec`, `server.rssMB`; `/api/gates` incluye `mtime` para tiempos relativos (2m/3m…).
+- `dashboard/scripts/seed-demo.mjs`: fixture sintético rico (RUN-2025-05-18-0017, 5 agentes, 17 cards) para verlo en acción sin corrida real; git-ignored; `npm run dashboard:demo`.
+- Interacciones funcionales verificadas con Playwright (0 errores de consola): modal Escalate con payload `oficina_escalate` copiable, modal Stop Run, `+ New Card` copiando card JSON, agrupar por owner, colapsar paneles, filtro solo-activas, copiar Run ID.
+
+### Fix: server no más OOM
+
+- `fs.watch({ recursive: true })` en Windows acumulaba heap (~2GB en ~16 min → FATAL out-of-memory). Reemplazado por watchers **no recursivos** sobre `OFICINA/` (renames atómicos de state/roster/memory), `bus/` y cada canal, con **debounce de 120ms** y limpieza de clientes SSE muertos en cada write.
+
+### Plugin: el dashboard y el usuario
+
+- `skills/oficina/SKILL.md` nueva sección **«1.5 Dashboard: ábrelo y avisá al usuario (OBLIGATORIO)»**: abrir el dashboard al iniciar una corrida, tomar la URL de `<PROJECT_ROOT>/.oficina/dashboard.json` (no asumir 7333), avisar al usuario en el primer mensaje con ubicación + confirmación (`Dashboard en vivo: <url> …`), y nunca pantalla/agente de relleno.
+- `commands/oficina.md` Paso 0 reforzado con el mismo formato obligatorio.
+- `docs` sync: SKILL.md versión → 3.2.2. `dashboard/README-DASHBOARD.md` reescrito para v3.3.0.
+- `.gitignore`: `.oficina-demo/`.
+
+### Verificación
+
+- `npm test` 557/557 · `docs:check` ok · escenarios Playwright empty/three/twelve (0, 3 y 12 agentes) sin errores de consola.
+
+
 ## [3.2.1] — 2026-11-19
 
 Merge verificado del fork `bochaah/AI-OFFICE` → rama `fix/engine-remediation` (commit `7d29ef8`, base `4539f87`) con las 6 fases de remediación de motor. Suite: 557/557 verde (incl. 28 tests nuevos en `phase1.test.ts`/`phase2.test.ts`/`phase4.test.ts`/`phase5.test.ts`).

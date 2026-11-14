@@ -87,12 +87,21 @@ function listBus() {
 function aggregate() {
   const stateFile = readJson(path.join(OFICINA, "state.json")) || {};
   const rosterFile = readJson(path.join(OFICINA, "roster.json")) || {};
+  const cards = stateFile.cards || {};
+  for (const [id, card] of Object.entries(cards)) {
+    // permite al dashboard mostrar paperclip de artefactos sin un fetch extra
+    card.artifactsExist = fs.existsSync(path.join(OFICINA, "artifacts", id));
+  }
   return {
     runId: stateFile.runId || rosterFile.runId || null,
     objective: stateFile.objective || "",
     status: stateFile.status || "unknown",
     mode: stateFile.mode || "full",
-    cards: stateFile.cards || {},
+    createdAt: stateFile.createdAt || null,
+    deliveredAt: stateFile.deliveredAt || null,
+    decisions: Array.isArray(stateFile.decisions) ? stateFile.decisions : [],
+    server: { uptimeSec: Math.floor(process.uptime()), rssMB: Math.round(process.memoryUsage().rss / 1048576) },
+    cards,
     agents: rosterFile.agents || {},
     bus: listBus(),
   };
@@ -110,6 +119,8 @@ function parseGates(cardId) {
   const gatesFile = path.join(dir, "gates.md");
   if (fs.existsSync(gatesFile)) {
     const text = fs.readFileSync(gatesFile, "utf8");
+    let mtime = null;
+    try { mtime = fs.statSync(gatesFile).mtime.toISOString(); } catch { /* sin mtime */ }
     for (const line of text.split("\n")) {
       // tabla real: | # | Fase | Comando | Resultado | Detalle |
       if (!/^\|\s*\d+\s*\|/.test(line)) continue;
@@ -118,7 +129,7 @@ function parseGates(cardId) {
       const result = (cells[4] || "").toUpperCase();
       if (!fase) continue;
       const status = result.startsWith("PASS") ? "pass" : result.startsWith("FAIL") ? "fail" : "na";
-      out.gates.push({ name: fase, status, command: cells[3] || "" });
+      out.gates.push({ name: fase, status, command: cells[3] || "", mtime });
     }
   }
   out.evidence = fs.existsSync(path.join(dir, "evidence.md"));
@@ -144,20 +155,64 @@ function serveArtifactFile(req, res, url, name) {
   res.end(fs.readFileSync(file));
 }
 
-/* ---- Watch: recursively notify SSE clients, con cursor monotónico ---- */
+/* ---- Watch: notificar SSE con debounce y watchers puntuales ----
+   OJO: `fs.watch({ recursive: true })` en Windows acumula memoria con el
+   tiempo (bug conocido del subsistema ReadDirectoryChangesW) — causaba
+   out-of-memory en corridas largas del dashboard. En su lugar, vigilamos
+   solo los directorios relevantes con watchers no recursivos:
+   OFICINA (state/roster/memory/dashboard.json), OFICINA/bus y cada canal.
+   Los eventos se coalescen con un debounce de 120ms.                     */
 const sseClients = new Set();
 let watchReady = false;
 let sseCursor = 0;
-function watchOficina() {
-  if (!fs.existsSync(OFICINA)) return;
+let watchPending = false;
+const busChannels = new Set();
+
+function notifyChanged() {
+  if (watchPending) return; // un evento reciente ya notifica
+  watchPending = true;
+  setTimeout(() => {
+    watchPending = false;
+    refreshChannelWatchers(); // canales creados después del boot (p.ej. bus/dashboard)
+    sseCursor += 1;
+    const msg = `id: ${sseCursor}\nevent: change\ndata: {"cursor":${sseCursor}}\n\n`;
+    for (const res of sseClients) {
+      try { res.write(msg); } catch { sseClients.delete(res); }
+    }
+  }, 120);
+}
+
+function safeWatchDir(dir) {
+  if (!fs.existsSync(dir)) return false;
   try {
-    fs.watch(OFICINA, { recursive: true }, () => {
-      sseCursor += 1;
-      const msg = `id: ${sseCursor}\nevent: change\ndata: {"cursor":${sseCursor}}\n\n`;
-      for (const res of sseClients) res.write(msg);
-    });
-    watchReady = true;
-  } catch { /* fs.watch recursivo no disponible → los clientes usan polling */ }
+    fs.watch(dir, { persistent: true }, () => notifyChanged());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function refreshChannelWatchers() {
+  const busDir = path.join(OFICINA, "bus");
+  if (!fs.existsSync(busDir)) return;
+  let created = false;
+  try {
+    for (const sub of fs.readdirSync(busDir, { withFileTypes: true })) {
+      if (!sub.isDirectory()) continue;
+      const p = path.join(busDir, sub.name);
+      if (busChannels.has(p)) continue;
+      if (safeWatchDir(p)) busChannels.add(p);
+      created = true;
+    }
+  } catch { /* bus transitorio durante una corrida: próximo tick */ }
+  return created;
+}
+
+function watchOficina() {
+  let ok = safeWatchDir(OFICINA);
+  if (safeWatchDir(path.join(OFICINA, "bus"))) ok = true;
+  refreshChannelWatchers();
+  watchReady = ok;
 }
 
 /* ---- Static ---- */
@@ -215,6 +270,42 @@ function serveApi(req, res, url) {
     }
     return;
   }
+  // Mensaje del operador (dashboard) → bus de la oficina, canal "dashboard".
+  // Solo loopback; el texto se trunca a 500 chars y el archivo se escribe con wx.
+  if (url.pathname === "/api/dashboard-message" && req.method === "POST") {
+    let raw = "";
+    let tooBig = false;
+    req.on("data", (chunk) => { raw += chunk; if (raw.length > 8192) tooBig = true; });
+    req.on("end", () => {
+      if (tooBig) { sendJson({ error: "payload too large" }, 413); return; }
+      let body;
+      try { body = JSON.parse(raw || "{}"); } catch { sendJson({ error: "invalid JSON" }, 400); return; }
+      const text = String(body?.text ?? "").trim().slice(0, 500);
+      if (!text) { sendJson({ error: "text requerido" }, 400); return; }
+      const channelDir = path.join(OFICINA, "bus", "dashboard");
+      try { fs.mkdirSync(channelDir, { recursive: true }); } catch { /* best effort */ }
+      const id = `d-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const msg = {
+        id,
+        from: "dashboard",
+        to: ["*"],
+        kind: "NOTICE",
+        subject: "operador",
+        body: { text },
+        priority: "normal",
+        inReplyTo: null,
+        createdAt: new Date().toISOString(),
+        seq: Date.now(),
+      };
+      try {
+        fs.writeFileSync(path.join(channelDir, `${id}.json`), JSON.stringify(msg, null, 2), { flag: "wx" });
+        sendJson({ ok: true, id }, 202);
+      } catch (err) {
+        sendJson({ error: "no se pudo escribir el mensaje del operador" }, 500);
+      }
+    });
+    return;
+  }
   if (url.pathname === "/api/evidence") { serveArtifactFile(req, res, url, "evidence.md"); return; }
   if (url.pathname === "/api/handoff") { serveArtifactFile(req, res, url, "handoff.md"); return; }
   if (url.pathname === "/api/events") {
@@ -233,6 +324,7 @@ function serveApi(req, res, url) {
     }
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
+    res.on("error", () => sseClients.delete(res));
     // Heartbeat cada 15s para detect connection drop
     const hb = setInterval(() => {
       try { res.write(": ping\n\n"); } catch { clearInterval(hb); }

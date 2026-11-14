@@ -30,10 +30,16 @@ Si ninguna de estas tres aplica, usar Modo Full (4 capas) normalmente.
 
 ## Paso 0 — ¿Plugin o fallback?
 
-> **Dashboard en vivo:** al arrancar una corrida, el dashboard visual se abre
-> automáticamente en tu navegador (`http://localhost:7333`). Ahí ves la mesa, el
-> bus de mensajes, el kanban y los gates en tiempo real. Si no se abrió solo:
-> `oficina dashboard`.
+> **Dashboard en vivo (obligatorio):** al arrancar una corrida, el dashboard
+> visual se abre automáticamente en el navegador. En tu **primer mensaje** a la
+> corrida, avisá al usuario con la ubicación real y que lo abriste, tomando la
+> URL de `<PROJECT_ROOT>/.oficina/dashboard.json` (no asumas 7333):
+>
+> `Dashboard en vivo: <url> (lo abrí en tu navegador — datos de <PROJECT_ROOT>/.oficina/)`
+>
+> Si no abrió solo: `oficina dashboard`. Si no arranca: avisá y seguí igual —
+> es best-effort, nunca bloquea la corrida. La mesa muestra EXACTAMENTE los
+> agentes despachados (0 es 0, 3 es 3, 10 es 10); nada de relleno.
 
 **[plugin]** Si tenés las tools `oficina_*` disponibles, usá el **motor duro**. Es lo que hace que los invariantes dejen de ser sugerencias: el guard de scope rechaza escrituras fuera del scope, el gate corre comandos de verdad, y una card no se cierra sin evidencia.
 
