@@ -1,4 +1,26 @@
 
+## [3.2.4] — 2026-11-14
+
+**Fix multi-ventana: cada ventana OpenCode corre SU oficina** — no una sola oficina para todas las ventanas.
+
+### Problema
+
+El plugin v2 instanciaba UNA `Office` en el plugin-load time, atada al directorio de quien cargó el plugin. Todas las ventanas compartían ese raíz: ninguna otra ventana podía ser "su oficina". Peor: `tools/index.ts` creaba oficinas "alternative" con `new Office({ cwd, limits })` SIN `spawner`/`client` — oficinas zombied readers: `oficina_dispatch` materializaba fichas pero nada arrancaba → 0 sesiones vivas → "la oficina no funciona en mi otra ventana".
+
+### Fix
+
+- **`OfficeFactory`** (`src/core/officeFactory.ts`, nuevo): una `Office` por `path.resolve(cwd)`. `get(dir)` cacheada; propaga `spawner` (+host hooks) a TODAS las oficinas (antes solo la base la tenía).
+- **Tools root-aware** (`buildTools` + `officeOf`): resuelve la oficina por `ctx.directory` y cae a `hooks.getOffice` — el entry v2 inyecta la fábrica en las tools.
+- **Scope guard / tripwire** (eje `violencia/tripwireFor/scopeOf`): resolve el proyecto root desde `ctx.session.get({sessionID}).location.directory` (con cache) y aplica el scope al `projectRoot` de ESA oficina, no de la base.
+- **Dashboard per-root**: `ensureDashboard(sessionDir)` arranca un dashboard por directorio (puertos negociados incrementalmente). No abre browser por root salvo que lo pida el comando de inicio activo.
+- **Auto-continuacion y system-prompt hooks** root-aware por sessionID (cada ventana inyecta el prompt de su oficina, no el de la base).
+
+### Tests
+
+- 5 tests nuevos en `tests/officeFactory.test.ts`: cache per-dir, oficinas distintas, estado aislado, `limits` compartido del host, y la integración `oficina_plan(directory=tmpA)` escribe `.oficina/` sólo en `tmpA` (la base queda intacta).
+- Suite: **564/564 verde**.
+
+
 ## [3.2.3] — 2026-11-14
 
 **Fix DISP-002 — dispatch reviva owners pre-asignados (plan-time con roster viejo).**

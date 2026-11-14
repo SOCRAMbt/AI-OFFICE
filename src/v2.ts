@@ -32,9 +32,10 @@
  * - **Costo** (`session.usage.recorded`): el numero real que reporta el motor.
  */
 
+import path from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { z } from "zod"
-import { Office } from "./core/office.js"
+import { OfficeFactory } from "./core/officeFactory.js"
 import { buildTools, type OficinaTool } from "./tools/index.js"
 import { analyzeShellCommand, checkScope, type ScopePolicy } from "./core/sandbox.js"
 import {
@@ -99,47 +100,62 @@ export default Plugin.define({
     // process.cwd() es solo el último recurso.
     const cwd = ctx.location?.directory ?? process.cwd()
 
-    // Guardar el cwd real para pasarlo a las tools (en test mode no es process.cwd())
-    const realCwd = cwd
+    const spawner = async ({ sessionID, agentName, prompt, description }: {
+      sessionID: string
+      agentName: string
+      prompt: string
+      description: string
+      agentId?: string
+      cardId?: string | null
+    }) => {
+      try {
+        const child = (await ctx.session.create({
+          parentID: sessionID,
+          title: description || `Oficina: ${agentName}`,
+          // El agente materializado puede no estar registrado todavia
+          // (OpenCode arma su lista al arrancar), asi que se dispara con
+          // `general` y la especialidad viaja completa en el prompt.
+          agent: "general",
+        })) as { id: string }
+        await ctx.session.prompt({
+          sessionID: child.id,
+          text: prompt,
+          metadata: { oficina: { agent: agentName, description } },
+        })
+        return child.id
+      } catch (err) {
+        log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
+        return false
+      }
+    }
 
-    const office = new Office({
-      cwd,
-      /**
-       * Como se crea un subagente en OpenCode v2.
-       *
-       * La v1 usaba `session.prompt` con una parte `subtask`. **En v2 esa
-       * parte no existe.** La forma de v2 es crear la sesion hija y
-       * dispararle un prompt:
-       *
-       *     const child = await ctx.session.create({ parentID, title, agent })
-       *     await ctx.session.prompt({ sessionID: child.id, text })
-       *
-       * El hijo queda colgando de la sesion padre, asi que hereda su
-       * scope: el guard lo encuentra subiendo por la cadena de padres.
-       */
-      spawner: async ({ sessionID, agentName, prompt, description }) => {
-        try {
-          const child = (await ctx.session.create({
-            parentID: sessionID,
-            title: description || `Oficina: ${agentName}`,
-            // El agente materializado puede no estar registrado todavia
-            // (OpenCode arma su lista al arrancar), asi que se dispara con
-            // `general` y la especialidad viaja completa en el prompt.
-            agent: "general",
-          })) as { id: string }
-          await ctx.session.prompt({
-            sessionID: child.id,
-            text: prompt,
-            metadata: { oficina: { agent: agentName, description } },
-          })
-          return child.id
-        } catch (err) {
-          log.warn("no se pudo arrancar el subagente", { agent: agentName, error: String(err) })
-          return false
-        }
-      },
-    })
+    const factory = new OfficeFactory({ spawner })
+    const office = factory.getPrimary(cwd)
     await office.init()
+
+    /* Caché de directorio por sesión: cada ventana/proyecto usa SU oficina. */
+    const sessionDirCache = new Map<string, string>()
+    const resolveSessionDir = async (sessionID: string): Promise<string> => {
+      const cached = sessionDirCache.get(sessionID)
+      if (cached) return cached
+      try {
+        const session = (await ctx.session.get({ sessionID })) as
+          | { location?: { directory?: string } }
+          | undefined
+        const dir = session?.location?.directory
+        if (typeof dir === "string" && dir.trim().length > 0) {
+          sessionDirCache.set(sessionID, dir.trim())
+          return dir.trim()
+        }
+      } catch (err) {
+        log.debug("no se pudo resolver el directorio de la sesión", {
+          sessionID,
+          error: String(err),
+        })
+      }
+      sessionDirCache.set(sessionID, cwd)
+      return cwd
+    }
 
     /* ────────────────────────────────────────────────────────────────────────
      * 0. DASHBOARD VISUAL
@@ -156,23 +172,36 @@ export default Plugin.define({
       !process.env.VITEST &&
       !process.env.CI
     const dashboard = await import("./core/dashboard.js")
+    const ensureDashboard = async (projectRoot: string) => {
+      try {
+        const info = await dashboard.startDashboard(projectRoot, path.join(projectRoot, ".oficina"))
+        if (info) log.info("dashboard listo", { projectRoot, url: info.url })
+        return info
+      } catch (err) {
+        log.debug("dashboard best-effort", { projectRoot, error: String(err) })
+        return undefined
+      }
+    }
     if (dashboardEnabled) {
       void (async () => {
-        try {
-          const info = await dashboard.startDashboard(office.paths.projectRoot, office.paths.officeDir)
-          if (!info) return
-          // ¿Hay una corrida activa que reanudar? Abrir el navegador ya.
-          const state = await office.loadState()
-          if (state.status === "running") dashboard.openBrowser(info.url)
-        } catch (err) {
-          log.debug("dashboard: arranque best-effort", { error: String(err) })
-        }
+        const info = await ensureDashboard(cwd)
+        if (!info) return
+        // ¿Hay una corrida activa que reanudar? Abrir el navegador ya.
+        const state = await office.loadState().catch(() => undefined)
+        if (state?.status === "running") dashboard.openBrowser(info.url)
       })()
     }
 
-    const tripwire = new Tripwire(office.paths.projectRoot, {
-      maxFiles: options.tripwireMaxFiles ?? 4000,
-    })
+    const tripwires = new Map<string, Tripwire>()
+    const getTripwire = (dir: string): Tripwire => {
+      const key = path.resolve(dir)
+      let tw = tripwires.get(key)
+      if (!tw) {
+        tw = new Tripwire(key, { maxFiles: options.tripwireMaxFiles ?? 4000 })
+        tripwires.set(key, tw)
+      }
+      return tw
+    }
 
     /**
      * El padre de una sesion, con cache.
@@ -202,10 +231,13 @@ export default Plugin.define({
       }
     }
 
-    /** El scope que aplica a una sesion, si tiene. */
+    /** El scope que aplica a una sesion, si tiene (root-aware). */
     const scopeOf = async (sessionID: string) => {
+      const sidDir = await resolveSessionDir(sessionID)
+      const off = factory.get(sidDir)
       try {
-        const state = await office.loadState()
+        const state = await off.loadState().catch(() => undefined)
+        if (!state) return undefined
         const result = await resolveScopeCard(state, sessionID, { enforce, resolveParentSession })
         if (result.kind === "VERIFICATION_FAILED") {
           log.error("verificacion de scope fallida", { sessionID, reason: result.reason })
@@ -222,7 +254,7 @@ export default Plugin.define({
           mayTouch: card.scope.mayTouch,
           forbidden: card.scope.forbidden,
         }
-        return { card, policy }
+        return { card, policy, projectRoot: off.paths.projectRoot }
       } catch (err) {
         log.debug("no se pudo resolver el scope de la sesion", { sessionID, error: String(err) })
         if (enforce) {
@@ -232,15 +264,19 @@ export default Plugin.define({
       }
     }
 
+    /** Tripwire per-root para la oficina de este sessionID */
+    const tripwireFor = async (sessionID: string): Promise<Tripwire> =>
+      getTripwire(await resolveSessionDir(sessionID))
+
     /* ────────────────────────────────────────────────────────────────────────
      * 1. TOOLS
      * ──────────────────────────────────────────────────────────────────────── */
 
     const defs = buildTools(office, {
-      onRunStart: async (runId) => {
+      onRunStart: async (runId, off) => {
         if (!dashboardEnabled) return undefined
         try {
-          const info = await dashboard.startDashboard(office.paths.projectRoot, office.paths.officeDir)
+          const info = await ensureDashboard(off.paths.projectRoot)
           if (info) {
             dashboard.openBrowser(info.url)
             log.info("dashboard abierto", { runId, url: info.url })
@@ -252,6 +288,7 @@ export default Plugin.define({
         }
         return undefined
       },
+      getOffice: (dir: string) => factory.get(dir),
     })
     await ctx.tool.transform((editor) => {
       for (const [name, def] of Object.entries(defs)) {
@@ -261,12 +298,17 @@ export default Plugin.define({
           input: toJsonSchema(def.args),
           execute: async (input: unknown, toolCtx: { sessionID: string; agent: string; messageID: string }) => {
             const parsed = def.args ? def.args.parse(input ?? {}) : (input ?? {})
+            const sessionDir = await resolveSessionDir(toolCtx.sessionID)
             const result = await def.execute(parsed as Record<string, unknown>, {
-              directory: realCwd,
+              directory: sessionDir,
               sessionID: toolCtx.sessionID,
               agent: toolCtx.agent,
               messageID: toolCtx.messageID,
             })
+            // dashboard per-root: plan y dispatch la disparan; el resto de tools no.
+            if (dashboardEnabled && (name === "oficina_plan" || name === "oficina_dispatch")) {
+              void ensureDashboard(sessionDir).catch(() => undefined)
+            }
             return {
               content: result.output,
               metadata: result.metadata,
@@ -294,7 +336,7 @@ export default Plugin.define({
     ): Promise<{ reason: string; kind: string } | undefined> => {
       const scope = await scopeOf(sessionID)
       if (!scope) return undefined
-      const verdict = await checkScope(office.paths.projectRoot, rawPath, scope.policy)
+      const verdict = await checkScope(scope.projectRoot, rawPath, scope.policy)
       if (verdict.allowed) return undefined
       return { reason: verdict.reason, kind: verdict.kind }
     }
@@ -309,7 +351,7 @@ export default Plugin.define({
         // (un `grep` con redireccion, por ejemplo) y no hay que confiar en
         // el nombre de la tool.
         const scopeLectura = await scopeOf(event.sessionID)
-        if (scopeLectura) await tripwire.arm(String(event.id), scopeLectura.policy.mayTouch)
+        if (scopeLectura) await (await tripwireFor(event.sessionID)).arm(String(event.id), scopeLectura.policy.mayTouch)
         return
       }
 
@@ -327,7 +369,7 @@ export default Plugin.define({
         // El tripwire se arma una sola vez, con el mismo hook: registrar
         // `execute.before` dos veces hacia que la segunda pise a la primera
         // (y el guard dejaba de bloquear).
-        await tripwire.arm(String(event.id), scope.policy.mayTouch)
+        await (await tripwireFor(event.sessionID)).arm(String(event.id), scope.policy.mayTouch)
         return
       }
 
@@ -354,7 +396,7 @@ export default Plugin.define({
           })
           if (enforce) throw new Error(mensaje)
         }
-        await tripwire.arm(String(event.id), scope.policy.mayTouch)
+        await (await tripwireFor(event.sessionID)).arm(String(event.id), scope.policy.mayTouch)
       }
     })
 
@@ -388,7 +430,7 @@ export default Plugin.define({
     await ctx.tool.hook("execute.after", async (event) => {
       const scope = await scopeOf(event.sessionID)
       if (!scope) return
-      const { changes: cambios, incomplete, errors, armFailed } = await tripwire.check(String(event.id), scope.policy.mayTouch)
+      const { changes: cambios, incomplete, errors, armFailed } = await (await tripwireFor(event.sessionID)).check(String(event.id), scope.policy.mayTouch)
       if (cambios.length === 0 && !incomplete && errors.length === 0 && !armFailed) return
 
       const detalle = cambios.map((c) => `  - ${c.kind}: ${c.path}`).join("\n")
@@ -401,7 +443,9 @@ export default Plugin.define({
         armFailed,
       })
 
-      await office.bus
+      const sidDir = await resolveSessionDir(event.sessionID)
+      const offScope = factory.get(sidDir)
+      await offScope.bus
         .send("peer", {
           from: "oficina",
           to: ["*"],
@@ -428,8 +472,11 @@ export default Plugin.define({
     await ctx.session.hook("context", async (event) => {
       try {
         const { buildSystemPrompt } = await import("./core/systemPrompt.js")
-        const state = await office.loadState()
-        event.system.push({ type: "text", text: await buildSystemPrompt(office, state) })
+        const sid = (event as { sessionID?: string }).sessionID
+        const off = typeof sid === "string" && sid.length > 0 ? factory.get(await resolveSessionDir(sid)) : office
+        const state = await off.loadState().catch(() => undefined)
+        if (!state) return
+        event.system.push({ type: "text", text: await buildSystemPrompt(off, state) })
       } catch (err) {
         log.debug("no se pudo inyectar el estado", { error: String(err) })
       }
@@ -445,8 +492,11 @@ export default Plugin.define({
     await ctx.session.hook("compaction", async (event) => {
       try {
         const { buildSystemPrompt } = await import("./core/systemPrompt.js")
-        const state = await office.loadState()
-        event.system.push({ type: "text", text: await buildSystemPrompt(office, state) })
+        const sid = (event as { sessionID?: string }).sessionID
+        const off = typeof sid === "string" && sid.length > 0 ? factory.get(await resolveSessionDir(sid)) : office
+        const state = await off.loadState().catch(() => undefined)
+        if (!state) return
+        event.system.push({ type: "text", text: await buildSystemPrompt(off, state) })
       } catch (err) {
         log.debug("no se pudo inyectar el estado al compactar", { error: String(err) })
       }
@@ -469,7 +519,10 @@ export default Plugin.define({
             const sessionID = event.data?.sessionID
             if (!sessionID) continue
             try {
-              const state = await office.loadState()
+              const dir = await resolveSessionDir(sessionID)
+              const off = factory.get(dir)
+              const state = await off.loadState().catch(() => undefined)
+              if (!state) continue
               if (state.status !== "running") continue
               if (state.halt) continue
 
@@ -488,7 +541,7 @@ export default Plugin.define({
               resumes.set(sessionID, count + 1)
 
               const { renderMesaBrief, snapshotMesa } = await import("./core/mesa.js")
-              const mesa = await snapshotMesa(office)
+              const mesa = await snapshotMesa(off)
               const mesaBrief = renderMesaBrief(mesa)
 
               const texto = [

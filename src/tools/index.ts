@@ -142,16 +142,25 @@ export interface ToolHooks {
    * Se dispara cuando se guarda un plan (arranca una corrida). Devuelve la
    * URL del dashboard visual si pudo abrirse — el plan la reporta al modelo.
    */
-  onRunStart?: (runId: string) => Promise<string | undefined>
+  onRunStart?: (runId: string, office: Office) => Promise<string | undefined>
+  /**
+   * Resuelve el office para un directorio de sesión (ventana/hueco en una
+   * sesión de otro proyecto). Sin esto, cada tool usa el `Office` base del
+   * plugin — una oficina única para todas las ventanas.
+   */
+  getOffice?: (dir: string) => Office
 }
 
 export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string, OficinaTool> {
   const officeOf = (ctx: { directory: string }) => {
     // El directorio del contexto tiene prioridad sobre el cwd del plugin:
     // es el proyecto real en el que se está trabajando.
-    if (ctx.directory && ctx.directory !== office.paths.projectRoot) {
-      const alt = new Office({ cwd: ctx.directory, limits: office.limits })
-      return alt
+    const dir = ctx.directory?.trim()
+    if (dir) {
+      if (dir === office.paths.projectRoot) return office
+      // Fábrica per-dir si hay; si no, oficina liviana (sin spawner/client del host).
+      if (hooks.getOffice) return hooks.getOffice(dir)
+      return new Office({ cwd: dir, limits: office.limits })
     }
     return office
   }
@@ -208,7 +217,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         // visual (la URL viaja en la salida para que el modelo la reporte).
         let dashUrl: string | undefined
         try {
-          dashUrl = await hooks.onRunStart?.(updated.runId)
+          dashUrl = await hooks.onRunStart?.(updated.runId, off)
         } catch { /* el dashboard es best-effort: no bloquea la corrida */ }
         const lines = [
           `Plan guardado. ${updated.order.length} cards en la corrida.`,
