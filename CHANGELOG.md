@@ -1,4 +1,29 @@
 
+## [3.2.5] — 2026-11-14
+
+**Fix: los subagentes heredan el modelo del tap padre.**
+
+### El problema
+
+Marcos: «Cuando eligo Inkling 2 Small y corro `/oficina`, qué modelo se asigna a cada agente de la oficina?» — la respuesta era: **el que OpenCode resuelva para el agente `general` por defecto**, no el elegido en la tap. En su máquina eso resolvió hacia Google AI Studio (sus `GOOGLE_API_KEY`/`GEMINI_API_KEY` en el env) y los 10 agentes murieron en ráfaga por cuota.
+
+### Fix (`src/core/childModel.ts` + `src/v2.ts`)
+
+- Antes de `ctx.session.create({ agent: "general", ... })`, el spawner lee `ctx.session.get({ sessionID })` (modelo del padre) y lo pasa en `create(..., model: { id, providerID, variant? })`.
+- `childModelFrom()` valida la forma del modelo (`id` + `providerID` no vacíos, `variant` opcional); si el host no reporta modelo, se conserva el default histórico.
+- Fallback defensivo: si `session.get` falla o el modelo es inválido, spawn procede sin modelo (comportamiento v3.2.4).
+
+### Tests
+
+- `tests/childModel.test.ts` — herencia de modelo (id/providerID/variant), sin modelo, modelos malformados → undefined (sin romper spawn).
+- Suite: 568/568 verde.
+
+### Notas
+
+- El plugin **no elige** modelos — hace que el tap decida. Si el usuario abre una ventana con Zen y corre `/oficina`, los agentes de la oficina corren con Zen.
+- No cambia comportamiento sin un modelo en el padre (GOOGLE_API_KEY sueltos en el env ya no afectarán a sesiones Zen).
+
+
 ## [3.2.4] — 2026-11-14
 
 **Fix multi-ventana: cada ventana OpenCode corre SU oficina** — no una sola oficina para todas las ventanas.

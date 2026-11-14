@@ -86,6 +86,8 @@ function toJsonSchema(schema: unknown): Record<string, unknown> {
   }
 }
 
+import { childModelFrom } from "./core/childModel.js"
+
 export default Plugin.define({
   id: "oficina",
 
@@ -109,6 +111,16 @@ export default Plugin.define({
       cardId?: string | null
     }) => {
       try {
+        // Herencia de modelo: los subagentes corren sobre el MISMO modelo que el tap padre.
+        let model: ReturnType<typeof childModelFrom>
+        try {
+          const parent = (await ctx.session.get({ sessionID })) as
+            | { model?: { id: string; providerID: string; variant?: string } }
+            | undefined
+          model = childModelFrom(parent)
+        } catch {
+          // best-effort: si no podemos leer el modelo del padre dejamos el default del host
+        }
         const child = (await ctx.session.create({
           parentID: sessionID,
           title: description || `Oficina: ${agentName}`,
@@ -116,6 +128,7 @@ export default Plugin.define({
           // (OpenCode arma su lista al arrancar), asi que se dispara con
           // `general` y la especialidad viaja completa en el prompt.
           agent: "general",
+          ...(model ? { model } : {}),
         })) as { id: string }
         await ctx.session.prompt({
           sessionID: child.id,
