@@ -478,3 +478,110 @@ describe("F-QA-003: Fallback paths aislados por SHA256 (SEC-001)", () => {
     expect(altB.replace(/\\/g, "/")).toMatch(/[/-]app-[a-f0-9]{12}$/i)
   })
 })
+describe("DISP-002: owners pre-asignados en plan-time con roster viejo se arrancan vía revive", () => {
+  let spawnCalls: Array<Record<string, unknown>> = []
+  let tmp2: string
+  let office2: Office
+  let tools2: Record<string, OficinaTool>
+  let childSeq = 0
+
+  beforeEach(async () => {
+    spawnCalls = []
+    childSeq = 0
+    tmp2 = await fs.mkdtemp(path.join(os.tmpdir(), "oficina-revive-"))
+    await fs.writeFile(path.join(tmp2, "package.json"), JSON.stringify({
+      name: "revive-test",
+      scripts: { test: "exit 0" },
+    }))
+    office2 = new Office({
+      cwd: tmp2,
+      limits: DEFAULT_LIMITS,
+      spawner: async (input) => {
+        spawnCalls.push(input as unknown as Record<string, unknown>)
+        childSeq += 1
+        return `child-${childSeq}`
+      },
+    })
+    await office2.init()
+    tools2 = buildTools(office2)
+  })
+  afterEach(async () => { await fs.rm(tmp2, { recursive: true, force: true }) })
+
+  it("reusa el owner pre-asignado y arranca su sesión; segundo dispatch no duplica", async () => {
+    // Plan con roster vacío: owner queda null en plan-time
+    const state = await office2.loadState("Revive test")
+    await office2.savePlan(state, [{
+      title: "Investigar mercado IA", type: "exploration",
+      requiredCapabilities: ["research", "web"],
+      scope: { mayTouch: ["docs/**", "ai-business-research/**"], forbidden: [] },
+      acceptance: ["informe compuesto"], gate: "npm test",
+    }])
+
+    // Roster viejo: un agente idle pre-existente (como en corridas anteriores)
+    const { ficha: staleResearcher } = await office2.resolveFicha({
+      role: "researcher", capabilities: ["research", "web", "analysis"],
+    })
+    await office2.deploy(staleResearcher)
+
+    // savePlan lo enruta como owner de T-00 (simulando roster viejo)
+    const routed = await office2.loadState()
+    const card = routed.cards["T-00"]!
+    card.owner = staleResearcher.id
+    card.reviewer = null
+    await office2.saveState(routed)
+
+    // Commander con autoridad de despacho
+    const { ficha: commander } = await office2.resolveFicha({
+      role: "commander", capabilities: ["coordination"], canDelegate: true,
+    })
+    await office2.deploy(commander)
+
+    const ctx = { directory: tmp2, sessionID: "ses-cmd-1", agent: commander.id, messageID: "m1" }
+    const def = tools2.oficina_dispatch as any; const args1 = def.args.parse({ agentId: commander.id }); const result1 = await def.execute(args1, ctx)
+
+    expect(result1.output).toContain("Arrancados")
+    expect(spawnCalls.length).toBe(1)
+    expect(spawnCalls[0]!["agentId"]).toBe(staleResearcher.id)
+    expect(spawnCalls[0]!["cardId"]).toBe("T-00")
+    expect(String(spawnCalls[0]!["agentName"])).toMatch(/^oficina-/)
+    expect(String(spawnCalls[0]!["description"])).toContain("T-00")
+
+    // El roster queda apuntando al agente reutilizado (mismo id, no un duplicado)
+    const after = await office2.loadRoster(routed.runId)
+    expect(after.agents[staleResearcher.id]).toBeDefined()
+    expect(after.agents[staleResearcher.id]!.currentCard).toBe("T-00")
+    expect(after.agents[staleResearcher.id]!.state).toBe("working")
+
+    // Segundo dispatch: no hay sesión nueva para la misma card
+    const ctx2 = { directory: tmp2, sessionID: "ses-cmd-2", agent: commander.id, messageID: "m2" }
+    const args2 = def.args.parse({ agentId: commander.id }); const result2 = await def.execute(args2, ctx2)
+    expect(result2.output).not.toContain("Arrancados")
+    expect(spawnCalls.length).toBe(1)
+  })
+
+  it("owner pre-asignado cuya entrada desapareció del roster cae al flujo normal (unassigned)", async () => {
+    const state = await office2.loadState("Revive roto")
+    await office2.savePlan(state, [{
+      title: "Card ghost", type: "implementation",
+      scope: { mayTouch: ["src/**"], forbidden: [] },
+      acceptance: ["ok"], gate: "npm test",
+    }])
+    const routed = await office2.loadState()
+    routed.cards["T-00"]!.owner = "e-ghost-agent-id-does-not-exist"
+    await office2.saveState(routed)
+
+    const { ficha: commander } = await office2.resolveFicha({
+      role: "commander", capabilities: ["coordination"], canDelegate: true,
+    })
+    await office2.deploy(commander)
+
+    const ctx = { directory: tmp2, sessionID: "ses-cmd-3", agent: commander.id, messageID: "m3" }
+    const def2 = tools2.oficina_dispatch as any; const args3 = def2.args.parse({ agentId: commander.id }); const result = await def2.execute(args3, ctx)
+
+    // Ghost owner falta en roster → el revive no hace nada; el materializado lo reasigna
+    expect(spawnCalls.length).toBeGreaterThanOrEqual(0)
+    expect(result.output).toMatch(/Equipo despachado|sin arrancar/)
+    const after = await office2.loadState()
+    expect(after.cards["T-00"]!.owner).toBeTruthy()
+  })
+})

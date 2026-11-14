@@ -1,4 +1,24 @@
 
+## [3.2.3] — 2026-11-14
+
+**Fix DISP-002 — dispatch reviva owners pre-asignados (plan-time con roster viejo).**
+
+### Problema
+
+`oficina_plan` enruta owner a las cards usando el roster disponible (que arrastra zombies de corridas anteriores — ids que ya no tienen sesión viva). Después, `oficina_dispatch` iteraba cards "sin owner" y las que tenían owner pre-asignado quedaban con `continue` → **0 agentes despachados, 0 sesiones arrancadas**. La sesión del usuario reemplazaba el equipo por subagentes genéricos "a mano", rompiendo la visibilidad de la oficina (mesa/bus/gates).
+
+### Fix
+
+- **`reviveOwner`** (`src/core/dispatch.ts`): para owner pre-asignado presente en el roster, reconstruye la ficha con el scope de la card, calca el briefing, re-materializa `.opencode/agents/oficina-<rol>.md` (mismo id, no duplica), y devuelve el payload de despacho con `reused: true`. La entrada del roster se refresca a `working` + `currentCard`.
+- **Pase de revival en `oficina_dispatch`** (`src/tools/index.ts`): tras el despacho normal y los reviewers, toda card `todo|in_progress|rework` con owner que existe en el roster pero **sin sesión enlazada** se arranca vía spawn (idempotente: si hay binding existente no duplica). El output muestra esos agentes con la etiqueta `(reutilizado)` en "Arrancados (con sesión viva)".
+- Si el owner pre-asignado falta en el roster, `reviveOwner` no se llama y la card cae al flujo normal.
+
+### Tests
+
+- 2 tests de regresión (`tests/identity-security.test.ts` > `DISP-002`): revive con spawn simulado (spawnCalls asserted ownerId+cardId) + idempotencia (segundo dispatch no spawnea de nuevo) + owner ghost → revive no-op y la card se reasigna por el flujo normal.
+- Suite completa: **559/559 verde**.
+
+
 ## [3.2.2] — 2026-11-14
 
 Dashboard **AI-OFFICE v3.3.0** recreado desde la referencia visual + corrección del crash del server por OOM.

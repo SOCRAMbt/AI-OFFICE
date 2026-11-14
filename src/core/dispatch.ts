@@ -78,6 +78,10 @@ export interface DispatchedAgent {
   artifacts: string[]
   /** ¿Es un par libre (sin card) o un owner? */
   isPeer: boolean
+  /** true si esta entrada ya existía en el roster (owner pre-asignado) y se
+   *  reutilizó con el mismo id, ficha original y ámbito de la card actual.
+   */
+  reused?: boolean
 }
 
 export interface DispatchResult {
@@ -706,5 +710,98 @@ async function instantiate(
     agentFile,
     artifacts: briefing.artifacts.map((a) => a.filename),
     isPeer,
+  }
+}
+
+/**
+ * Reutiliza un owner pre-asignado (plan-time) sin roster suficiente para un despacho nuevo.
+ *
+ * ## Por qué existe
+ *
+ * `dispatchOffice` materializa owners nuevos para cards SIN owner. Pero
+ * `savePlan` ya enruta las cards contra el roster disponible; con un roster
+ * viejo (corridas anteriores) las cards salen con owner asignado y ninguna
+ * se despacha: el equipo queda formado en disco pero sin sesiones.
+ *
+ * `reviveOwner` toma esa entrada del roster, le reconstruye la ficha con el
+ * scope de la card actual, calca el briefing y devuelve el payload de
+ * despacho reutilizado. El agente arranca con su especialidad original
+ * intacta y con el contexto de ESTA card.
+ */
+export async function reviveOwner(
+  office: Office,
+  roster: Roster,
+  entry: RosterEntry,
+  card: Card,
+  options: DispatchOptions,
+  state?: OfficeState,
+): Promise<DispatchedAgent | undefined> {
+  const role = entry.role
+  const source = entry.source as Ficha["source"]
+  const ficha: Ficha = {
+    id: entry.id,
+    role,
+    displayName: entry.displayName,
+    source: source?.kind
+      ? source
+      : { kind: "agency-agents", division: "", path: "", sourcePrompt: "", vibe: "", missions: [card.title], deliverables: ["handoff.md"], rules: [] },
+    capabilities: entry.capabilities,
+    tools: ["read", "glob", "grep", "edit", "write", "bash", "task"],
+    scope: {
+      mayTouch: card.scope.mayTouch,
+      forbidden: card.scope.forbidden,
+    },
+    canDelegate: false,
+    delegateBudget: 0,
+    peers: entry.peers ? [...entry.peers] : [],
+    mustNot: [
+      "no editar archivos fuera de may_touch",
+      "no tocar archivos de forbidden",
+      "no aprobar tu propio trabajo",
+      "no declarar DONE sin handoff.md y evidence.md",
+    ],
+    onFinish: "idle-join",
+    escalateTo: "integrator",
+  }
+
+  const briefing = office.buildBriefing(ficha, card, roster, state)
+  const memory = await memorySummary(office.paths.officeDir, 6)
+  const stackTags = await auditRepo(options.projectRoot)
+  const traitIds = selectTraitsForCard(stackTags, card.requiredCapabilities)
+  const traits = await loadTraits(options.projectRoot, traitIds)
+  const agentFile = await materializeAgent(options.projectRoot, ficha, briefing, {
+    createdForTask: card.title,
+    stackTags: card.requiredCapabilities,
+  })
+  const prompt = buildAgentPrompt(ficha, briefing, false, memory, traits)
+
+  // La entrada se refresca: sigue el agente, cambia la card que lleva.
+  roster.agents[entry.id] = {
+    ...entry,
+    state: "working",
+    currentCard: card.id,
+    lease: null,
+    idleSince: null,
+    canAccept: false,
+    helpGiven: 0,
+    helpReceived: 0,
+    helpedPeers: [],
+    lastHeartbeat: nowIso(),
+  }
+
+  return {
+    agentId: entry.id,
+    agentName: agentNameFor(role),
+    cardId: card.id,
+    role,
+    displayName: entry.displayName,
+    source: source?.kind === "factory" ? "factory" : "agency-agents",
+    coverage: 1,
+    contributes: [],
+    prompt,
+    agentFile,
+    artifacts: briefing.artifacts.map((a) => a.filename),
+    isPeer: false,
+    reused: true,
   }
 }

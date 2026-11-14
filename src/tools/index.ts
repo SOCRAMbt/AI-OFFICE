@@ -15,7 +15,7 @@ import type { Card, CardType, MessageKind, MessagePriority } from "../core/types
 import { CHANNELS } from "../core/bus.js"
 import { Office, renderFicha } from "../core/office.js"
 import { renderBriefing } from "../core/briefing.js"
-import { dispatchOffice } from "../core/dispatch.js"
+import { dispatchOffice, reviveOwner } from "../core/dispatch.js"
 import { snapshotMesa, renderMesa } from "../core/mesa.js"
 
 /**
@@ -928,6 +928,58 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           existing: Object.values(roster.agents),
         })
 
+        // Revive owners pre-asignados en plan-time para cards accionables
+        // cuyo owner existe en el roster pero ninguna sesión lo enlaza todavía.
+        // Sin este pase, las corridas enrutadas con un roster viejo terminan
+        // con 0 agentes despachados y 0 sesiones arrancadas.
+        const revived: string[] = []
+        const reviveFailed: string[] = []
+        if (args.spawn) {
+          const postDispatch = await off.loadState()
+          const postRoster = await off.loadRoster(postDispatch.runId)
+          const dispatchedKeys = new Set(result.dispatched.map((a) => `${a.agentId}:${a.cardId}`))
+          for (const cardId of postDispatch.order) {
+            const card = postDispatch.cards[cardId]
+            if (!card || !card.owner) continue
+            if (card.state !== "todo" && card.state !== "in_progress" && card.state !== "rework") continue
+            if (dispatchedKeys.has(`${card.owner}:${cardId}`)) continue
+            // Owner ya enlazado con una sesión para ESTA card: no duplicar.
+            const bindingFound = Object.values(postDispatch.sessions).some(
+              (s) => s.agentId === card.owner && s.cardId === cardId,
+            )
+            if (bindingFound) continue
+            const entry = postRoster.agents[card.owner]
+            if (!entry) continue
+            const reused = await reviveOwner(off, postRoster, entry, card, {
+              projectRoot: off.paths.projectRoot,
+              catalog,
+              objective: postDispatch.objective,
+              maxAgents: 1,
+              maxComplements: 0,
+              minCoverage: 0.3,
+              existing: [],
+            }, postDispatch)
+            if (!reused) {
+              reviveFailed.push(cardId)
+              continue
+            }
+            const ok = await off.spawnAgent(
+              ctx.sessionID,
+              reused.agentName,
+              reused.prompt,
+              cardId,
+              { agentId: reused.agentId, cardId: reused.cardId },
+            )
+            if (ok) {
+              revived.push(`${reused.agentName} (${reused.role})`)
+              dispatchedKeys.add(`${reused.agentId}:${cardId}`)
+            } else {
+              reviveFailed.push(cardId)
+            }
+          }
+          if (revived.length > 0) await off.saveRoster(postRoster)
+        }
+
         // Segunda mitad del routing: savePlan corrió con el roster vacío y
         // dejó reviewer=null en todas las cards. Ahora el roster existe y se
         // puede asignar. Sin esto, submitReview es estructuralmente imposible
@@ -964,8 +1016,16 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           ),
         ]
 
-        if (spawned.length > 0) {
-          lines.push("", `**Arrancados (con sesión viva):** ${spawned.join(", ")}`)
+        if (spawned.length > 0 || revived.length > 0) {
+          const parts = [...spawned]
+          if (revived.length > 0) parts.push(...revived.map((r) => `${r} (reutilizado)`))
+          lines.push("", `**Arrancados (con sesión viva):** ${parts.join(", ")}`)
+        }
+        if (reviveFailed.length > 0) {
+          lines.push(
+            "",
+            `**⚠ Owners sin arrancar:** ${reviveFailed.join(", ")} — existían en el roster pero no se pudo materializar/arrancar. Re-corré el despacho.`,
+          )
         }
         if (spawnFailed.length > 0) {
           lines.push(
