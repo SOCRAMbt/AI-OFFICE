@@ -1,0 +1,45 @@
+name: Recomendación / idea / propuesta
+description: Mejoras, ideas, pedidos de features, formas de colaborar — todo bienvenido
+title: "[recomendación] "
+labels: ["recomendación"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Esto no es un bug: ¿querés sugerir algo, proponer una dirección, recomendar un cambio o decirnos cómo querés colaborar? Contanos.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Tipo de recomendación
+      options:
+        - Mejora del protocolo / tools / comando `/oficina`
+        - Nueva feature o capacidad del catálogo
+        - Mejora de docs / ejemplos
+        - Propuesta de colaboración (quiero contribuir en X)
+        - Integración con otra herramienta
+        - Caso de uso / "quiero hacer Y con esto, ¿se puede?"
+        - Otra cosa
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: El problema o la oportunidad
+      description: ¿Qué está difícil, lento, confuso o falta hoy? No hace falta que traigas la solución — tu experiencia alcanza.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: La recomendación (si la tenés)
+      description: La solución que imaginás, o los criterios que debería cumplir. Si no la tenés, escribí "sin propuesta" — también está bien.
+  - type: textarea
+    id: context
+    attributes:
+      label: Tu contexto
+      description: ¿Cómo estás usando oficina-opencode (o por qué todavía no)? ¿Con qué stack/agentes? Esto calibra la prioridad.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Enlaces / referencia
+      description: Docs, repos, herramientas similares, discusiones relevantes (si aplica).

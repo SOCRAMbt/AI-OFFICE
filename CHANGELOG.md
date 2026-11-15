@@ -1,4 +1,36 @@
 
+## [3.3.0] — 2026-11-15
+
+**`/oficina --maxagents N` + sistema oficial de reportes/recomendaciones.**
+
+### Comando `/oficina`: flags `--maxagents` / `--lite` / `--full` (presupuesto de créditos bien claro)
+
+- **Nuevo flag `--maxagents N`** (también `--maxagentes N`): fija el tope de agentes simultáneos para la corrida (1-14). Lo persiste `oficina_plan` en `state.maxAgents` y **el dispatch clampa contra él** — `oficina_dispatch` usa `min(pedido, límites, tope persistido)`, así que nadie despacha más de lo que el usuario ordenó, aunque el modelo lo intente.
+- **Sin flag = tope conservador fijo de 3** (`CONSERVATIVE_MAX_AGENTS`): una corrida sin presupuesto explícito nunca arma una oficina grande. `oficina_plan` registra la decisión en state (`maxagents N: default conservador (sin flag)`) y emite un `NOTICE` en el bus (`maxagents-default`).
+- **El modelo que planifica puede elegir menos, nunca más**: la recomendación es analizar el objetivo y pasar el número más bajo razonable (≤ 3) cuando no hay flag; si hay flag, pasa ese número exacto y el usuario manda.
+- Gaps cerrados: antes el tope venía de un `default(10)` invisible; ahora el tope por defecto sirve, y el cap real es del state, no del parámetro.
+- **Tests**: `tests/maxAgents.test.ts` (+3): default conservador 3 con 6 cards disponibles (cap en plan, en dispatch, spawn ≤ 3), flag 5 (spawn ≤ 5) y flag 1 (spawn ≤ 1) — el tope se respeta aunque el modelo pida más.
+- `commands/oficina.md` + `skills/oficina/SKILL.md` documentan los flags, la regla del default conservador y la decisión cantada en el plan inicial. `--maxagents` se come del texto antes de planificar.
+
+### Sistema de reportes y recomendaciones (repo y proyecto)
+
+- **`.github/ISSUE_TEMPLATE/bug_report.yml`** (formulario completo: versión, entrada, pasos, logs, entorno) y **`recomendacion.yml`** (recomendaciones/ideas/colaboración — no hace falta traer solución).
+- **`.github/ISSUE_TEMPLATE/config.yml`**: enlaces de contacto (seguridad, nueva idea, tracking IA, npm) y blank issues abiertos.
+- **`.github/PULL_REQUEST_TEMPLATE.md`**: checklist mínima (typecheck/test/docs:check/tests de regresión/sin secretos/SKILL actualizado).
+- **`CONTRIBUTING.md`**: nueva sección "Si sos humano" con los tres caminos (bug / recomendación / PR).
+- **README**: nueva sección "Encontraste un error o querés colaborar" con links a los templates e issues.
+- **SKILL.md**: pie de página "Reportar errores, proponer mejoras o colaborar" — el camino explícito desde dentro de una corrida en OpenCode.
+
+### Compatibilidad
+
+- Sin cambios en tools existentes (el flag se agrega como parámetro opcional); rosters/corridas viejos sin `maxAgents` siguen funcionando (caen al comportamiento previo: args de dispatch, 10).
+
+### Notas
+
+- Suite: 574/574 verde.
+- Release con publicación npm (provenance), tag `v3.3.0` y global OpenCode actualizado.
+
+
 ## [3.2.6] — 2026-11-14
 
 **Fix definitivo del arranque en frío: la oficina never cae a fallback nunca más por falta de un delegador.**

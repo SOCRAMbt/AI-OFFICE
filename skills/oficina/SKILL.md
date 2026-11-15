@@ -51,6 +51,8 @@ npm install oficina-opencode@latest -g        # o en el proyecto
 
 Cuando la IA empiece a trabajar una corrida — sea invocada con `/oficina`, con `/oficina lite`, o que su trabajo active las tools `oficina_*` — tiene que:
 
+> **Flags de `/oficina`:** `--lite` (fuerza Modo Célula), `--full` (fuerza Modo Completo), `--maxagents N` / `--maxagentes N` (tope de N agentes simultáneos, 1-14). Si el usuario no pasa `--maxagents`, la corrida queda con un tope conservador fijo de **3**: analizá el objetivo antes del plan y pasá en `oficina_plan` el número más bajo razonable (≤ 3). Si el usuario pasó el flag, pasá ese número exacto — el dispatch clampa contra el tope persistido (`state.maxAgents`) y nadie despacha más, pase lo que pase.
+
 1. **Abrir el dashboard** apenas la corrida esté en marcha. El plugin lo intenta solo: `oficina_plan` arranca el server en background y abre el navegador. Si inspeccionás `<PROJECT_ROOT>/.oficina/dashboard.json`, ahí queda la URL y el puerto reales (7333, o el siguiente libre si estaba ocupado). Si no está arriba, levantalo vos: `oficina dashboard` (o `node dashboard/server.mjs --oficina <PROJECT_ROOT>/.oficina` desde el repo). Si el navegador no abrió solo, abrí `<url>` vos o avisá el comando.
 2. **Avisar al usuario en el primer mensaje de la corrida**, con la ubicación y la confirmación de que lo abriste. Formato:
    ```
@@ -102,7 +104,7 @@ Cuando la IA empiece a trabajar una corrida — sea invocada con `/oficina`, con
 ### Secuencia exacta por rol
 
 **COMANDANTE (la sesi�n principal):**
-1. `oficina_plan` � descompon� el objetivo en cards. **Capabilities: copi� palabras literales de las descripciones del cat�logo** (ver �R6).
+1. `oficina_plan` � descompon� el objetivo en cards. **Pasá `maxAgents`**: N si el usuario usó `--maxagents N`; si no hay flag, el número conservador que elijas tras analizar la tarea (≤ 3). Si lo omitís, el motor aplica 3 — nunca pidas más sin el flag del usuario. **Capabilities: copi� palabras literales de las descripciones del cat�logo** (ver �R6).
 2. `oficina_dispatch` con tu `agentId` � el integrador materializa el equipo, asigna reviewers y arranca owners **y pares**.
 3. Verific� el output: si dice `?? Spawn fall� para: ...`, arranc� a esos agentes manual con su prompt antes de seguir. Si dice `?? spawn=false: ning�n agente tiene sesi�n viva`, no avances: materializar no es arrancar.
 4. Monitore� con `oficina_status` / `oficina_mesa`. Interven� solo en escalaciones.
@@ -317,3 +319,16 @@ En esos casos, hacelo vos. OFICINA es para trabajo multi-paso con objetivo verif
 - `reference/protocol.md` � handoff, gates, escalamiento, checkpoints, reintentos
 - `reference/templates.md` � templates de board, state.json, handoff, review, gates, informe
 - Repo: `github.com/SOCRAMbt/AI-OFFICE` � npm: `oficina-opencode`
+
+---
+
+## Reportar errores, proponer mejoras o colaborar
+
+Si encontrás un error, una idea, un comportamiento raro o querés contribuir:
+
+- **Bug / error encontrado:** https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=bug_report.yml — pegá versión (`oficina --version`), SO, pasos exactos y qué esperabas vs qué pasó.
+- **Recomendación / idea / propuesta:** https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=recomendacion.yml — ideas de negocio, mejoras de protocolo, integraciones, lo que sea.
+- **Colaborar:** leé `CONTRIBUTING.md` (issues y PRs bienvenidos; el proyecto está diseñado para humanos y agentes de IA).
+- **Reporte de seguridad:** `SECURITY.md` (no abras issues públicos para vulnerabilidades).
+
+Cada reporte con reproducción cambia el proyecto. Gracias por tomarte el tiempo.

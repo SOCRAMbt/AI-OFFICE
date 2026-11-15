@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a reproducible error, crash, or incorrect behavior
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar. Un bug reproducible es un regalo: te pedidos en serio la información exacta para arreglarlo.
+  - type: input
+    id: version
+    attributes:
+      label: Versión de oficina-opencode
+      description: Output de `npm ls -g oficina-opencode` o `npx oficina-opencode --version`
+      placeholder: "3.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: entry
+    attributes:
+      label: ¿Qué usás?
+      options:
+        - OpenCode + plugin (/oficina)
+        - CLI `oficina`
+        - Dashboard
+        - Las dos primeras
+        - Otro (comentá abajo)
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Qué pasó
+      description: Descripción concisa del comportamiento incorrecto.
+      placeholder: "Despaché /oficina con --maxagents 2 y..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Qué esperabas
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Pasos para reproducir
+      description: Mínimo y literal — el comando/invocación exacta y el estado del repo (¿limpio? ¿con cambios?).
+      placeholder: |
+        1. cd proyecto-x
+        2. /oficina --maxagents 2 <objetivo>
+        3. Ver .oficina/state.json ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / evidencia
+      description: |
+        Pegar la salida literal. Si es sensible, redactá secretos. No subir `.env` ni claves.
+      render: shell
+  - type: textarea
+    id: env
+    attributes:
+      label: Entorno
+      placeholder: "Windows 11 23H2 · Node v22 · OpenCode v2.x · PowerShell"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Contexto adicional
+      description: Workarounds que hayas encontrado, hipótesis sobre la causa, qué NO deberíamos romper al arreglarlo.

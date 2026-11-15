@@ -23,7 +23,7 @@ import type {
   Roster,
   RosterEntry,
 } from "./types.js"
-import { DEFAULT_LIMITS, StateCorruptionError } from "./types.js"
+import { CONSERVATIVE_MAX_AGENTS, DEFAULT_LIMITS, StateCorruptionError } from "./types.js"
 import { Bus, CHANNELS } from "./bus.js"
 import { RosterStore } from "./roster.js"
 import { LeaseStore } from "./leases.js"
@@ -576,7 +576,7 @@ export class Office {
       gate: string
       dependsOn?: string[]
     }>,
-    options?: { mode?: "full" | "lite" | "auto" },
+    options?: { mode?: "full" | "lite" | "auto"; maxAgents?: number },
   ): Promise<OfficeState> {
     return this.withRunLock(state, async (freshState) => {
       const assigned: Card[] = []
@@ -634,6 +634,41 @@ export class Office {
             kind: "NOTICE",
             subject: "modo-lite",
             body: { mode: "lite", reason: triage.reason, objective: freshState.objective.slice(0, 160) },
+          })
+        }
+      }
+
+      // Tope de agentes simultáneos. El flag `--maxagents` del usuario manda;
+      // sin él, la corrida queda con el tope conservador. `oficina_dispatch`
+      // clampa contra este valor; el modelo puede despachar menos, nunca este
+      // techo no lo supera aunque pida más.
+      {
+        const raw = options?.maxAgents
+        const explicit =
+          typeof raw === "number" && Number.isFinite(raw)
+            ? Math.max(1, Math.min(14, Math.floor(raw)))
+            : undefined
+        freshState.maxAgents = explicit ?? CONSERVATIVE_MAX_AGENTS
+        const origin =
+          explicit !== undefined ? "explícito (--maxagents)" : "default conservador (sin flag)"
+        freshState.decisions.push({
+          at: nowIso(this.options.clock),
+          cardId: "—",
+          decision: "approved",
+          reason: `maxagents ${String(freshState.maxAgents)}: ${origin}`,
+          actor: "integrator",
+        })
+        if (explicit === undefined) {
+          await this.bus.send(CHANNELS.flow, {
+            from: "integrator",
+            to: ["integrator"],
+            kind: "NOTICE",
+            subject: "maxagents-default",
+            body: {
+              maxAgents: freshState.maxAgents,
+              note: "sin flag --maxagents: tope conservador aplicado",
+              objective: freshState.objective.slice(0, 160),
+            },
           })
         }
       }

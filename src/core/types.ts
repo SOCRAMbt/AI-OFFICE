@@ -55,8 +55,7 @@ export interface Limits {
 }
 
 export const DEFAULT_LIMITS: Limits = {
-  maxConcurrentAgents: 10,
-  maxSpawnDepth: 2,
+  maxConcurrentAgents: 10,  maxSpawnDepth: 2,
   maxHelpChainHops: 2,
   maxMessagesPerAgent: 150,
   msgTtlSec: 900,
@@ -68,6 +67,13 @@ export const DEFAULT_LIMITS: Limits = {
   evidenceRequiredBeforeDone: true,
   reviewerNeqOwner: true,
 }
+
+/**
+ * Tope conservador de agentes materializables cuando la corrida se arranca
+ * SIN `--maxagents`. El usuario, no el modelo, manda en el presupuesto: sin
+ * flag explícito la oficina tira siempre para abajo (3, no 10).
+ */
+export const CONSERVATIVE_MAX_AGENTS = 3
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estados
@@ -396,6 +402,15 @@ export interface OfficeState {
   sessions: Record<string, SessionBinding>
   /** Modo de ejecución: `full` arquitectura de 4 capas, `lite` Modo Célula (1 ejecutor +1 revisor). */
   mode?: "full" | "lite"
+  /**
+   * Tope de agentes simultáneos materializables en la corrida.
+   *
+   * Lo fija `/oficina --maxagents N` (persistido por `oficina_plan`); sin el
+   * flag, la corrida queda con `CONSERVATIVE_MAX_AGENTS`. El dispatch clampa
+   * contra este valor incluso si el modelo pide más — el usuario, no el
+   * modelo, manda en el presupuesto de agentes.
+   */
+  maxAgents?: number
 }
 
 export interface SessionBinding {

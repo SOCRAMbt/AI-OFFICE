@@ -208,12 +208,22 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           .enum(["full", "lite", "auto"])
           .optional()
           .describe("Modo de ejecución: auto = heurística de auto-triage (default) · lite = Modo Célula (1 Ejecutor + 1 Revisor Cruzado) · full = Modo Completo."),
+        maxAgents: z
+          .number()
+          .int()
+          .min(1)
+          .max(14)
+          .optional()
+          .describe(
+            "Tope de agentes simultáneos para esta corrida (flag `--maxagents` / `--maxagentes`). " +
+              "Omitir = default conservador (3): el usuario, no el modelo, manda en el presupuesto.",
+          ),
       },
       async execute(args, ctx) {
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState(args.objective)
-        const updated = await off.savePlan(state, args.cards as never, { mode: args.mode })
+        const updated = await off.savePlan(state, args.cards as never, { mode: args.mode, maxAgents: args.maxAgents })
         // El plan marca el arranque de la corrida: acá se abre el dashboard
         // visual (la URL viaja en la salida para que el modelo la reporte).
         let dashUrl: string | undefined
@@ -227,6 +237,8 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
             const c = updated.cards[id]!
             return `- **${id}** ${c.title} [${c.type}] owner=${c.owner ?? "(sin owner)"} reviewer=${c.reviewer ?? "(sin reviewer)"} — gate: ${c.gate}`
           }),
+          "",
+          `**Agentes simultáneos máximo:** ${updated.maxAgents ?? "—"}${args.maxAgents != null ? " (flag --maxagents)" : " (default conservador — pasá el flag en /oficina para subirlo)"}`,
           "",
           `Siguiente paso: llamá \`oficina_assign\` para tomar la primera card.`,
         ]
@@ -902,7 +914,16 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         "Usá esto UNA vez, después de `oficina_plan`: es el momento en que el equipo se forma.",
       args: {
         agentId: z.string().describe("Tu id de agente (debe ser integrator/commander)."),
-        maxAgents: z.number().int().min(1).max(14).default(10).describe("Máximo de agentes a materializar."),
+        maxAgents: z
+          .number()
+          .int()
+          .min(1)
+          .max(14)
+          .default(10)
+          .describe(
+            "Máximo de agentes a materializar. Efectivo: el menor entre esto, el tope persistido por `oficina_plan` " +
+              "(flag --maxagents; default conservador 3 si la corrida se arrancó sin flag) y los límites del sistema.",
+          ),
         maxComplements: z.number().int().min(0).max(3).default(2).describe("Complementos por card."),
         spawn: z
           .boolean()
@@ -917,6 +938,15 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         const off = officeOf(ctx)
         await off.init()
         const state = await off.loadState()
+        const effectiveMaxAgents = Math.min(
+          args.maxAgents,
+          off.limits.maxConcurrentAgents,
+          state.maxAgents ?? Number.MAX_SAFE_INTEGER,
+        )
+        const capNote =
+          state.maxAgents != null && effectiveMaxAgents < args.maxAgents
+            ? `Tope --maxagents aplicado: ${String(effectiveMaxAgents)} (pediste ${String(args.maxAgents)}; el flag del usuario manda)`
+            : null
         const catalog = await off.catalog()
         const roster = await off.loadRoster(state.runId)
         const caller = roster.agents[args.agentId]
@@ -932,7 +962,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
           projectRoot: off.paths.projectRoot,
           catalog,
           objective: state.objective,
-          maxAgents: Math.min(args.maxAgents, off.limits.maxConcurrentAgents),
+          maxAgents: effectiveMaxAgents,
           maxComplements: args.maxComplements,
           minCoverage: off.limits.minCatalogCoverage,
           existing: Object.values(roster.agents),
@@ -1017,6 +1047,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
 
         const lines: string[] = [
           `**Equipo despachado:** ${result.dispatched.length} agentes (${result.dispatched.filter((a) => !a.isPeer).length} con card, ${result.dispatched.filter((a) => a.isPeer).length} como pares libres)`,
+          ...(capNote ? [capNote] : []),
           "",
           "| Agente | Rol | Card | Origen | Aporta |",
           "|--------|-----|------|--------|---------|",

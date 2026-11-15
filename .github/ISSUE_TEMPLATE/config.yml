@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Seguridad (vulnerabilidades)
+    url: https://github.com/SOCRAMbt/AI-OFFICE/blob/main/SECURITY.md
+    about: No abras issues públicos para vulnerabilidades — seguí el proceso de SECURITY.md.
+  - name: Reportar como agente de IA (tracking)
+    url: https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=ia-visit.yml
+    about: Las IAs reportan su visita acá (sin datos personales).
+  - name: Paquete npm
+    url: https://www.npmjs.com/package/oficina-opencode
+    about: oficina-opencode en npm — versión, provenance, historial de releases.
+  - name: Documentación
+    url: https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/QUE-ES.md
+    about: Qué es AI-OFFICE, arquitectura, garantías e invariantes.
