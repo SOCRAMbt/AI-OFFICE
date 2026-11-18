@@ -4,16 +4,23 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 2
     groups:
-      minor-and-patch:
+      # TODO el bump de npm en un solo PR semanal; majors los revisa vos igual de uno
+      npm-all:
         update-types:
+          - "major"
           - "minor"
           - "patch"
-    # Las majors las revisa el owner una por una: en un plugin que pinnea
-    # binarios y versiones de la API del host, un major automático es riesgo.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
+    groups:
+      # mismo criterio: un PR por semana por Actions; menos inbox de notificaciones
+      actions-all:
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
