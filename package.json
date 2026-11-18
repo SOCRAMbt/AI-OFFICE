@@ -38,7 +38,10 @@
     "examples",
     "DESIGN.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "!docs/assets/social-preview.png",
+    "!docs/assets/demo.gif",
+    "!docs/assets/demo-dashboard.png"
   ],
   "keywords": [
     "opencode",
