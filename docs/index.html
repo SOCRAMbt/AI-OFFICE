@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI-OFFICE — la oficina de agentes para OpenCode | Multi-agente durable: gates y evidencia, no promesas</title>
+<meta name="description" content="AI-OFFICE (oficina-opencode) corre corridas multi-agente durables en OpenCode: dispatch desde un roster de 250+ roles, bus de mensajes en disco, leases, quality gates que no se omite y evidencia por criterio. MIT, open source." />
+<meta name="keywords" content="opencode, oficina-opencode, multi-agent, agent orchestration, ai agents, developer tools, opencode plugin" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AI-OFFICE — la oficina de agentes para OpenCode" />
+<meta property="og:description" content="El trabajo no se detiene cuando el modelo dice terminé — se detiene cuando las gates y la evidencia por criterio lo dicen. MIT · open source · npm install -g oficina-opencode" />
+<meta property="og:image" content="https://socrambt.github.io/AI-OFFICE/assets/social-preview.png" />
+<meta property="og:url" content="https://socrambt.github.io/AI-OFFICE/" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="AI-OFFICE — la oficina de agentes para OpenCode" />
+<meta name="twitter:description" content="Multi-agente durable: gates no omitibles + evidencia verificable. npm install -g oficina-opencode" />
+<meta name="twitter:image" content="https://socrambt.github.io/AI-OFFICE/assets/social-preview.png" />
+<link rel="icon" type="image/svg+xml" href="assets/banner.svg" />
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --panel2:#1c2333; --line:#30363d; --ink:#e6edf3; --dim:#8b949e; --blue:#58a6ff; --green:#3fb950; --yellow:#ffd33d; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; }
+  code, pre, .mono { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 10; background: rgba(13,17,23,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  nav .container { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { font-family: "SF Mono", Consolas, monospace; font-weight: 800; font-size: 19px; color: var(--ink); letter-spacing: .5px; }
+  .logo span { color: var(--blue); }
+  nav ul { display: flex; gap: 22px; list-style: none; font-size: 14.5px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 8px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); transition: .18s; }
+  .btn-primary { background: var(--green); border-color: var(--green); color: #04180b; }
+  .btn-primary:hover { filter: brightness(1.12); text-decoration: none; }
+  .btn-ghost { color: var(--ink); background: var(--panel); }
+  .btn-ghost:hover { border-color: var(--blue); text-decoration: none; }
+
+  /* hero */
+  header { padding: 66px 0 38px; text-align: center; position: relative; overflow: hidden; }
+  header::before { content:""; position: absolute; width: 900px; height: 900px; top: -340px; left: 50%; transform: translateX(-50%); background: radial-gradient(circle, rgba(88,166,255,.14) 0%, transparent 55%); z-index: -1; }
+  .badge-pill { display: inline-block; font-family: "SF Mono", Consolas, monospace; font-size: 13px; color: var(--green); border: 1px solid rgba(63,185,80,.4); border-radius: 999px; padding: 6px 16px; background: rgba(63,185,80,.07); margin-bottom: 26px; }
+  h1 { font-size: clamp(30px, 4.6vw, 50px); line-height: 1.16; letter-spacing: -0.5px; }
+  h1 em { font-style: normal; color: var(--blue); }
+  .lede { margin: 20px auto 0; max-width: 720px; font-size: 18.5px; color: var(--dim); }
+  .lede b { color: var(--ink); }
+  .cta { margin-top: 30px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .cmd { margin: 26px auto 0; max-width: 620px; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 10px; padding: 14px 20px; font-size: 16.5px; color: #a5d6ff; overflow-x: auto; white-space: nowrap; }
+  .cmd span { color: var(--dim); }
+
+  /* stats */
+  .strip { display: flex; justify-content: center; gap: 34px; flex-wrap: wrap; padding: 18px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 44px; font-family: "SF Mono", Consolas, monospace; font-size: 14px; color: var(--dim); }
+  .strip b { color: var(--ink); }
+
+  section { padding: 62px 0; }
+  h2 { font-size: 27px; letter-spacing: -0.3px; margin-bottom: 8px; }
+  .sub { color: var(--dim); font-size: 16px; margin-bottom: 34px; max-width: 720px; }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .step .n { font-family: "SF Mono", Consolas, monospace; font-size: 12px; color: var(--blue); letter-spacing: 2px; }
+  .step h3 { margin-top: 8px; font-size: 18.5px; }
+  .step p { margin-top: 8px; color: var(--dim); font-size: 15px; }
+
+  /* features */
+  .features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 8px; }
+  .feature { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .feature h4 { font-size: 15.5px; }
+  .feature p { color: var(--dim); font-size: 13.5px; margin-top: 6px; }
+
+  /* demo image */
+  .demo-frame { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+  .demo-frame img { display: block; width: 100%; }
+  .demo-caption { text-align: center; color: var(--dim); font-size: 13.5px; margin-top: 12px; }
+
+  /* faq-ish */
+  .rows { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .row { padding: 18px 22px; background: var(--panel); }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row b { color: var(--ink); }
+  .row span { color: var(--dim); }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 44px; color: var(--dim); font-size: 14px; display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; } .features { grid-template-columns: repeat(2,1fr); } nav ul { display: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container">
+    <div class="logo">AI-<span>OFFICE</span></div>
+    <ul>
+      <li><a href="#demo">Demo</a></li>
+      <li><a href="#como-funciona">Cómo funciona</a></li>
+      <li><a href="#docs">Docs</a></li>
+      <li><a href="https://github.com/SOCRAMbt/AI-OFFICE/issues/new/choose">Feedback</a></li>
+    </ul>
+    <a class="btn btn-primary" href="https://github.com/SOCRAMbt/AI-OFFICE" style="padding:8px 18px">⭐ Star</a>
+  </div>
+</nav>
+
+<header>
+  <div class="container">
+    <div class="badge-pill">● v3.3.0 · MIT · npm: oficina-opencode</div>
+    <h1>Un <em>equipo de agentes de IA</em> que termina el trabajo —<br/>no cuando el modelo dice “terminé”,<br/>sino cuando las <em>gates y la evidencia</em> lo dicen.</h1>
+    <p class="lede">AI-OFFICE ejecuta corridas multi-agente durables dentro de <b>OpenCode</b>: dispatch desde un roster de <b>258 roles</b>, bus de mensajes en disco, leases, e invariantes duros: <b>nada entra a DONE sin gates + evidencia por criterio</b>.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/SOCRAMbt/AI-OFFICE">⭐ Star en GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/SOCRAMbt/AI-OFFICE/releases">Ver releases</a>
+    </div>
+    <div class="cmd"><span>$</span> npm install -g oficina-opencode &amp;&amp; oficina install --target ~/.config/opencode</div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="strip">
+    <span><b>258</b> roles</span>
+    <span><b>574</b> tests</span>
+    <span><b>18</b> tools · <b>7</b> hooks</span>
+    <span><b>Gated</b> evidence-first</span>
+    <span><b>0</b> secretos en repo</span>
+  </div>
+</div>
+
+<section id="como-funciona">
+  <div class="container">
+    <h2>Cómo funciona, en 3 pasos</h2>
+    <p class="sub">Sin configuración compleja. No inventa agentes mágicos: usa tu OpenCode y los agentes del catálogo de agency-agents que vos ya conocés.</p>
+    <div class="steps">
+      <div class="step"><div class="n">PASO 01</div><h3>Decí el objetivo en OpenCode</h3><p><code>/oficina Agregar autenticación JWT con refresh rotation</code>. La skill se carga y el Comandante descompone el objetivo en cards con scope, acceptance criteria y gate.</p></div>
+      <div class="step"><div class="n">PASO 02</div><h3>El equipo se arma solo</h3><p>El dispatch resuelve roles del catálogo, materializa los agentes y los arranca en paralelo con leases. La mesa muestra exactamente quiénes son y en qué card están.</p></div>
+      <div class="step"><div class="n">PASO 03</div><h3>Se detiene con evidencia</h3><p>Cada card corre sus gates (build, tests, secretos) y exige evidencia por criterio. Nada cierra por palabrería del modelo — la evidencia queda en <code>.oficina/</code>.</p></div>
+    </div>
+    <div class="features">
+      <div class="feature"><h4>Mesa en vivo</h4><p>El tablero muestra EXACTAMENTE los agentes despachados: 0 es 0, 3 es 3. SSE, sin refresco manual.</p></div>
+      <div class="feature"><h4>Bus en disco</h4><p>Los agentes se preguntan y se responden (<code>HELP_REQUEST</code>/<code>HELP_ACCEPT</code>) sin perder el hilo en el contexto.</p></div>
+      <div class="feature"><h4>Gates no omitibles</h4><p>Build, typecheck, lint, tests y secretos corren de verdad — un sandbox interno escanea credenciales y redirige salida.</p></div>
+      <div class="feature"><h4>Checkpoints y resume</h4><p>Si se corta la corrida, <code>state.json</code> + artefactos + leases están en disco. No hay que empezar de cero.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" style="background:var(--panel); border-top:1px solid var(--line); border-bottom:1px solid var(--line)">
+  <div class="container">
+    <h2>La mesa, en vivo</h2>
+    <p class="sub">Screenshot real del dashboard (datos sintéticos de ejemplo — <code>npm run dashboard:demo</code>). Tu corrida se ve igual, con tus agentes y tu bus.</p>
+    <div class="demo-frame"><img src="assets/demo-dashboard.png" alt="AI-OFFICE dashboard: 5 agentes trabajando en una corrida full, mesa oval con nombres y roles, bus de mensajes a la derecha y Kanban con las cards Backlog/In Progress/Review/Done/Blocked" /></div>
+    <p class="demo-caption">Agentes reales (aquí: Comandante, Arquitecto, Implementador, Reviewer, Integrador) · messages reales · gates rojos/verdes visibles.</p>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="container">
+    <h2>Documentación</h2>
+    <p class="sub">Todo en el repo, con ejemplos y arquitectura. Sin paywalls ni cuentas obligatorias.</p>
+    <div class="rows">
+      <div class="row"><b>¿Qué es / cómo está construido?</b><br/><span><a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/QUE-ES.md">QUE-ES.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/ARCHITECTURE.md">ARCHITECTURE.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/DESIGN.md">DESIGN.md</a></span></div>
+      <div class="row"><b>Empezar en 5 minutos</b><br/><span><a href="https://github.com/SOCRAMbt/AI-OFFICE#inicio-rapido">Inicio rápido en el README</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/PRUEBA-E2E.md">PRUEBA-E2E.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/COMPATIBILITY.md">COMPATIBILITY.md</a></span></div>
+      <div class="row"><b>Invariantes y seguridad</b><br/><span><a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/GARANTIAS.md">GARANTIAS.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/SECURITY.md">SECURITY.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/SEGURIDAD-REPO.md">SEGURIDAD-REPO.md</a></span></div>
+      <div class="row"><b>Contribuir</b><br/><span><a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/issues/new/choose">Reportar un error o dejar una recomendación</a></span></div>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+  <footer>
+    <span><strong>AI-OFFICE</strong> · MIT · <a href="https://github.com/SOCRAMbt/AI-OFFICE">github.com/SOCRAMbt/AI-OFFICE</a> · <a href="https://www.npmjs.com/package/oficina-opencode">npm</a></span>
+    <span><a href="https://github.com/SOCRAMbt/AI-OFFICE/issues/1">IA Visit Log</a> · <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/PROMOCION.md">cómo crece este proyecto</a></span>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -4,6 +4,12 @@
 
 <br>
 
+# Un equipo de agentes que termina el trabajo —<br>no cuando el modelo dice «listo», sino cuando las gates y la evidencia lo dicen.
+
+*AI-OFFICE runs durable multi-agent “corridas” in OpenCode: dispatch agents from a 250+ role catalog over a disk message bus — with leases, non-bypassable quality gates and per-criterion evidence saved as you go.*
+
+<br>
+
 <a href="https://www.npmjs.com/package/oficina-opencode"><img src="https://img.shields.io/npm/v/oficina-opencode?style=for-the-badge&labelColor=0d1117&color=cb3837" alt="npm" /></a>
 <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/LICENSE"><img src="https://img.shields.io/badge/licencia-MIT-2ea44f?style=for-the-badge&labelColor=0d1117" alt="licencia MIT" /></a>
 <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=for-the-badge&labelColor=0d1117" alt="node >= 22" /></a>
@@ -15,11 +21,30 @@
 [![CI](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml/badge.svg)](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/badge/cobertura-75%25%20lines-7c3aed?style=flat-square)](https://vitest.dev)
 [![downloads](https://img.shields.io/npm/dw/oficina-opencode?style=flat-square)](https://www.npmjs.com/package/oficina-opencode)
+[![stars](https://img.shields.io/github/stars/SOCRAMbt/AI-OFFICE?style=flat-square)](https://github.com/SOCRAMbt/AI-OFFICE/stargazers)
 [![provenance](https://img.shields.io/badge/npm-publish%20con%20provenance-2ea44f?style=flat-square)](docs/SEGURIDAD-REPO.md)
 [![security policy](https://img.shields.io/badge/seguridad-pol%C3%ADtica-2ea44f?style=flat-square)](SECURITY.md)
 [![backwards compat](https://img.shields.io/badge/opencode-v1%20%2B%20v2-232b3e?style=flat-square)](https://github.com/SOCRAMbt/AI-OFFICE/blob/main/docs/COMPATIBILITY.md)
 
-**Una malla de coordinadores + peer mesh sobre un roster de roles.**
+<br>
+
+<img src="docs/assets/demo.gif" width="1000" alt="Demo: instalación en 2 comandos, la mesa en vivo con exactamente los agentes despachados por tu corrida, y el gate de seguridad con 0 hallazgos — extracto real de una corrida." />
+
+**Una malla de coordinadores + peer mesh sobre un roster de roles — la oficina ejecuta tu objetivo, gates y evidencia mediante.**
+
+### ⚡ Un comando
+
+```bash
+npm install -g oficina-opencode && oficina install --target ~/.config/opencode
+```
+
+Después, en OpenCode, en tu proyecto: **`/oficina <tu objetivo>`** — y mirá [**el demo en vivo →**](https://socrambt.github.io/AI-OFFICE/) (datos sintéticos, siempre visible; lo que ves es lo que tu corrida vería).
+
+**Quedate en tu ventana**: la mesa muestra exactamente los agentes que tu corrida despachó — 0 es 0, 3 es 3, 10 es 10.
+
+<a href="https://vscode.dev/github/SOCRAMbt/AI-OFFICE"><img src="https://img.shields.io/badge/Open_in-vscode.dev-0078d4?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="Abrir en vscode.dev" /></a>
+&nbsp;
+<a href="https://github.com/SOCRAMbt/AI-OFFICE/releases"><img src="https://img.shields.io/badge/releases-3.1%20%E2%86%92%203.3-58a6ff?style=for-the-badge&labelColor=0d1117" alt="releases" /></a>
 
 </div>
 

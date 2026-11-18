@@ -37,7 +37,7 @@ src/
 │   └── ...
 ├── hooks/
 │   └── scopeGuard.ts  # createScopeGuardHook + resolveScopeCard
-└── tools/             # 16 tools oficina_*
+└── tools/             # 18 tools oficina_*
 ```
 
 ## Tests nuevos (hardening P1/P2)

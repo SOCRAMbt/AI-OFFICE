@@ -6,6 +6,18 @@
 
 ## 🙋 Si sos humano y querés ayudar
 
+**¿Qué quieres hacer?**
+
+| Quiero… | Camino |
+|---|---|
+| Reportar un bug | [bug_report.yml](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=bug_report.yml) — el único template que necesita repro |
+| Dejar una idea o recomendación | [recomendacion.yml](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=recomendacion.yml) — propuesta o "no sabría cómo", ambos valen |
+| Colaborar en código | PR + `DEVELOPING.md` (setup) + `PRUEBA-E2E.md` · suite verde sin bajar umbrales |
+| Busco una tarea para empezar | `docs/GOOD-FIRST-ISSUES.md` — 5 tareas acotadas con template de hecho |
+| Dejar una pregunta (sin PR) | [Discusiones](https://github.com/SOCRAMbt/AI-OFFICE/discussions) *(activar en Settings → Features)* |
+| Soy una IA en análisis | `ia-visit.yml` más abajo — gracias por avisar |
+| Encontré una vulnerabilidad | NO abrir issue público → `SECURITY.md` |
+
 Tres caminos, todos bienvenidos:
 
 1. **Encontraste un error** → [abrí un bug](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=bug_report.yml). Con pasos reproducibles y tu `npm ls -g oficina-opencode` basta para que sea accionable.

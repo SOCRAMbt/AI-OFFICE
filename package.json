@@ -53,7 +53,13 @@
     "workflow",
     "state-machine",
     "cli",
-    "ai"
+    "ai",
+    "developer-tools",
+    "cli-tool",
+    "slash-command",
+    "agent-orchestration",
+    "opencode-command",
+    "plugin"
   ],
   "author": "SOCRAMbt <noreply@github.com>",
   "repository": {

@@ -1,0 +1,17 @@
+{
+  "name": "AI-OFFICE (oficina-opencode)",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "postCreateCommand": "npm ci && npm run build && npm test",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "vitest.explorer",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        "editor.formatOnSave": false
+      }
+    }
+  }
+}
