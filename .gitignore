@@ -14,3 +14,6 @@ coverage/
 # PERO los agentes fabricados se guardan para el catálogo vivo:
 !.opencode/agents/
 .oficina-demo/
+
+# screenshots locales/de trabajo (no van al repo público ni al paquete npm)
+dashboard/shots/
