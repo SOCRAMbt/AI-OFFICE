@@ -16,12 +16,15 @@ import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
 import { Office } from "./core/office.js"
+import { RosterStore } from "./core/roster.js"
+import { migrateState } from "./core/state.js"
+import { resolveProjectRoot } from "./core/paths.js"
 import { logger, configureLogging } from "./core/log.js"
 import { listFiles, readJson, readText, ensureDir, writeJsonAtomic } from "./core/fsx.js"
 import { cardDir } from "./core/paths.js"
 import { scanCatalog } from "./core/catalog.js"
-import type { OfficeState } from "./core/types.js"
-import { StateCorruptionError } from "./core/types.js"
+import type { OfficeState, Roster } from "./core/types.js"
+import { DEFAULT_LIMITS, StateCorruptionError } from "./core/types.js"
 
 const log = logger("oficina:cli")
 
@@ -47,6 +50,7 @@ Comandos:
   dashboard            Abre el dashboard visual en tiempo real (http://localhost:7333)
   board                Muestra el tablero Kanban
   bus                  Muestra estadísticas del bus
+  stats                Resume la corrida: estado, cards por columna, iteración y agentes vivos
   audit [cardId]       Audita una card: artefactos, gates, review
   verify               Corre los gates de todas las cards en review
   install              Instala skill, agentes y comando en un directorio de OpenCode
@@ -76,6 +80,9 @@ async function main(): Promise<number> {
   }
 
   configureLogging({ level: flag("quiet") ? "error" : "warn" })
+
+  // `stats` solo lee: se resuelve antes de armar la Oficina, que crea `.oficina/`.
+  if (command === "stats") return statsCommand(cwd, json)
 
   const office = new Office({
     cwd,
@@ -512,6 +519,97 @@ async function main(): Promise<number> {
       usage()
       return 1
   }
+}
+
+/** Lee un JSON sin tocarlo: a diferencia de `readJson`, no pone en cuarentena un archivo corrupto. */
+async function peekJson(filePath: string): Promise<{ kind: "ok"; value: unknown } | { kind: "missing" } | { kind: "corrupt"; message: string }> {
+  let raw: string
+  try {
+    raw = await fs.readFile(filePath, "utf8")
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { kind: "missing" }
+    throw err
+  }
+  try {
+    return { kind: "ok", value: JSON.parse(raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw) }
+  } catch (err) {
+    return { kind: "corrupt", message: String(err) }
+  }
+}
+
+/**
+ * `oficina stats`: resumen de la corrida a partir de `<proyecto>/.oficina/state.json`.
+ *
+ * Solo lee. No crea la carpeta, no migra el archivo y no inicia una corrida
+ * nueva si no hay ninguna.
+ */
+async function statsCommand(cwd: string, json: boolean): Promise<number> {
+  const officeDir = path.join(await resolveProjectRoot(cwd), ".oficina")
+  const statePath = path.join(officeDir, "state.json")
+  const fail = (error: string, message: string): number => {
+    if (json) emit(true, { ok: false, error, message })
+    else process.stderr.write(`\n❌ ${message}\n\n`)
+    return 1
+  }
+
+  const stateFile = await peekJson(statePath)
+  if (stateFile.kind === "missing") {
+    return fail("NO_RUN", `No hay una corrida en ${officeDir} (falta state.json). Creala con "oficina init <objetivo>".`)
+  }
+  if (stateFile.kind === "corrupt") {
+    return fail("STATE_CORRUPT", `El estado de la corrida está corrupto (${statePath}): ${stateFile.message}`)
+  }
+  const state = migrateState(stateFile.value)
+  if (!state) return fail("STATE_CORRUPT", `El estado de la corrida no tiene un formato válido (${statePath}).`)
+
+  const counts = { todo: 0, in_progress: 0, review: 0, done: 0, other: 0 }
+  const cards = Object.values(state.cards ?? {})
+  for (const card of cards) {
+    if (card.state === "todo" || card.state === "in_progress" || card.state === "review" || card.state === "done") counts[card.state]++
+    else counts.other++
+  }
+
+  // Un roster ausente o de otra corrida cuenta como sin agentes.
+  const rosterFile = await peekJson(path.join(officeDir, "roster.json"))
+  const roster: Roster = { version: 2, runId: state.runId, updatedAt: "", agents: {} }
+  if (rosterFile.kind === "ok") {
+    const raw = rosterFile.value as Partial<Roster> | null
+    if (raw && raw.runId === state.runId && raw.agents && typeof raw.agents === "object") roster.agents = raw.agents
+  }
+  const active = Object.values(roster.agents).filter((a) => a.state !== "retired")
+  const silent = new RosterStore(path.join(officeDir, "roster.json")).deadAgents(roster, DEFAULT_LIMITS.heartbeatSec * 3)
+  const alive = active.length - silent.length
+
+  const payload = {
+    runId: state.runId,
+    status: state.status,
+    iteration: state.iteration,
+    cards: { ...counts, total: cards.length },
+    agents: { alive, withoutHeartbeat: silent.length },
+  }
+  if (json) {
+    emit(true, payload)
+    return 0
+  }
+
+  const rows: Array<[string, string | number]> = [
+    ["Run ID", payload.runId],
+    ["Estado", payload.status],
+    ["Iteración", payload.iteration],
+    ["Cards todo", counts.todo],
+    ["Cards in_progress", counts.in_progress],
+    ["Cards review", counts.review],
+    ["Cards done", counts.done],
+    ...(counts.other ? ([["Cards otras", counts.other]] as Array<[string, number]>) : []),
+    ["Cards total", cards.length],
+    ["Agentes vivos", alive],
+    ["Agentes sin heartbeat", silent.length],
+  ]
+  const width = Math.max(...rows.map(([label]) => label.length))
+  process.stdout.write(`\n📊 OFICINA — ${state.objective}\n\n`)
+  for (const [label, value] of rows) process.stdout.write(`  ${label.padEnd(width)}  ${value}\n`)
+  process.stdout.write("\n")
+  return 0
 }
 
 function emit(_json: boolean, payload: unknown): void {

@@ -100,7 +100,14 @@ Al empezar, se abre un tablero en vivo en tu navegador (mesa oval con el equipo,
 npm install -g oficina-opencode    # instalar la oficina
 oficina --version                  # ver la versión instalada
 oficina install --target ~/.config/opencode   # desplegar skill, agents y commands
-oficina init                       # inicializar .oficina/ en un proyecto
+oficina init [objetivo]            # crea .oficina/ en el proyecto
+oficina status                     # Cards, agentes, presupuesto, escalaciones
+oficina board                      # Tablero Kanban
+oficina bus                        # Estadísticas del bus
+oficina stats                      # Resumen: estado, cards por columna, iteración, agentes vivos
+oficina audit T-03                 # Artefactos, gates y review de una card
+oficina verify                     # Corre los gates de las cards en review
+oficina catalog --agency-root <path> # Lista el catálogo de roles disponible
 oficina smoke                      # verificación E2E de punta a punta
 npm run dashboard:demo             # tablero de ejemplo con datos sintéticos
 ```
