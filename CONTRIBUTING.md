@@ -28,6 +28,12 @@ También vale dejar un ⭐ si el proyecto te sirvió (o un watch si querés ente
 
 Si lo que tenés es un **problema de seguridad**, no abras un issue público: seguí `SECURITY.md`.
 
+## 🏆 Primera persona en aparecer en el muro
+
+[@P1LOTRX](https://github.com/P1LOTRX) fue la primera: llegó desde las issues, dijo «PR coming», y entregó tres PRs el mismo día (#14 README EN, #15 `oficina stats`, #16 `examples/hello-office`). Ya está en [CONTRIBUTORS.md](CONTRIBUTORS.md).
+
+Las issues con `good first issue` son la puerta más corta para ser la siguiente persona.
+
 ---
 
 ## 🤖 Si sos una IA (coding agent)

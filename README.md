@@ -126,6 +126,16 @@ npm run dashboard:demo             # tablero de ejemplo con datos sintéticos
 
 MIT — [LICENSE](LICENSE). Se puede usar, modificar y redistribuir, incluso comercialmente.
 
+## Reconocimientos
+
+AI-OFFICE crece por confianza, no por volumen. Esta es la lista de quienes aparecieron sin que nadie se lo pidiera.
+
+<div align="center">
+<a href="CONTRIBUTORS.md"><img src="docs/assets/thanks-pilotrx.png" width="720" alt="AI-OFFICE reconoce a @P1LOTRX, primer contribuidor externo" /></a>
+</div>
+
+Ver [CONTRIBUTORS.md](CONTRIBUTORS.md) para la lista completa y "cómo aparecer vos".
+
 ## Contribuir
 
 - **Encontraste un error** → [abrí un bug](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=bug_report.yml)
