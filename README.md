@@ -13,7 +13,6 @@
 <a href="https://www.npmjs.com/package/oficina-opencode"><img src="https://img.shields.io/npm/v/oficina-opencode?style=for-the-badge&labelColor=0d1117&color=cb3837" alt="npm" /></a>
 <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/LICENSE"><img src="https://img.shields.io/badge/licencia-MIT-2ea44f?style=for-the-badge&labelColor=0d1117" alt="licencia MIT" /></a>
 <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=for-the-badge&labelColor=0d1117" alt="node >= 22" /></a>
-<a href="https://github.com/SOCRAMbt/AI-OFFICE/tree/main/tests"><img src="https://img.shields.io/badge/tests-574%20passing-1f6feb?style=for-the-badge&labelColor=0d1117" alt="574 tests passing" /></a>
 <a href="https://github.com/SOCRAMbt/AI-OFFICE/blob/main/tsconfig.json"><img src="https://img.shields.io/badge/typescript-strict-3178c6?style=for-the-badge&labelColor=0d1117" alt="TypeScript strict" /></a>
 
 <br>
