@@ -32,7 +32,7 @@ Después abrí OpenCode en tu proyecto y escribí: **`/oficina <lo que necesitá
 
 <a href="https://socrambt.github.io/AI-OFFICE/"><img src="https://img.shields.io/badge/Demo_en_vivo-2ea44f?style=for-the-badge&labelColor=0d1117" alt="Demo en vivo" /></a>
 &nbsp;
-<a href="https://github.com/SOCRAMbt/AI-OFFICE/releases"><img src="https://img.shields.io/badge/Releases-v3.3.0-58a6ff?style=for-the-badge&labelColor=0d1117" alt="releases" /></a>
+<a href="https://github.com/SOCRAMbt/AI-OFFICE/releases"><img src="https://img.shields.io/badge/Releases-v3.3.1-58a6ff?style=for-the-badge&labelColor=0d1117" alt="releases" /></a>
 
 </div>
 
