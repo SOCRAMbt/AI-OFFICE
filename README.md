@@ -742,6 +742,7 @@ oficina init [objetivo]                    # Crea .oficina/ en el proyecto
 oficina status                             # Cards, agentes, presupuesto, escalaciones
 oficina board                              # Tablero Kanban
 oficina bus                                # Estadísticas del bus
+oficina stats                              # Resumen: estado, cards por columna, iteración, agentes vivos
 oficina audit T-03                         # Artefactos, gates y review de una card
 oficina verify                             # Corre los gates de las cards en review
 oficina install --target <dir>             # Instala skill, agentes y comando

@@ -119,6 +119,90 @@ describe("CLI", () => {
     expect(stderr).toContain("No existe la card")
   })
 
+  describe("stats", () => {
+    /** Una corrida real (`init`) con las cards y el roster que pide el caso. */
+    async function seedRun(cardStates: string[], agents: Array<{ state: string; heartbeatAgoSec: number }>): Promise<void> {
+      await cli(["init", "objetivo de prueba", "--directory", tmp, "--json"])
+      const statePath = path.join(tmp, ".oficina", "state.json")
+      const state = JSON.parse(await fs.readFile(statePath, "utf8"))
+      state.iteration = 4
+      state.cards = Object.fromEntries(cardStates.map((st, i) => [`T-${i + 1}`, { id: `T-${i + 1}`, title: `card ${i + 1}`, state: st }]))
+      state.order = Object.keys(state.cards)
+      await fs.writeFile(statePath, JSON.stringify(state))
+      const roster = {
+        version: 2,
+        runId: state.runId,
+        updatedAt: new Date().toISOString(),
+        agents: Object.fromEntries(
+          agents.map((a, i) => [`a${i + 1}`, { id: `a${i + 1}`, role: "dev", state: a.state, lastHeartbeat: new Date(Date.now() - a.heartbeatAgoSec * 1000).toISOString() }]),
+        ),
+      }
+      await fs.writeFile(path.join(tmp, ".oficina", "roster.json"), JSON.stringify(roster))
+    }
+
+    it("cuenta las cards por columna, la iteración y los agentes vivos", async () => {
+      await seedRun(
+        ["todo", "todo", "in_progress", "review", "done", "done", "done", "blocked"],
+        [
+          { state: "working", heartbeatAgoSec: 5 },
+          { state: "working", heartbeatAgoSec: 3600 },
+          { state: "idle_available", heartbeatAgoSec: 3600 },
+          { state: "retired", heartbeatAgoSec: 3600 },
+        ],
+      )
+      const { stdout, code } = await cli(["stats", "--directory", tmp, "--json"])
+      expect(code).toBe(0)
+      const payload = JSON.parse(stdout)
+      expect(payload.status).toBe("planning")
+      expect(payload.iteration).toBe(4)
+      expect(payload.cards).toEqual({ todo: 2, in_progress: 1, review: 1, done: 3, other: 1, total: 8 })
+      expect(payload.agents).toEqual({ alive: 2, withoutHeartbeat: 1 })
+    })
+
+    it("muestra una tabla legible", async () => {
+      await seedRun(["todo", "done"], [{ state: "working", heartbeatAgoSec: 5 }])
+      const { stdout, code } = await cli(["stats", "--directory", tmp])
+      expect(code).toBe(0)
+      expect(stdout).toMatch(/Run ID\s+\S+/)
+      expect(stdout).toMatch(/Cards todo\s+1/)
+      expect(stdout).toMatch(/Cards done\s+1/)
+      expect(stdout).toMatch(/Agentes vivos\s+1/)
+    })
+
+    it("en una corrida recién creada todo está en cero", async () => {
+      await cli(["init", "objetivo", "--directory", tmp, "--json"])
+      const { stdout, code } = await cli(["stats", "--directory", tmp, "--json"])
+      expect(code).toBe(0)
+      const payload = JSON.parse(stdout)
+      expect(payload.cards.total).toBe(0)
+      expect(payload.agents).toEqual({ alive: 0, withoutHeartbeat: 0 })
+    })
+
+    it("sin corrida da un error claro y no crea nada", async () => {
+      const { stderr, code } = await cli(["stats", "--directory", tmp])
+      expect(code).toBe(1)
+      expect(stderr).toContain("No hay una corrida")
+      expect(stderr).toContain("oficina init")
+      await expect(fs.stat(path.join(tmp, ".oficina"))).rejects.toThrow()
+    })
+
+    it("sin corrida el error también sale en JSON", async () => {
+      const { stdout, code } = await cli(["stats", "--directory", tmp, "--json"])
+      expect(code).toBe(1)
+      expect(JSON.parse(stdout)).toMatchObject({ ok: false, error: "NO_RUN" })
+    })
+
+    it("con el estado corrupto falla sin mover el archivo", async () => {
+      await fs.mkdir(path.join(tmp, ".oficina"), { recursive: true })
+      const statePath = path.join(tmp, ".oficina", "state.json")
+      await fs.writeFile(statePath, "{ esto no es json")
+      const { stderr, code } = await cli(["stats", "--directory", tmp])
+      expect(code).toBe(1)
+      expect(stderr).toContain("corrupto")
+      expect(await fs.readFile(statePath, "utf8")).toBe("{ esto no es json")
+    })
+  })
+
   it("un comando desconocido muestra el help", async () => {
     const { stdout, stderr, code } = await cli(["comando-inexistente"])
     expect(code).toBe(1)
