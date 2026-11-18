@@ -734,6 +734,8 @@ Desde la raíz del proyecto:
 
 El comando carga la skill `oficina`, el plugin registra las tools, y la corrida arranca sola. La oficina escribe todo en `.oficina/`: si cerrás OpenCode a mitad de camino, al volver, la corrida retoma donde quedó.
 
+¿Primera vez? [`examples/hello-office`](examples/hello-office) es un proyecto de juguete (una lista de tareas de consola) con el objetivo y el paso a paso para probar la oficina en 5 minutos.
+
 <a id="cli-operacion"></a>
 ## 🖥️ CLI — operación
 
