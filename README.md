@@ -48,6 +48,14 @@ Después, en OpenCode, en tu proyecto: **`/oficina <tu objetivo>`** — y mirá 
 
 </div>
 
+**In English**
+
+- **What it is:** AI-OFFICE is an OpenCode plugin that runs multi-agent work as durable "runs" saved on disk. A commander splits your goal into cards and dispatches specialists from a catalog of 250+ roles.
+- **What makes it different:** quality gates (build, type check, lint, tests, secret scan, diff review) decide when a card is done, not the model saying "done".
+- **Who it is for:** people who use OpenCode on their own projects and want agent work that finishes with evidence.
+- **Install:** `npm install -g oficina-opencode && oficina install --target ~/.config/opencode`, then run `/oficina <your goal>` in OpenCode.
+- **Demo:** [socrambt.github.io/AI-OFFICE](https://socrambt.github.io/AI-OFFICE/) (synthetic data) · **License:** MIT · This README and most of the docs are in Spanish.
+
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
