@@ -1,0 +1,13 @@
+# AI-OFFICE — allowlist para gitleaks.
+#
+# Regla: NUNCA abrir una puerta aquí sin un motivo documentado. El único
+# allowlist autorizado en este repo son los fixtures de Stripe usados como
+# input para el test del scanner (gates.test.ts) en el commit inicial.
+# Son inputs de test, no credenciales.
+# Si agregás otra excepción, documentá fingerprint + motivo + issue.
+title = "oficina-opencode gitleaks config"
+
+[[allowlists]]
+description = "Fake Stripe tokens as scan fixtures in gates.test.ts (initial commit 0f19b640); not real credentials"
+paths = ['''tests/gates\.test\.ts''']
+commits = ["0f19b640edff7b001c34044b55d20665fe39aee2"]
