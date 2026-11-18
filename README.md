@@ -91,6 +91,9 @@ Al empezar, se abre un tablero en vivo en tu navegador (mesa oval con el equipo,
 
 **También podés abrirla con** `npm run dashboard:demo` — un tablero de ejemplo con datos sintéticos.
 
+¿Primera vez? [`examples/hello-office`](examples/hello-office) es un proyecto de juguete (una lista de tareas de consola) con el objetivo y el paso a paso para probar la oficina en 5 minutos.
+
+<a id="cli-operacion"></a>
 ## Comandos útiles
 
 ```bash
