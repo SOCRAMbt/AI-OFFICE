@@ -1,4 +1,16 @@
 
+## [3.3.1] — 2026-11-18
+
+**Publicación del saneamiento total: contenido del repo listo para promoción.**
+
+- README reescrito: mucho más corto, en castellano claro; mantiene el formato con 1 comando, GIF demo, badges (npm/CI/stars/provenance) y sección «Encontraste un error o querés colaborar» con los templates nuevos
+- `docs/index.html` (landing en Pages) + `docs/PROMOCION.md` (canales y textos de difusión listos) + `docs/LANZAMIENTO.md` (calendario Show HN / Product Hunt / X / Reddit) + `docs/GOOD-FIRST-ISSUES.md`
+- `docs/.nojekyll` — GitHub Pages vuelve a buildear (Jekyll fallaba con la codificación)
+- Exclusión mínima del tarball (assets de marketing) — `tests/packaging.test.ts` verde de nuevo
+- `DESIGN.md` reparado (UTF-8 doblemente codificado) y `.gitleaks.toml` con allowlist quirúrgico para los 2 fixtures iniciales falsos de Stripe
+- Sin cambios de código funcional; suite 574/574
+
+
 ## [3.3.0] — 2026-11-15
 
 **`/oficina --maxagents N` + sistema oficial de reportes/recomendaciones.**
