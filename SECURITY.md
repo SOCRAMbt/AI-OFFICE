@@ -36,6 +36,28 @@ Se recomienda usar **GitHub Security Advisories** para garantizar que el reporte
 4. Se lanza la versión corregida en npm.
 5. Se divulga públicamente tras la disponibilidad del parche.
 
+## Riesgos residuales conocidos (devDependencies)
+
+Las siguientes vulnerabilidades en dependencias transitivas del ecosistema OpenCode (`@opencode/util`, `@opencode/plugin`, `@npmcli/*`, `tar`, `glob`, `minimatch`, `cacache`, `@sigstore/*`, `@tufjs/models`) se documentan como **riesgo residual conocido** y no afectan al runtime de producción de `oficina-opencode`:
+
+- `@sigstore/core` ≤3.2.0 — DSSE payloadType type-binding failure (MODERATE)
+- `tar` — vulnerabilidad en extracción (HIGH, transitive via @npmcli/arborist)
+- `glob` / `minimatch` — amplificación DoS (MODERATE, mitigado vía overrides)
+- `@npmcli/arborist` — depende de versiones vulnerables de cacache, glob, minimatch, pacote (HIGH)
+
+Estas vulnerabilidades están en dependencias de desarrollo y tooling, no en el paquete publicado.
+
+### Excepciones de secrets permitidas (scanForSecrets)
+
+Los siguientes patrones se excluyen del escaneo de secrets por ser falsos positivos conocidos:
+- `.env.example` (plantilla de variables de entorno)
+- `*.test.ts` (tests con valores de ejemplo)
+- `node_modules/` (dependencias de terceros)
+
+### Dependencias RC (Release Candidate)
+
+- `effect@^4.0.0-rc.118` se mantiene temporalmente en overrides hasta la release estable de `effect@4.0.0`. Se monitorea para upgrade cuando esté disponible.
+
 ## Qué NO hacer
 
 - No publiques exploits, PoCs o detalles técnicos en issues públicos antes de la divulgación coordinada.

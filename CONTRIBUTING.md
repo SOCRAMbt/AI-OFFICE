@@ -1,5 +1,33 @@
 # Contribuir a AI-OFFICE
 
+## Correr tests localmente
+
+```bash
+npm install
+npm run typecheck    # TypeScript strict
+npm test             # Suite completa (598+ tests)
+npm run build        # Compilar
+npm run docs:check   # Verificar docs
+npm run coverage     # Coverage report
+```
+
+## Code style
+
+- TypeScript strict mode
+- ESLint + Prettier (config en `.eslintrc`)
+- Commits en español, formato Conventional Commits
+
+## Commit message format
+
+```
+tipo: descripción corta
+
+- detalle 1
+- detalle 2
+```
+
+Tipos: `feat`, `fix`, `docs`, `test`, `chore`, `refactor`, `security`
+
 ¡Gracias por tu interés! Este proyecto está diseñado para ser usado por humanos **y** por agentes de IA (coding agents). Queremos medir quién lo usa realmente.
 
 ---

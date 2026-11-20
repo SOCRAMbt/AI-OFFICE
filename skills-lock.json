@@ -1,5 +1,9 @@
 {
   "version": 1,
+  "pluginDependencies": {
+    "@opencode/plugin": "2.1.2",
+    "zod": "4.6.7"
+  },
   "skills": {
     "design-taste-frontend": {
       "source": "leonxlnx/taste-skill",

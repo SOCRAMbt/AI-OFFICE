@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
     environment: "node",
+    isolate: true,
     // 120s: los tests tocan locks reales en disco y bajo carga (suite completa
     // en prepublish, máquina fría, antivirus en Windows) el default de 20s
     // produce falsos timeouts que no son defectos del motor.

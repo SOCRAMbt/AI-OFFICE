@@ -36,6 +36,8 @@
 
 import fs from "node:fs/promises"
 import path from "node:path"
+import { logger } from "./log.js"
+const log = logger("oficina:atomic")
 
 export interface ExclusiveWriteResult {
   /** true si este proceso creo el archivo. */
@@ -63,7 +65,7 @@ export async function writeExclusive(filePath: string, contents: string): Promis
     const existing = await fs.readFile(filePath, "utf8").catch(() => "")
     return { created: false, contents: existing }
   } finally {
-    await handle?.close().catch(() => {})
+    await handle?.close().catch((err) => log.warn("close handle failed", { error: String(err) }))
   }
 }
 
@@ -82,6 +84,8 @@ export interface LockOptions {
   timeoutMs?: number
   /** A partir de cuando un lock se considera muerto y se puede romper. */
   staleMs?: number
+  /** Identificador del caller para logs. */
+  caller?: string
 }
 
 /** Espera un poco. */
@@ -109,8 +113,9 @@ export async function withLock<T>(
   fn: () => Promise<T>,
   options: LockOptions = {},
 ): Promise<T> {
-  const timeoutMs = options.timeoutMs ?? 10_000
+  const timeoutMs = options.timeoutMs ?? 30_000
   const staleMs = options.staleMs ?? 30_000
+  const caller = options.caller ?? "unknown"
   const deadline = Date.now() + timeoutMs
 
   // El lock vive como directorio. Su padre puede no existir todavia (el
@@ -124,7 +129,7 @@ export async function withLock<T>(
       await fs.mkdir(lockPath)
       acquired = true
       const metaPath = path.join(lockPath, "meta.json")
-      await fs.writeFile(metaPath, JSON.stringify({ pid: process.pid, createdAt: Date.now() }), "utf8").catch(() => {})
+      await fs.writeFile(metaPath, JSON.stringify({ pid: process.pid, createdAt: Date.now() }), "utf8").catch((err) => log.warn("write lock meta failed", { error: String(err) }))
       break
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
@@ -172,9 +177,13 @@ export async function withLock<T>(
             const staleName = `${lockPath}.stale.${process.pid}.${Date.now()}`
             try {
               await fs.rename(lockPath, staleName)
-              await fs.rm(staleName, { recursive: true, force: true }).catch(() => {})
-            } catch {
-              await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
+              await fs.rm(staleName, { recursive: true, force: true }).catch((err) => log.warn("cleanup stale lock failed", { error: String(err) }))
+            } catch (renameErr) {
+              // Si rename falló porque OTRO proceso ya renombró/borró el lock,
+              // NO intentar rm(lockPath) — el lock ya no existe.
+              // Solo loguear y continuar (el otro proceso se encargó).
+              log.debug("stale lock already handled by another process", { lockPath, error: String(renameErr) })
+              continue
             }
             continue
           }
@@ -197,9 +206,10 @@ export async function withLock<T>(
     return await fn()
   } finally {
     const metaPath = path.join(lockPath, "meta.json")
-    await fs.rm(metaPath, { force: true }).catch(() => {})
-    await fs.rmdir(lockPath).catch(async () => {
-      await fs.rm(lockPath, { recursive: true, force: true }).catch(() => {})
+    await fs.rm(metaPath, { force: true }).catch((err) => log.warn("cleanup meta failed", { error: String(err) }))
+    await fs.rmdir(lockPath).catch(async (err) => {
+      log.warn("rmdir failed", { error: String(err) })
+      await fs.rm(lockPath, { recursive: true, force: true }).catch((e) => log.warn("rm lock failed", { error: String(e) }))
     })
   }
 }
@@ -221,7 +231,7 @@ export async function withWxLock<T>(
   fn: () => Promise<T>,
   options: LockOptions = {},
 ): Promise<T> {
-  const timeoutMs = options.timeoutMs ?? 10_000
+  const timeoutMs = options.timeoutMs ?? 30_000
   const staleMs = options.staleMs ?? 30_000
   const deadline = Date.now() + timeoutMs
 
@@ -240,7 +250,7 @@ export async function withWxLock<T>(
         try {
           const stat = await fs.stat(lockFile)
           if (Date.now() - stat.mtimeMs > staleMs) {
-            await fs.rm(lockFile, { force: true }).catch(() => {})
+            await fs.rm(lockFile, { force: true }).catch((err) => log.warn("rm stale wx-lock failed", { error: String(err) }))
             continue
           }
         } catch {
@@ -261,8 +271,8 @@ export async function withWxLock<T>(
   try {
     return await fn()
   } finally {
-    await handle.close().catch(() => {})
-    await fs.rm(lockFile, { force: true }).catch(() => {})
+    await handle.close().catch((err) => log.warn("close wx handle failed", { error: String(err) }))
+    await fs.rm(lockFile, { force: true }).catch((err) => log.warn("rm wx-lock failed", { error: String(err) }))
   }
 }
 

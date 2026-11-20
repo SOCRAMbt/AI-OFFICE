@@ -30,6 +30,7 @@
  */
 
 import path from "node:path"
+import fs from "node:fs/promises"
 import type { Card, CatalogAgent, Ficha, OfficeState, Roster, RosterEntry } from "./types.js"
 import { buildPanel, type RolePanel } from "./catalog.js"
 import { buildBriefing, renderBriefingPrompt, type Briefing } from "./briefing.js"
@@ -252,13 +253,33 @@ export function buildAgentPrompt(
  * `generated_by: factory`, `created_for_task`, `stack_tags` — para que el
  * catálogo vivo sepa quién los generó, para qué tarea y con qué stack.
  */
+/** Busca el root del repo (directorio con .git). */
+async function findGitRoot(start: string): Promise<string | null> {
+  let current = path.resolve(start)
+  for (;;) {
+    try {
+      const stat = await fs.stat(path.join(current, ".git"))
+      if (stat) return current
+    } catch {
+      // no .git here
+    }
+    const parent = path.dirname(current)
+    if (parent === current) return null
+    current = parent
+  }
+}
+
 export async function materializeAgent(
   projectRoot: string,
   ficha: Ficha,
   briefing: Briefing,
   factoryMeta?: { createdForTask?: string; stackTags?: string[] },
 ): Promise<string> {
-  const dir = path.join(projectRoot, ".opencode", "agents")
+  // VERIFICAR que projectRoot es root del repo (tiene .git o package.json)
+  const gitRoot = await findGitRoot(projectRoot)
+  const targetRoot = gitRoot ?? projectRoot
+  
+  const dir = path.join(targetRoot, ".opencode", "agents")
   await ensureDir(dir)
 
   const name = agentNameFor(ficha.role)
@@ -624,10 +645,10 @@ async function instantiate(
   // El formato es: e-${role}-${hash} (máx 40 chars). Si el role es muy largo, lo truncamos
   // dejando espacio para el prefijo "e-", el separador "-" y el hash de 8 chars.
   const MAX_ID_LEN = 40
-  const CARD_SUFFIX_LEN = 8
+  const CARD_SUFFIX_LEN = 12
   const PREFIX_LEN = 2 // "e-"
   const SEPARATOR_LEN = 1 // "-"
-  const MAX_ROLE_LEN = MAX_ID_LEN - PREFIX_LEN - SEPARATOR_LEN - CARD_SUFFIX_LEN // 29
+  const MAX_ROLE_LEN = MAX_ID_LEN - PREFIX_LEN - SEPARATOR_LEN - CARD_SUFFIX_LEN // 25
   
   const baseRole = reused?.id?.replace(/^e-/, '').split('-')[0] ?? role
   const truncatedRole = baseRole.length > MAX_ROLE_LEN ? baseRole.slice(0, MAX_ROLE_LEN) : baseRole

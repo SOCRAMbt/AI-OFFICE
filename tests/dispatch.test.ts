@@ -405,9 +405,9 @@ describe("DISP-001: IDs de agente no colisionan entre tarjetas del mismo rol", (
     const agentIds = owners.map(a => a.agentId)
     expect(new Set(agentIds).size).toBe(2)
     
-    // Verificar que ambos IDs contienen el sufijo hash de la card
-    expect(agentIds[0]!).toMatch(/e-frontend-developer-[a-f0-9]{8}$/)
-    expect(agentIds[1]!).toMatch(/e-frontend-developer-[a-f0-9]{8}$/)
+    // Verificar que ambos IDs contienen el sufijo hash de la card (12 chars)
+    expect(agentIds[0]!).toMatch(/e-frontend-developer-[a-f0-9]{12}$/)
+    expect(agentIds[1]!).toMatch(/e-frontend-developer-[a-f0-9]{12}$/)
     expect(agentIds[0]).not.toBe(agentIds[1])
     
     // Verificar que en el roster ambos agentes existen
@@ -556,15 +556,15 @@ describe("DISP-001: IDs de agente no colisionan entre tarjetas del mismo rol", (
     const agentIds = owners.map(a => a.agentId)
     expect(new Set(agentIds).size).toBe(2)
     
-    // Verificar que el sufijo hash de 8 chars está presente y el ID no supera 40 chars
+    // Verificar que el sufijo hash de 12 chars está presente y el ID no supera 40 chars
     for (const id of agentIds) {
-      expect(id).toMatch(/^e-.+-[a-f0-9]{8}$/) // Formato: e-{role-truncado}-{hash8}
+      expect(id).toMatch(/^e-.+-[a-f0-9]{12}$/) // Formato: e-{role-truncado}-{hash12}
       expect(id.length).toBeLessThanOrEqual(40)
-      // Verificar que termina con hash de 8 chars
-      expect(id.slice(-8)).toMatch(/^[a-f0-9]{8}$/)
+      // Verificar que termina con hash de 12 chars
+      expect(id.slice(-12)).toMatch(/^[a-f0-9]{12}$/)
     }
     
     // Verificar que los hashes son diferentes (diferentes cards)
-    expect(agentIds[0]!.slice(-8)).not.toBe(agentIds[1]!.slice(-8))
+    expect(agentIds[0]!.slice(-12)).not.toBe(agentIds[1]!.slice(-12))
   })
 })

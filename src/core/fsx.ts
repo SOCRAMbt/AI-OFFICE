@@ -12,6 +12,8 @@ import { createHash, randomBytes } from "node:crypto"
 import { existsSync } from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { logger } from "./log.js"
+const log = logger("oficina:fsx")
 
 /** Escribe un archivo de forma atómica: tmp único + rename con backoff ante EPERM/EBUSY/EACCES (NTFS). */
 export async function writeAtomic(filePath: string, contents: string): Promise<void> {
@@ -41,7 +43,7 @@ export async function writeAtomic(filePath: string, contents: string): Promise<v
     }
     if (lastErr) throw lastErr
   } catch (err) {
-    await fs.rm(tmp, { force: true }).catch(() => {})
+    await fs.rm(tmp, { force: true }).catch((e) => log.warn("rm tmp failed", { error: String(e) }))
     throw err
   }
 }
@@ -83,7 +85,7 @@ export async function readJson<T>(filePath: string): Promise<
       const raw = await fs.readFile(filePath, "utf8").catch(() => "")
       if (raw.trim().length === 0) return { ok: false, kind: "not-found" }
       const quarantine = `${filePath}.corrupt-${Date.now()}`
-      await fs.rename(filePath, quarantine).catch(() => {})
+      await fs.rename(filePath, quarantine).catch((e) => log.warn("quarantine rename failed", { error: String(e) }))
       return { ok: false, kind: "corrupt", error: new Error(`JSON corrupto en ${filePath}: ${String(err)}`) }
     }
     return { ok: false, kind: "error", error: err as Error }

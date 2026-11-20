@@ -250,7 +250,7 @@ export const OficinaPlugin: Plugin = async (input: PluginInput, options?: Oficin
               `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })
-        .catch(() => {})
+        .catch((err) => log.warn("v1 subtask prompt failed", { error: String(err) }))
     },
 
     /**

@@ -1,4 +1,29 @@
 
+## [3.3.2] - 2026-11-20
+
+### Security
+- Fix Zod CVE GHSA-mrhx-c7xc-m3w5 (zod <4.6.6) by pinning zod@^4.6.7 in overrides
+- Fix 24 transitive vulnerabilities via npm overrides (glob, minimatch, rimraf, cacache, make-fetch-happen, pacote, sigstore, tuf-js)
+- Fix canonicalizePhysical ENOENT/EPERM ambiguity with broken symlink detection
+- Add GitHub/GitLab/npm/AWS token detection to SECRET_PATTERNS
+
+### Fixed
+- Replace 11 silent catch(() => {}) with logged warnings in atomic.ts, fsx.ts, v1.ts
+- Fix race condition in stale lock rename (HIGH-05)
+- Increase withLock default timeout from 10s to 30s
+- Add command-not-found pre-check in runPhase (exitCode 127)
+- Fix detectTooling to respect package.json#packageManager over lockfile
+- Fix globToRegex to not escape brackets (glob character classes work)
+- Fix canonicalizePhysical to handle broken symlinks (ELOOP)
+- Fix scanForSecrets to skip minified lines (>10k chars)
+- Increase agentId hash from 8 to 12 chars (collision resistance)
+- Fix materializeAgent to find git root before writing .opencode/agents
+
+### Changed
+- Add isolate: true to vitest.config.ts
+- Add plugin dependencies to skills-lock.json
+- Document residual risks in SECURITY.md
+
 ## [3.3.1] — 2026-11-18
 
 **Publicación del saneamiento total: contenido del repo listo para promoción.**

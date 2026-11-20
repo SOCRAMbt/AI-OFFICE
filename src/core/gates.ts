@@ -82,18 +82,38 @@ export async function detectTooling(projectRoot: string): Promise<Tooling> {
     if (pmField.startsWith("pnpm")) packageManager = "pnpm"
     else if (pmField.startsWith("yarn")) packageManager = "yarn"
     else if (pmField.startsWith("bun")) packageManager = "bun"
-    else packageManager = "npm"
-  }
+    else if (pmField) packageManager = "npm"
+    else packageManager = null
 
-  if (await existsFile(path.join(projectRoot, "pnpm-lock.yaml"))) {
-    packageManager = "pnpm"
-    detected.push("pnpm-lock.yaml")
-  } else if (await existsFile(path.join(projectRoot, "yarn.lock"))) {
-    packageManager = "yarn"
-    detected.push("yarn.lock")
-  } else if (await existsFile(path.join(projectRoot, "bun.lockb"))) {
-    packageManager = "bun"
-    detected.push("bun.lockb")
+    // PRIORIDAD 2: lockfile SOLO si NO hay packageManager en package.json
+    if (!pmField) {
+      if (await existsFile(path.join(projectRoot, "pnpm-lock.yaml"))) {
+        packageManager = "pnpm"
+        detected.push("pnpm-lock.yaml")
+      } else if (await existsFile(path.join(projectRoot, "yarn.lock"))) {
+        packageManager = "yarn"
+        detected.push("yarn.lock")
+      } else if (await existsFile(path.join(projectRoot, "bun.lockb"))) {
+        packageManager = "bun"
+        detected.push("bun.lockb")
+      } else {
+        packageManager = "npm"
+      }
+    }
+  } else {
+    // Sin package.json, inferir de lockfile
+    if (await existsFile(path.join(projectRoot, "pnpm-lock.yaml"))) {
+      packageManager = "pnpm"
+      detected.push("pnpm-lock.yaml")
+    } else if (await existsFile(path.join(projectRoot, "yarn.lock"))) {
+      packageManager = "yarn"
+      detected.push("yarn.lock")
+    } else if (await existsFile(path.join(projectRoot, "bun.lockb"))) {
+      packageManager = "bun"
+      detected.push("bun.lockb")
+    } else {
+      packageManager = "npm"
+    }
   }
 
   const isPython =
@@ -164,6 +184,26 @@ export async function runPhase(
   runner: CommandRunner = defaultRunner,
   timeoutNote?: string,
 ): Promise<GatePhaseResult> {
+  // PRE-CHECK: validar que comando existe en PATH.
+  // Solo cuando el runner es el real: un runner inyectado (tests) define su
+  // propio mundo y no debe depender de que el binario exista en la máquina.
+  if (runner === defaultRunner) {
+    const checkCmd = process.platform === "win32" ? "where.exe" : "which"
+    const notFound: GatePhaseResult = {
+      phase,
+      command: `${command} ${args.join(" ")}`.trim(),
+      outcome: "fail",
+      exitCode: 127,
+      output: `Command not found: ${command}. Is it installed and in PATH?`,
+      detail: `Command not found: ${command}`,
+      reason: `El comando "${command}" no se encuentra en PATH. Verifica que está instalado.`,
+    }
+    const found = await new Promise<boolean>((resolve) => {
+      execFile(checkCmd, [command], { cwd, timeout: 5000 }, (err) => resolve(!err))
+    })
+    if (!found) return notFound
+  }
+
   const started = Date.now()
   const { code, stdout, stderr } = await runner(command, args, cwd)
   const duration = Date.now() - started
@@ -299,6 +339,22 @@ export const SECRET_PATTERNS: { label: string; pattern: RegExp }[] = [
     label: "tokens de provider",
     pattern: /\b(sk|pk|rk)_[a-z]{1,8}_[A-Za-z0-9]{16,}\b/g,
   },
+  {
+    label: "GitHub tokens",
+    pattern: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b/g,
+  },
+  {
+    label: "GitLab tokens",
+    pattern: /\bglpat-[A-Za-z0-9_\-]{20,}\b/g,
+  },
+  {
+    label: "npm tokens",
+    pattern: /\bnpm_[A-Za-z0-9]{36,}\b/g,
+  },
+  {
+    label: "AWS access keys",
+    pattern: /\bAKIA[0-9A-Z]{16}\b/g,
+  },
 ]
 
 /** Extensiones que se escanean. El código compilado no aporta. */
@@ -353,6 +409,10 @@ export async function scanForSecrets(root: string, scope: string[]): Promise<Sec
 
       const lines = content.split("\n")
       for (const [index, line] of lines.entries()) {
+        // PROTECCIÓN: saltar líneas > 10k chars (probablemente minificado)
+        if (line.length > 10_000) {
+          continue
+        }
         for (const { label, pattern } of SECRET_PATTERNS) {
           pattern.lastIndex = 0
           let match: RegExpExecArray | null

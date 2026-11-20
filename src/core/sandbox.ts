@@ -157,6 +157,9 @@ export async function canonicalizePhysical(target: string): Promise<string> {
         current = parent
         continue
       }
+      if (code === "ELOOP" || (err as Error).message?.includes("ELOOP")) {
+        throw new Error(`Symlink loop or broken link in path: ${target}`)
+      }
       throw err
     }
   }
@@ -178,7 +181,7 @@ export function normalizeGlob(glob: string): string {
  */
 export function globToRegex(glob: string): RegExp {
   const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/[.+^${}()|\\]/g, "\\$&")
     .replace(/\?/g, ".")
     .replace(/\*\*\//g, "\u0000")
     .replace(/\*\*/g, "\u0001")

@@ -415,7 +415,8 @@ export class Bus {
 /** Lock de canal: serializa las publicaciones de un canal. */
 function withChannelLock<T>(channelDir: string, fn: () => Promise<T>): Promise<T> {
   return withLock(path.join(channelDir, ".channel.lock"), fn, {
-    timeoutMs: 10_000,
+    timeoutMs: 60_000,
     staleMs: 30_000,
+    caller: "bus",
   })
 }
