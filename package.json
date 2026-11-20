@@ -118,6 +118,15 @@
   },
   "overrides": {
     "toml": "^5.0.1",
-    "effect": "^4.0.0-rc.118"
+    "effect": "^4.0.0-rc.118",
+    "zod": "^4.6.7",
+    "glob": "^10.0.0",
+    "minimatch": "^9.0.0",
+    "rimraf": "^5.0.0",
+    "cacache": "^18.0.0",
+    "make-fetch-happen": "^11.0.0",
+    "pacote": "^17.0.0",
+    "sigstore": "^2.0.0",
+    "tuf-js": "^2.0.0"
   }
 }

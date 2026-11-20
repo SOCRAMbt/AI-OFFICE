@@ -40,9 +40,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 
-/* ────────────────────────────────────────────────────────────────────────────
- * Normalización canónica para contención (Windows 8.3-safe)
- * ──────────────────────────────────────────────────────────────────────────── */
+const IS_WINDOWS = process.platform === "win32"
 
 /**
  * Canoniza una ruta para contención LÉXICA (sin seguir symlinks).
@@ -94,56 +92,82 @@ export async function canonicalizeLexical(target: string): Promise<string> {
  *
  * Algoritmo:
  * 1. path.resolve para obtener la ruta absoluta
- * 2. Caminar hacia arriba hasta encontrar el ancestro existente más profundo
- * 3. fs.realpath sobre ese ancestro (sigue symlinks, expande 8.3 en Windows)
- * 4. Re-enganchar la cola de componentes inexistentes
+ * 2. Verificar si hay symlinks rotos en el path antes de intentar realpath
+ * 3. Si hay symlink roto → error
+ * 4. Intentar realpath directamente
+ * 4. Si falla con ENOENT/ENOTDIR, subir al padre y reintentar
  *
  * Para contención FÍSICA: sigue symlinks, usa realpath.
  * Usada para insidePhysically y relative.
  */
 export async function canonicalizePhysical(target: string): Promise<string> {
+  // Primero, verificar si hay symlinks rotos en el path ANTES de intentar realpath
+  async function checkBrokenSymlinks(pathToCheck: string): Promise<string | null> {
+    let checkPath = pathToCheck
+    for (;;) {
+      const parent = path.dirname(checkPath)
+      if (parent === checkPath) break
+      
+      const basename = path.basename(checkPath)
+      if (!basename) break
+      
+      try {
+        const stat = await fs.lstat(parent)
+        if (stat.isSymbolicLink()) {
+          try {
+            await fs.realpath(parent)
+          } catch (linkErr) {
+            const linkCode = (linkErr as NodeJS.ErrnoException).code
+            if (linkCode === "ENOENT" || linkCode === "ENOTDIR") {
+              return parent
+            }
+            throw linkErr
+          }
+        }
+      } catch {
+        // No es symlink o error al hacer lstat: continuar
+      }
+      
+      checkPath = parent
+    }
+    return null
+  }
+
   let current = path.resolve(target)
   const tail: string[] = []
 
   for (;;) {
+    // Primero verificar symlinks rotos en el path actual
+    const brokenSymlink = await checkBrokenSymlinks(current)
+    if (brokenSymlink) {
+      throw new Error(`Broken symlink in path: ${brokenSymlink}`)
+    }
+
     try {
       const real = await fs.realpath(current)
       return tail.length > 0 ? path.join(real, ...tail) : real
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
-      if (code !== "ENOENT" && code !== "ENOTDIR") {
-        throw err
+      if (code === "ENOENT" || code === "ENOTDIR") {
+        const parent = path.dirname(current)
+        if (parent === current) {
+          throw new Error(`Cannot canonicalize path: no existing ancestor for ${target}`)
+        }
+        tail.unshift(path.basename(current))
+        current = parent
+        continue
       }
-      const parent = path.dirname(current)
-      if (parent === current) {
-        throw new Error(`Cannot canonicalize path: no existing ancestor for ${target}`)
-      }
-      tail.unshift(path.basename(current))
-      current = parent
+      throw err
     }
   }
 }
 
-const IS_WINDOWS = process.platform === "win32"
-
 /**
- * En Windows, normaliza los componentes de una ruta eliminando puntos y espacios finales
- * por segmento (comportamiento de Win32 API), preservando '.' y '..' y la letra de unidad.
+ * Normaliza un glob: sin `./` inicial, sin `/` inicial, con `/` como separador.
  */
-export function normalizeWindowsSegments(p: string): string {
-  return p
-    .split(/[/\\]/)
-    .map((seg, idx) => {
-      if (idx === 0 && /^[a-zA-Z]:$/.test(seg)) return seg
-      if (seg === "." || seg === "..") return seg
-      return seg.replace(/[. ]+$/, "")
-    })
-    .join(path.sep)
+export function normalizeGlob(glob: string): string {
+  return glob.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "")
 }
-
-/* ────────────────────────────────────────────────────────────────────────────
- * Glob a regex
- * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
  * Glob mínimo a regex. Soporta `*`, `**` y `?`.
@@ -155,7 +179,6 @@ export function normalizeWindowsSegments(p: string): string {
 export function globToRegex(glob: string): RegExp {
   const escaped = glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    // `?` primero: los patrones insertados después contienen `?` literal.
     .replace(/\?/g, ".")
     .replace(/\*\*\//g, "\u0000")
     .replace(/\*\*/g, "\u0001")
@@ -163,11 +186,6 @@ export function globToRegex(glob: string): RegExp {
     .replace(/\u0000/g, "(?:.*/)?")
     .replace(/\u0001/g, ".*")
   return new RegExp(`^${escaped}$`, IS_WINDOWS ? "i" : undefined)
-}
-
-/** Normaliza un glob: sin `./` inicial, sin `/` inicial, con `/` como separador. */
-export function normalizeGlob(glob: string): string {
-  return glob.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "")
 }
 
 /**
@@ -235,6 +253,7 @@ export interface ResolvedTarget {
   insideLexically: boolean
   /** ¿El path real esta dentro del root? */
   insidePhysically: boolean
+  projectRoot: string
 }
 
 /**
@@ -256,7 +275,6 @@ async function realpathBestEffort(target: string): Promise<{ resolved: string; e
     } catch {
       const parent = path.dirname(current)
       if (parent === current) {
-        // Llegamos a la raiz del sistema y no existe: devolvemos el target.
         return { resolved: path.resolve(target), exists: false }
       }
       tail.unshift(path.basename(current))
@@ -273,7 +291,7 @@ async function realpathBestEffort(target: string): Promise<{ resolved: string; e
  * 
  * Recibe `root` ya canonizado y `absolute` path léxico (sin canonizar).
  */
-async function findSymlinks(
+export async function findSymlinks(
   root: string,
   absolute: string,
   physicalRoot?: string,
@@ -291,7 +309,6 @@ async function findSymlinks(
     try {
       stat = await fs.lstat(current)
     } catch {
-      // El componente no existe todavia: no hay symlink que seguir.
       continue
     }
     if (!stat.isSymbolicLink()) continue
@@ -301,9 +318,6 @@ async function findSymlinks(
     try {
       target = await fs.realpath(current)
     } catch {
-      // Symlink roto: no se puede resolver. Se trata como escapatorio
-      // conservador, porque un link roto puede apuntar a cualquier lado
-      // en cuanto exista el destino.
       escapes = true
       continue
     }
@@ -384,7 +398,7 @@ export async function resolveTarget(root: string, rawPath: string, preNormalized
   }
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/** ────────────────────────────────────────────────────────────────────────────
  * Archivos sensibles
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -514,7 +528,6 @@ export async function checkScope(
   policy: ScopePolicy,
   options: ScopeCheckOptions = {},
 ): Promise<ScopeVerdict> {
-  // Canonizar root UNA VEZ léxicamente. Esta es la única fuente de verdad.
   if (typeof rawPath !== "string" || rawPath.length === 0) {
     const projectRoot = await canonicalizeLexical(root)
     return deny("invalid", "Ruta vacía.", projectRoot, "")
@@ -531,7 +544,6 @@ export async function checkScope(
     }
   }
 
-  // Canonizar root léxicamente, luego resolver target con el root ya canonizado
   const projectRoot = await canonicalizeLexical(root)
   let target: ResolvedTarget & { projectRoot: string }
   try {
@@ -549,7 +561,6 @@ export async function checkScope(
     }
   }
 
-  // 1. Fuera del proyecto (por `..` o por path absoluto).
   if (!target.insideLexically) {
     return {
       ...deny(
@@ -564,7 +575,6 @@ export async function checkScope(
     }
   }
 
-  // 2. Escape por symlink: el path lexical esta adentro, el real no.
   if (!target.insidePhysically) {
     const detalle =
       target.symlinks.length > 0
@@ -583,7 +593,6 @@ export async function checkScope(
     }
   }
 
-  // 3. Archivos sensibles: no se pueden habilitar con el scope.
   if (!options.ignoreSensitive && isSensitive(target.relative)) {
     return {
       ...deny(
@@ -599,7 +608,6 @@ export async function checkScope(
     }
   }
 
-  // 4. Forbidden de la card.
   if (matchesScope(target.relative, policy.forbidden)) {
     return {
       ...deny(
@@ -615,7 +623,6 @@ export async function checkScope(
     }
   }
 
-  // 5. Protección de estado interno de .oficina y canal de entrega.
   const officeWritable = options.officeWritable ?? OFFICE_WRITABLE
   const isInsideOficina =
     target.relative === ".oficina" ||
@@ -650,7 +657,6 @@ export async function checkScope(
     }
   }
 
-  // 6. mayTouch.
   if (!matchesScope(target.relative, policy.mayTouch)) {
     return {
       ...deny(
@@ -693,26 +699,32 @@ function deny(
   }
 }
 
+/** En Windows, normaliza los componentes de una ruta eliminando puntos y espacios finales
+ * por segmento (comportamiento de Win32 API), preservando '.' y '..' y la letra de unidad.
+ */
+export function normalizeWindowsSegments(p: string): string {
+  return p
+    .split(/[/\\]/)
+    .map((seg, idx) => {
+      if (idx === 0 && /^[a-zA-Z]:$/.test(seg)) return seg
+      if (seg === "." || seg === "..") return seg
+      return seg.replace(/[. ]+$/, "")
+    })
+    .join(path.sep)
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Analisis de comandos de shell
  * ──────────────────────────────────────────────────────────────────────────── */
 
 export interface ShellCandidate {
-  /** Path afectado por la escritura. */
   target: string
-  /** Verbo que produce la escritura ("redirect", "tee", "cp", ...). */
   op: string
-  /**
-   * true si se detecto una escritura pero no se pudo extraer un path
-   * confiable. En ese caso hay que armar el tripwire: no se puede
-   * autorizar en blindness.
-   */
   uncertain: boolean
   path?: string
   reason?: string
 }
 
-/** Quita comillas y comillas invertidas de un token de shell. */
 function unquote(token: string): string {
   const t = token.trim()
   if (
@@ -724,7 +736,6 @@ function unquote(token: string): string {
   return t
 }
 
-/** El ultimo token no-vacio de una lista de argumentos. */
 function lastToken(args: string | string[]): string | undefined {
   const list = Array.isArray(args) ? args : args.split(/\s+/)
   for (let i = list.length - 1; i >= 0; i -= 1) {
@@ -736,7 +747,6 @@ function lastToken(args: string | string[]): string | undefined {
   return undefined
 }
 
-/** Todos los tokens no-opcion de una lista de argumentos. */
 function plainTokens(args: string | string[]): string[] {
   const list = Array.isArray(args) ? args : args.split(/\s+/)
   return list
@@ -763,9 +773,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   const out: ShellCandidate[] = []
   if (typeof command !== "string" || command.trim().length === 0) return out
 
-  // Ojo: el parámetro `uncertain` tiene que viajar al resultado. Antes,
-  // target no-indefinido jamás se marcaba uncertain: un `pip install` era
-  // "certeza de escritura" sobre el paquete — bloqueado por error.
   const add = (target: string | undefined, op: string, uncertain = false, extra?: { path?: string; reason?: string }) => {
     if (target === undefined) {
       out.push({ target: "", op, uncertain: true, path: extra?.path ?? ".", reason: extra?.reason ?? "uncertain target" })
@@ -792,19 +799,15 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     })
   }
 
-  // Redirecciones: > >> 2> &> |> (excluyendo => y -> para funciones flecha)
   const redirect = /(?:^|[^0-9>|&=-])(?:\d*>>?|&>>?|\|>)\s*("[^"]*"|'[^']*'|[^\s;|&>]+)/g
   for (const m of command.matchAll(redirect)) {
     add(m[1], "redirect")
   }
 
-  // tee
-  for (const m of command.matchAll(/\btee\b((?:\s+-{1,2}\S+)*)\s+("[^"]*"|'[^']*'|[^\s;|&>\r\n]+)/g)) {
+  for (const m of command.matchAll(/\btee\b((?:\s+-{1,2}\S+)*)\s+("[^"]*"|'[^']*'|[^\s;|&]+)/g)) {
     add(m[2], "tee")
   }
 
-  // cp / mv / install -> destino = ultimo argumento
-  // install (pip/npm/pnpm/yarn/poetry/uv/brew/apt/cargo install/add) -> target es incierto (paquete, no archivo)
   for (const m of command.matchAll(/\b(cp|mv|install)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const verb = m[1] ?? "cp"
     const args = plainTokens(m[2] ?? "")
@@ -813,9 +816,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
       continue
     }
     if (verb === "install") {
-      // install: el "destino" no es un archivo local, es un paquete. Marcar uncertain.
-      // Si hay flags como --out/-o/--target, el último argumento de ese flag sí es path.
-      // (plainTokens descarta los flags con "-": hay que preservarlos aparte.)
       const raw = (m[2] ?? "").trim()
       const rawTokens = raw.split(/\s+/).filter(Boolean)
       const OUTPUT_FLAGS = new Set(["-o", "--out", "--output", "--target", "--target-dir", "--prefix"])
@@ -829,26 +829,22 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
       add(dest || args[args.length - 1], verb, !dest)
       continue
     }
-    // `cp -r a b c` -> el destino es `c`; `cp a b` -> `b`.
     const dest = args.length >= 2 ? args[args.length - 1] : args[0]
     add(dest, verb)
   }
 
-  // rm -> todos los argumentos son blancos
   for (const m of command.matchAll(/\brm\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const args = plainTokens(m[1] ?? "")
     if (args.length === 0) add(undefined, "rm", true)
     else for (const a of args) add(a, "rm")
   }
 
-  // mkdir / touch / truncate / mktemp
   for (const m of command.matchAll(/\b(mkdir|touch|truncate)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const args = plainTokens(m[2] ?? "")
     if (args.length === 0) add(undefined, m[1] ?? "mkdir", true)
     else for (const a of args) add(a, m[1] ?? "mkdir")
   }
 
-  // sed -i
   for (const m of command.matchAll(/\bsed\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const raw = m[1] ?? ""
     if (!/(^|\s)-[a-zA-Z]*i/.test(raw)) continue
@@ -857,17 +853,14 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     add(target, "sed -i")
   }
 
-  // dd of=
   for (const m of command.matchAll(/\bdd\b[^\r\n;|&>]*?\bof=("[^"]*"|'[^']*'|\S+)/g)) {
     add(m[1], "dd")
   }
 
-  // curl -o / wget -O
   for (const m of command.matchAll(/\b(curl|wget)\b[^\r\n;|&>]*?\s-[oO]\s*("[^"]*"|'[^']*'|\S+)/g)) {
     add(m[2], m[1] ?? "curl")
   }
 
-  // git checkout / restore / clean
   for (const m of command.matchAll(/\bgit\s+(?:checkout|restore|clean)\b([^\r\n;|&>]*)/g)) {
     const rest = (m[1] ?? "").trim()
     const afterDash = /--\s+(.+)$/.exec(rest)
@@ -883,13 +876,11 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     for (const p of args) add(p, "git")
   }
 
-  // chmod / chown
   for (const m of command.matchAll(/\b(chmod|chown)\s+((?:[^\s;|&>\r\n]|\s)+?)(?:\s*[;|&>\r\n]|$)/g)) {
     const target = lastToken(plainTokens(m[2] ?? ""))
     add(target, m[1] ?? "chmod")
   }
 
-  // PowerShell: Set-Content, Add-Content, Clear-Content
   for (const m of command.matchAll(/\b(Set-Content|Add-Content|Clear-Content)\b([^\r\n;|&>]*)/gi)) {
     const raw = m[2] ?? ""
     const pathMatch = /-(?:Path|LiteralPath)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -901,7 +892,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: Out-File
   for (const m of command.matchAll(/\bOut-File\b([^\r\n;|&>]*)/gi)) {
     const raw = m[1] ?? ""
     const fileMatch = /-(?:FilePath|LiteralPath|Path)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -913,7 +903,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: New-Item
   for (const m of command.matchAll(/\bNew-Item\b([^\r\n;|&>]*)/gi)) {
     const raw = m[1] ?? ""
     const pathMatch = /-(?:Path|Name)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -925,7 +914,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: Remove-Item
   for (const m of command.matchAll(/\bRemove-Item\b([^\r\n;|&>]*)/gi)) {
     const raw = m[1] ?? ""
     const pathMatch = /-(?:Path|LiteralPath)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -938,7 +926,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: Copy-Item, Move-Item
   for (const m of command.matchAll(/\b(Copy-Item|Move-Item)\b([^\r\n;|&>]*)/gi)) {
     const raw = m[2] ?? ""
     const destMatch = /-(?:Destination)\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -955,7 +942,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: Rename-Item
   for (const m of command.matchAll(/\bRename-Item\b([^\r\n;|&>]*)/gi)) {
     const raw = m[1] ?? ""
     const newNameMatch = /-NewName\s+("[^"]*"|'[^']*'|\S+)/i.exec(raw)
@@ -970,17 +956,14 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // PowerShell: Invoke-WebRequest -OutFile, iwr -OutFile, curl -OutFile
   for (const m of command.matchAll(/\b(?:Invoke-WebRequest|iwr|curl)\b[^\r\n;|&>]*?-OutFile\s+("[^"]*"|'[^']*'|\S+)/gi)) {
     add(m[1], "Invoke-WebRequest -OutFile")
   }
 
-  // PowerShell / .NET: [System.IO.File]::Write*
   for (const m of command.matchAll(/(?:^|[^a-zA-Z0-9_])\[System\.IO\.File\]::Write\w*\s*\(\s*("[^"]*"|'[^']*'|[^,\s)]+)/gi)) {
     add(m[1], "[System.IO.File]::Write")
   }
 
-  // Interpreters embebidos: python -c / node -e / ruby -e / perl -e / bun -e / etc.
   const INTERPRETER = /\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b(?:\s+--?[a-zA-Z0-9_-]+)*\s+(?:-[ec]\s+|--eval\s+|-[cC]ommand\s+|\/[ckCK]\s+)("[^"]*"|'[^']*')/g
   for (const m of command.matchAll(INTERPRETER)) {
     const code = unquote(m[2] ?? "")
@@ -991,7 +974,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
       add(undefined, op, true, { path: ".", reason: `interpreter eval: ${m[1]}` })
       continue
     }
-    // Detectar flags de salida: -o, --out, --output
     let outPath: string = ""
     const tokens = code.split(/\s+/)
     for (let i = 0; i < tokens.length; i++) {
@@ -1006,12 +988,10 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     if (outPath.length > 0) add(outPath, op, false, { path: outPath, reason: `interpreter output: ${outPath}` })
   }
 
-  // Heredoc a un interpreter
   for (const m of command.matchAll(/\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b\s*<<-?\s*['"]?\w+['"]?/g)) {
     add(undefined, `${m[1]} heredoc`, true, { path: ".", reason: `interpreter heredoc: ${m[1]}` })
   }
 
-  // Cualquier otra invocación de interprete con flags de ejecución (-e, -c, --eval, -Command, -File, /c)
   const INTERPRETER_INVOCATION = /\b(python3?|node|ruby|perl|bun|deno|tsx|bash|sh|pwsh|powershell|cmd)\b(?:\s+--?[a-zA-Z0-9_-]+)*\s+(?:-[ec]\b|--eval\b|-[cC]ommand\b|-[fF]ile\b|\/[ckCK]\b|<<)/i
   if (INTERPRETER_INVOCATION.test(command)) {
     const yaCubierto = out.some((c) => c.op.includes("-c") || c.op.includes("heredoc") || c.uncertain)
@@ -1020,7 +1000,6 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
     }
   }
 
-  // Deduplicar por (op, target).
   const seen = new Set<string>()
   return out.filter((c) => {
     const key = `${c.op}::${c.target}`
@@ -1030,4 +1009,61 @@ export function analyzeShellCommand(command: string): ShellCandidate[] {
   })
 }
 
+/** Separadores de ruta. El guion NO va acá: `e-frontend-developer` es válido. */
+const SEPARATORS = /[/\\]/
 
+/** Nombres de dispositivos reservados en Windows (DOS legacy). */
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i
+
+/** Longitud máxima de un id de archivo. */
+export const MAX_ID_LENGTH = 96
+
+/** ¿El string tiene caracteres de control (incluido NUL)? */
+function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i)
+    if (code < 32 || code === 127) return true
+  }
+  return false
+}
+
+/**
+ * Valida un id y lo devuelve si es seguro para usar como nombre de archivo.
+ *
+ * Devuelve `undefined` si el id no se puede sanear de forma no destructiva:
+ * es preferible rechazar el input que convertir silenciosamente un id
+ * distinto al que el modelo pidió.
+ */
+export function safeId(raw: string | undefined | null): string | undefined {
+  if (typeof raw !== "string") return undefined
+  const trimmed = raw.trim()
+  if (/[.\s]$/.test(trimmed)) return undefined
+  if (!trimmed) return undefined
+  if (trimmed.length > MAX_ID_LENGTH) return undefined
+  if (SEPARATORS.test(trimmed)) return undefined
+  if (trimmed.includes(":")) return undefined
+  if (hasControlChars(trimmed)) return undefined
+  if (trimmed.includes("..")) return undefined
+  if (trimmed.startsWith(".")) return undefined
+  if (WINDOWS_RESERVED.test(trimmed)) return undefined
+  return trimmed
+}
+
+/** ¿El id es seguro sin transformarlo? */
+export function isSafeId(raw: string | undefined | null): boolean {
+  return safeId(raw) !== undefined
+}
+
+/**
+ * Construye una ruta dentro de un directorio, garantizando que no escape.
+ *
+ * Devuelve `undefined` si el id no es seguro, en lugar de lanzar: el
+ * llamador decide qué hacer con un id inválido.
+ */
+export function safeJoin(dir: string, id: string | undefined | null, suffix = ""): string | undefined {
+  const safe = safeId(id)
+  if (!safe) return undefined
+  return path.join(dir, `${safe}${suffix}`)
+}
+
+export { IS_WINDOWS }
