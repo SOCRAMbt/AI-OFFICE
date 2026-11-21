@@ -1,0 +1,11 @@
+{
+  "id": "parse-json-003",
+  "name": "Add JSON schema validation support",
+  "description": "Add a 'validate' option to parseJson that accepts a JSON Schema and validates the parsed object against it, throwing a descriptive error on mismatch.",
+  "repo": "parse-json-repo",
+  "testCommand": "npm test",
+  "difficulty": "hard",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'test-schema.js'); fs.writeFileSync(testPath, `import test from 'ava'; import parseJson from './index.js'; test('validate option validates against schema', t => { const schema = { type: 'object', properties: { name: { type: 'string' }, age: { type: 'number' } }, required: ['name'] }; const result = parseJson('{\"name\": \"John\", \"age\": 30}', { validate: schema }); t.deepEqual(result, { name: 'John', age: 30 }); }); test('validate throws on missing required field', t => { const schema = { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] }; const error = t.throws(() => parseJson('{\"age\": 30}', { validate: schema })); t.true(error.message.includes('required')); }); `);",
+  "verify": "const indexPath = path.join(workspace, 'index.js'); if (!fs.existsSync(indexPath)) return false; const content = fs.readFileSync(indexPath, 'utf8'); return content.includes('validate');"
+}

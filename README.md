@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" width="1000" alt="AI-OFFICE — a team of AI agents that can't say 'done' until the tests pass" />
+<img src="docs/assets/banner.svg" width="1000" alt="oficina-opencode — a team of AI agents that can't say 'done' until the tests pass" />
 
 <br>
 
-# AI-OFFICE
+# oficina-opencode
 
-**Your AI agent says "done". AI-OFFICE makes it prove it.**
+**Your AI agent says "done". oficina-opencode makes it prove it.**
 
-[![npm](https://img.shields.io/npm/v/oficina-opencode)](https://www.npmjs.com/package/oficina-opencode)
-[![CI](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml/badge.svg)](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@marcos2710/oficina-opencode)](https://www.npmjs.com/package/@marcos2710/oficina-opencode)
+[![CI](https://github.com/SOCRAMbt/oficina-opencode/actions/workflows/ci.yml/badge.svg)](https://github.com/SOCRAMbt/oficina-opencode/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
@@ -25,7 +25,7 @@ Every "done" claim is backed by evidence: build output, test results, secret sca
 ## Quickstart
 
 ```bash
-npm install -g oficina-opencode
+npm install -g @marcos2710/oficina-opencode
 ```
 
 Then in OpenCode:
@@ -47,14 +47,14 @@ The dashboard opens at `http://localhost:7333` with a live view of agents workin
 No OpenCode? Use the skill version:
 
 ```bash
-npx skills add SOCRAMbt/AI-OFFICE
+npx skills add SOCRAMbt/oficina-opencode
 ```
 
 Works with Claude Code, Codex, Cursor, and OpenCode.
 
 ## Why not just use one agent?
 
-One agent says "done" and moves on. AI-OFFICE requires:
+One agent says "done" and moves on. oficina-opencode requires:
 - A **reviewer** that checks the work against acceptance criteria
 - A **verifier** that runs real gates (build, tests, security)
 - **Evidence** saved per criterion
@@ -64,7 +64,7 @@ The agent can't close a task until all three pass.
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `ai-office` v3.4.0 |
+| **Paquete** | `oficina-opencode` v3.4.1 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
@@ -87,4 +87,4 @@ The agent can't close a task until all three pass.
 
 ---
 
-*AI-OFFICE: your AI agent says "done". AI-OFFICE makes it prove it.*
+*oficina-opencode: your AI agent says "done". oficina-opencode makes it prove it.*

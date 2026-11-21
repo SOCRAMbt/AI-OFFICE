@@ -64,7 +64,9 @@ async function main() {
     }
 
     const updated = replaceFactsBlock(content, block)
-    if (updated === content) {
+    // Normalize line endings for comparison (handle CRLF vs LF)
+    const normalizeLineEndings = (s: string) => s.replace(/\r\n/g, "\n")
+    if (normalizeLineEndings(updated) === normalizeLineEndings(content)) {
       console.log(`  ${relative}: al dia`)
       continue
     }

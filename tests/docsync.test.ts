@@ -119,6 +119,8 @@ describe("Los documentos del repo estan al dia", () => {
     const esperado = `${FACTS_BEGIN}\n${renderFactsBlock(facts)}\n${FACTS_END}`
 
     // Si esto falla, el gate del CI (`npm run docs:check`) tambien falla.
-    expect(bloque!.text).toBe(esperado)
+    // Normalize line endings for comparison (CRLF vs LF)
+    const normalize = (s: string) => s.replace(/\r\n/g, "\n")
+    expect(normalize(bloque!.text)).toBe(esperado)
   })
 })

@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-11-21T15:01:31.744Z",
+  "model": "default",
+  "tasks": 1,
+  "results": {
+    "alone": [
+      {
+        "taskId": "hello-001",
+        "taskName": "Add email validation to todo app",
+        "mode": "alone",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 1784,
+        "tokenEstimate": 8000,
+        "tokensUsed": {
+          "input": 0,
+          "output": 0,
+          "total": 8000
+        },
+        "error": "Command failed: cmd /c \"C:\\\\Users\\\\Marcos\\\\AppData\\\\Roaming\\\\npm\\\\opencode.cmd\" run --auto --format json --file C:\\Users\\Marcos\\AppData\\Local\\Temp\\oficina-bench-JWKf4F\\.bench-prompt.txt",
+        "output": "{\"type\":\"error\",\"timestamp\":1795273291584,\"sessionID\":\"\",\"error\":{\"type\":\"unknown\",\"message\":\"Failed to change directory to /c/Users/Marcos/AI-OFFICE-audit\"}}\n"
+      }
+    ],
+    "office": []
+  },
+  "summary": {
+    "alone": {
+      "doneRate": 0,
+      "passRate": 0,
+      "avgTimeMs": 1784,
+      "avgTokens": 8000,
+      "liesCaught": 0
+    },
+    "office": {
+      "doneRate": 0,
+      "passRate": 0,
+      "avgTimeMs": 0,
+      "avgTokens": 0,
+      "liesCaught": 0
+    },
+    "tokenOverhead": -8000,
+    "timeOverhead": -1784,
+    "improvement": {
+      "passRateDelta": 0,
+      "liesPrevented": 0
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "ky-002",
+  "name": "Add timeout configuration to ky requests",
+  "description": "Add a global timeout option to ky that can be set on the instance or per-request. The timeout should abort the request and throw a descriptive error.",
+  "repo": "ky-repo",
+  "testCommand": "npm test",
+  "difficulty": "medium",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'test', 'timeout.ts'); fs.mkdirSync(path.dirname(testPath), { recursive: true }); fs.writeFileSync(testPath, `import test from 'ava'; import ky from '../source/index.js'; test('timeout option aborts slow requests', async t => { const server = t.testServer((req, res) => { setTimeout(() => res.end('ok'), 100); }); const error = await t.throwsAsync(ky(server.url, { timeout: 10 }).text()); t.true(error.name === 'TimeoutError'); }); test('timeout can be set globally', async t => { const slowKy = ky.create({ timeout: 10 }); const server = t.testServer((req, res) => { setTimeout(() => res.end('ok'), 100); }); const error = await t.throwsAsync(slowKy(server.url).text()); t.true(error.name === 'TimeoutError'); }); `);",
+  "verify": "const sourcePath = path.join(workspace, 'source', 'index.js'); if (!fs.existsSync(sourcePath)) return false; const content = fs.readFileSync(sourcePath, 'utf8'); return content.includes('timeout');"
+}

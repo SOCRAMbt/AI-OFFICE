@@ -1,0 +1,226 @@
+{
+  "timestamp": "2026-11-21T15:14:53.047Z",
+  "mode": "simulation",
+  "model": "nemotron-3-ultra",
+  "tasks": 6,
+  "results": {
+    "alone": [
+      {
+        "taskId": "hello-003",
+        "taskName": "Add task filtering by status",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 28764,
+        "tokenEstimate": 9085,
+        "tokensUsed": {
+          "input": 2726,
+          "output": 6360,
+          "total": 9085
+        },
+        "output": "Simulated alone run for Add task filtering by status"
+      },
+      {
+        "taskId": "hello-004",
+        "taskName": "Add task priority levels",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 52713,
+        "tokenEstimate": 6815,
+        "tokensUsed": {
+          "input": 2045,
+          "output": 4771,
+          "total": 6815
+        },
+        "output": "Simulated alone run for Add task priority levels"
+      },
+      {
+        "taskId": "ky-002",
+        "taskName": "Add timeout configuration to ky requests",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 47624,
+        "tokenEstimate": 9083,
+        "tokensUsed": {
+          "input": 2725,
+          "output": 6358,
+          "total": 9083
+        },
+        "output": "Simulated alone run for Add timeout configuration to ky requests"
+      },
+      {
+        "taskId": "ky-003",
+        "taskName": "Add retry configuration with exponential backoff",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 83373,
+        "tokenEstimate": 7554,
+        "tokensUsed": {
+          "input": 2266,
+          "output": 5288,
+          "total": 7554
+        },
+        "output": "Simulated alone run for Add retry configuration with exponential backoff"
+      },
+      {
+        "taskId": "parse-json-003",
+        "taskName": "Add JSON schema validation support",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 65334,
+        "tokenEstimate": 9283,
+        "tokensUsed": {
+          "input": 2785,
+          "output": 6498,
+          "total": 9283
+        },
+        "output": "Simulated alone run for Add JSON schema validation support"
+      },
+      {
+        "taskId": "parse-json-004",
+        "taskName": "Add streaming parse for large JSON",
+        "mode": "alone",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 78242,
+        "tokenEstimate": 7382,
+        "tokensUsed": {
+          "input": 2215,
+          "output": 5167,
+          "total": 7382
+        },
+        "output": "Simulated alone run for Add streaming parse for large JSON"
+      }
+    ],
+    "office": [
+      {
+        "taskId": "hello-003",
+        "taskName": "Add task filtering by status",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 12576,
+        "tokenEstimate": 23208,
+        "tokensUsed": {
+          "input": 6962,
+          "output": 16246,
+          "total": 23208
+        },
+        "output": "Simulated office run for Add task filtering by status"
+      },
+      {
+        "taskId": "hello-004",
+        "taskName": "Add task priority levels",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 16321,
+        "tokenEstimate": 22795,
+        "tokensUsed": {
+          "input": 6839,
+          "output": 15956,
+          "total": 22795
+        },
+        "output": "Simulated office run for Add task priority levels"
+      },
+      {
+        "taskId": "ky-002",
+        "taskName": "Add timeout configuration to ky requests",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 21371,
+        "tokenEstimate": 24603,
+        "tokensUsed": {
+          "input": 7381,
+          "output": 17222,
+          "total": 24603
+        },
+        "output": "Simulated office run for Add timeout configuration to ky requests"
+      },
+      {
+        "taskId": "ky-003",
+        "taskName": "Add retry configuration with exponential backoff",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 27351,
+        "tokenEstimate": 24096,
+        "tokensUsed": {
+          "input": 7229,
+          "output": 16867,
+          "total": 24096
+        },
+        "output": "Simulated office run for Add retry configuration with exponential backoff"
+      },
+      {
+        "taskId": "parse-json-003",
+        "taskName": "Add JSON schema validation support",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": true,
+        "testsActuallyRan": true,
+        "timeMs": 26081,
+        "tokenEstimate": 28801,
+        "tokensUsed": {
+          "input": 8640,
+          "output": 20161,
+          "total": 28801
+        },
+        "output": "Simulated office run for Add JSON schema validation support"
+      },
+      {
+        "taskId": "parse-json-004",
+        "taskName": "Add streaming parse for large JSON",
+        "mode": "office",
+        "agentSaidDone": true,
+        "testsPassed": false,
+        "testsActuallyRan": true,
+        "timeMs": 29069,
+        "tokenEstimate": 25386,
+        "tokensUsed": {
+          "input": 7616,
+          "output": 17770,
+          "total": 25386
+        },
+        "output": "Simulated office run for Add streaming parse for large JSON"
+      }
+    ]
+  },
+  "summary": {
+    "alone": {
+      "doneRate": 1,
+      "passRate": 0.16666666666666666,
+      "avgTimeMs": 59341.666666666664,
+      "avgTokens": 8200.333333333334,
+      "liesCaught": 5
+    },
+    "office": {
+      "doneRate": 1,
+      "passRate": 0.8333333333333334,
+      "avgTimeMs": 22128.166666666668,
+      "avgTokens": 24814.833333333332,
+      "liesCaught": 1
+    },
+    "tokenOverhead": 99687,
+    "timeOverhead": -37213.5,
+    "improvement": {
+      "passRateDelta": 0.6666666666666666,
+      "liesPrevented": 4
+    }
+  }
+}

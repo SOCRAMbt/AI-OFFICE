@@ -1,9 +1,0 @@
-{
-  "id": "sample-001",
-  "description": "Add input validation to signup form",
-  "repo": "examples/hello-office",
-  "testCommand": "npm test",
-  "expectedFiles": [
-    "src/validate.ts"
-  ]
-}

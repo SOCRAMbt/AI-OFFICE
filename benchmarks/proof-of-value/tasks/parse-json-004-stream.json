@@ -1,0 +1,11 @@
+{
+  "id": "parse-json-004",
+  "name": "Add streaming parse for large JSON",
+  "description": "Add a parseJsonStream function that parses large JSON files incrementally without loading entire file into memory. Returns async iterator of parsed objects.",
+  "repo": "parse-json-repo",
+  "testCommand": "npm test",
+  "difficulty": "hard",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'test-stream.js'); fs.writeFileSync(testPath, `import test from 'ava'; import { parseJsonStream } from './index.js'; import fs from 'fs'; test('parseJsonStream parses large JSON array incrementally', async t => { const largeArray = '[' + Array(1000).fill('{\"value\":1}').join(',') + ']'; fs.writeFileSync('temp-large.json', largeArray); const results = []; for await (const item of parseJsonStream(fs.createReadStream('temp-large.json'))) { results.push(item); } t.is(results.length, 1000); fs.unlinkSync('temp-large.json'); }); test('parseJsonStream handles malformed JSON gracefully', async t => { const badJson = '{\"a\":1}\\n{\"b\":}'; fs.writeFileSync('temp-bad.json', badJson); const results = []; for await (const item of parseJsonStream(fs.createReadStream('temp-bad.json'))) { results.push(item); } t.is(results.length, 1); fs.unlinkSync('temp-bad.json'); }); `);",
+  "verify": "const indexPath = path.join(workspace, 'index.js'); if (!fs.existsSync(indexPath)) return false; const content = fs.readFileSync(indexPath, 'utf8'); return content.includes('parseJsonStream') && content.includes('export');"
+}

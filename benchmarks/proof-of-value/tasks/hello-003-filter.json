@@ -1,0 +1,11 @@
+{
+  "id": "hello-003",
+  "name": "Add task filtering by status",
+  "description": "Add a filter function to the todo app that can filter tasks by done/pending status. Should return a new array without mutating the original.",
+  "repo": "examples/hello-office",
+  "testCommand": "npm test",
+  "difficulty": "easy",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'todo-filter.test.js'); fs.writeFileSync(testPath, `import assert from \"node:assert/strict\"; import { test } from \"node:test\"; import { add, filter } from \"./todo.js\"; test(\"filter returns only pending tasks\", () => { const items = add(add([], \"task 1\"), \"task 2\"); items[0].done = true; const pending = filter(items, \"pending\"); assert.equal(pending.length, 1); assert.equal(pending[0].text, \"task 2\"); }); test(\"filter returns only done tasks\", () => { const items = add(add([], \"task 1\"), \"task 2\"); items[0].done = true; const done = filter(items, \"done\"); assert.equal(done.length, 1); assert.equal(done[0].text, \"task 1\"); }); test(\"filter does not mutate original array\", () => { const items = add([], \"task\"); items[0].done = true; filter(items, \"pending\"); assert.equal(items.length, 1); assert.equal(items[0].done, true); }); `);",
+  "verify": "const todoPath = path.join(workspace, 'todo.js'); if (!fs.existsSync(todoPath)) return false; const content = fs.readFileSync(todoPath, 'utf8'); return content.includes('filter') && content.includes('export');"
+}

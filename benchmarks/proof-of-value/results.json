@@ -1,10 +1,55 @@
 {
-  "timestamp": "2026-11-21T12:37:34.204Z",
-  "tasks": 1,
+  "timestamp": "2026-11-21T14:49:01.731Z",
+  "tasks": 6,
   "results": {
     "alone": [
       {
         "taskId": "sample-001",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      },
+      {
+        "taskId": "task-001",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      },
+      {
+        "taskId": "task-002",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      },
+      {
+        "taskId": "task-003",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      },
+      {
+        "taskId": "task-004",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      },
+      {
+        "taskId": "task-005",
         "agentSaidDone": false,
         "testsPassed": false,
         "testsActuallyRan": false,
@@ -22,6 +67,51 @@
         "timeMs": 0,
         "tokenEstimate": 15000,
         "mode": "office"
+      },
+      {
+        "taskId": "task-001",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
+      },
+      {
+        "taskId": "task-002",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
+      },
+      {
+        "taskId": "task-003",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
+      },
+      {
+        "taskId": "task-004",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
+      },
+      {
+        "taskId": "task-005",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
       }
     ]
   },
@@ -31,6 +121,6 @@
     "officeDoneRate": 0,
     "officePassRate": 0,
     "liesCaught": 0,
-    "tokenOverhead": 10000
+    "tokenOverhead": 60000
   }
 }

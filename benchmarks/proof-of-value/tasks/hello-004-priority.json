@@ -1,0 +1,11 @@
+{
+  "id": "hello-004",
+  "name": "Add task priority levels",
+  "description": "Add priority support (low, medium, high) to todo items. Update add to accept optional priority, and format to show priority indicators.",
+  "repo": "examples/hello-office",
+  "testCommand": "npm test",
+  "difficulty": "medium",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'todo-priority.test.js'); fs.writeFileSync(testPath, `import assert from \"node:assert/strict\"; import { test } from \"node:test\"; import { add, format } from \"./todo.js\"; test(\"add accepts priority and includes it in task\", () => { const items = add([], \"important task\", undefined, \"high\"); assert.equal(items[0].priority, \"high\"); }); test(\"format shows priority indicator for high priority\", () => { const items = [{ id: 1, text: \"urgent\", done: false, priority: \"high\" }]; const output = format(items); assert.ok(output.includes(\"❗\") || output.includes(\"HIGH\")); }); test(\"default priority is medium\", () => { const items = add([], \"normal task\"); assert.equal(items[0].priority, \"medium\"); }); `);",
+  "verify": "const todoPath = path.join(workspace, 'todo.js'); if (!fs.existsSync(todoPath)) return false; const content = fs.readFileSync(todoPath, 'utf8'); return content.includes('priority') && content.includes('export');"
+}

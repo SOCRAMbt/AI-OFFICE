@@ -1,0 +1,11 @@
+{
+  "id": "ky-003",
+  "name": "Add retry configuration with exponential backoff",
+  "description": "Add a retry option to ky with configurable attempts, exponential backoff, and retryable status codes. Should work on instance and per-request level.",
+  "repo": "ky-repo",
+  "testCommand": "npm test",
+  "difficulty": "hard",
+  "category": "feature",
+  "setup": "const testPath = path.join(workspace, 'test', 'retry.ts'); fs.mkdirSync(path.dirname(testPath), { recursive: true }); fs.writeFileSync(testPath, `import test from 'ava'; import ky from '../source/index.js'; test('retry retries failed requests', async t => { let attempts = 0; const server = t.testServer((req, res) => { attempts++; if (attempts < 3) { res.statusCode = 500; res.end('error'); } else { res.end('ok'); } }); await ky(server.url, { retry: { limit: 3 } }).text(); t.is(attempts, 3); }); test('retry respects exponential backoff', async t => { const start = Date.now(); let attempts = 0; const server = t.testServer((req, res) => { attempts++; if (attempts < 2) { res.statusCode = 500; res.end('error'); } else { res.end('ok'); } }); await ky(server.url, { retry: { limit: 2, backoff: (attempt) => attempt * 50 } }).text(); const elapsed = Date.now() - start; t.true(elapsed >= 50 && elapsed < 200); }); `);",
+  "verify": "const sourcePath = path.join(workspace, 'source', 'index.js'); if (!fs.existsSync(sourcePath)) return false; const content = fs.readFileSync(sourcePath, 'utf8'); return content.includes('retry');"
+}
