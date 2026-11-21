@@ -54,7 +54,7 @@ describe("CLI", () => {
   it("muestra el help sin argumentos", async () => {
     const { stdout, code } = await cli([])
     expect(code).toBe(0)
-    expect(stdout).toContain("OFICINA — CLI")
+    expect(stdout).toContain("AI-OFFICE")
   })
 
   it("init crea la estructura .oficina/", async () => {
@@ -207,6 +207,6 @@ describe("CLI", () => {
     const { stdout, stderr, code } = await cli(["comando-inexistente"])
     expect(code).toBe(1)
     expect(stderr).toContain("Comando desconocido")
-    expect(stdout).toContain("OFICINA — CLI")
+    expect(stdout).toContain("AI-OFFICE")
   })
 })

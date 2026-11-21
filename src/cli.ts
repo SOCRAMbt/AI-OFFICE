@@ -40,7 +40,7 @@ function flag(name: string): boolean {
 
 function usage(): void {
   process.stdout.write(`
-OFICINA — CLI de la Oficina de Agents
+AI-OFFICE - CLI de la Oficina de Agents (alias: office)
 
 Uso: oficina <comando> [opciones]
 
@@ -70,7 +70,9 @@ Opciones:
 }
 
 async function main(): Promise<number> {
-  const command = process.argv[2]
+  // Alias: /office → /oficina (English primary, Spanish deprecated)
+  const rawCommand = process.argv[2]
+  const command = rawCommand === "office" ? "oficina" : rawCommand
   const cwd = path.resolve(arg("directory") ?? process.cwd())
   const json = flag("json")
 
@@ -431,15 +433,17 @@ async function main(): Promise<number> {
         skipped.push("agents/ (no encontrado en el paquete)")
       }
 
-      // Comando
-      const cmdSrc = path.join(packageRoot, "commands", "oficina.md")
-      const cmdDst = path.join(target, "commands", "oficina.md")
-      if (existsSync(cmdSrc)) {
-        await fs.mkdir(path.dirname(cmdDst), { recursive: true })
-        await fs.copyFile(cmdSrc, cmdDst)
-        installed.push(cmdDst)
-      } else {
-        skipped.push("commands/oficina.md (no encontrado en el paquete)")
+      // Comando (office.md es el primario, oficina.md es el alias deprecado)
+      for (const cmdName of ["office", "oficina"]) {
+        const cmdSrc = path.join(packageRoot, "commands", `${cmdName}.md`)
+        const cmdDst = path.join(target, "commands", `${cmdName}.md`)
+        if (existsSync(cmdSrc)) {
+          await fs.mkdir(path.dirname(cmdDst), { recursive: true })
+          await fs.copyFile(cmdSrc, cmdDst)
+          installed.push(cmdDst)
+        } else {
+          skipped.push(`commands/${cmdName}.md (no encontrado en el paquete)`)
+        }
       }
 
       // Entry point del plugin

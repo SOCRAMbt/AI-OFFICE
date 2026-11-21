@@ -1,7 +1,7 @@
 {
-  "name": "oficina-opencode",
+  "name": "ai-office",
   "version": "3.3.2",
-  "description": "Oficina de Agents — malla de coordinadores + peer mesh para OpenCode. Orquestación durable de subagentes con bus de mensajes en disco, roster de roles, leases, gates de calidad y escalamiento por invariantes.",
+  "description": "A team of AI agents that can't mark work 'done' until real tests pass. Plugin for OpenCode. Multi-agent orchestration with quality gates, evidence, and durable state.",
   "license": "MIT",
   "type": "module",
   "engines": {

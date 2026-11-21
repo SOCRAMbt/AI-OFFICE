@@ -17,3 +17,7 @@ coverage/
 
 # screenshots locales/de trabajo (no van al repo pÃºblico ni al paquete npm)
 dashboard/shots/
+
+# archivos de marketing y auditoría (no van al repo público)
+docs/archive/
+.agents/skills/
