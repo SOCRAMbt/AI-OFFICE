@@ -1,6 +1,6 @@
 {
   "name": "ai-office",
-  "version": "3.3.2",
+  "version": "3.4.0",
   "description": "A team of AI agents that can't mark work 'done' until real tests pass. Plugin for OpenCode. Multi-agent orchestration with quality gates, evidence, and durable state.",
   "license": "MIT",
   "type": "module",
@@ -87,7 +87,7 @@
     "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run docs:check",
     "dashboard": "node dashboard/server.mjs",
     "dashboard:demo": "node dashboard/scripts/seed-demo.mjs && node dashboard/server.mjs --oficina .oficina-demo",
-  "demo": "node dashboard/scripts/seed-demo.mjs && node dashboard/server.mjs --oficina .oficina-demo",
+    "demo": "node dashboard/scripts/seed-demo.mjs && node dashboard/server.mjs --oficina .oficina-demo",
     "docs:sync": "tsx scripts/sync-docs.ts",
     "docs:check": "tsx scripts/sync-docs.ts --check",
     "bench:selection": "tsx benchmarks/selection/run.ts",
