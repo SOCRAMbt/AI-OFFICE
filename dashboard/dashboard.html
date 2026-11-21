@@ -702,6 +702,10 @@ button { font-family: var(--sans); cursor: pointer }
     <div class="m-label">Throughput</div>
     <div class="m-big"><span id="metricThroughput">0.0</span><span style="font-size:10px; color:var(--muted); font-weight:400">tasks/h</span><svg width="64" height="18" viewBox="0 0 64 18" fill="none" aria-hidden="true"><path d="M1 14 9 10l6 3 9-12 6 8 8-5 7 4 9-9 9 6" stroke="#60a5fa" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
   </div>
+  <div class="m-sep"></div>
+  <div>
+    <div class="m-big" id="liesCaught" style="color:#fca5a5">Mentiras atrapadas: 0</div>
+  </div>
   <div class="m-right">
     <div class="m-runid"><b>RUN ID:</b> <span id="footerRunId">—</span></div>
     <button class="iconbtn" id="copyRunId2" title="Copiar run id" aria-label="Copiar run id">
@@ -1293,6 +1297,9 @@ function renderMetrics() {
   $("#progressFill").style.width = pct + "%";
   $("#progressPct").textContent = pct + "%";
   $("#cardsDone").textContent = `${done} / ${cards.length} cards done`;
+  const liesCaught = cards.filter((c) => (c.state === "done" && (((c.rejections || 0) > 0) || ((c.attempts || 0) > 1))) || c.state === "blocked_escalated").length;
+  const lcEl = $("#liesCaught");
+  if (lcEl) lcEl.textContent = `Mentiras atrapadas: ${liesCaught}`;
   tickDuration();
   if (S.createdAt) {
     const hours = Math.max((Date.now() - new Date(S.createdAt).getTime()) / 3600000, 1 / 60);

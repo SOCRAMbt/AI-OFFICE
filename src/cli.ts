@@ -24,6 +24,7 @@ import { listFiles, readJson, readText, ensureDir, writeJsonAtomic } from "./cor
 import { cardDir } from "./core/paths.js"
 import { scanCatalog } from "./core/catalog.js"
 import type { OfficeState, Roster } from "./core/types.js"
+import { generateReportCard, formatReportCard } from "./core/reportCard.js"
 import { DEFAULT_LIMITS, StateCorruptionError } from "./core/types.js"
 
 const log = logger("oficina:cli")
@@ -52,6 +53,7 @@ Comandos:
   board                Muestra el tablero Kanban
   bus                  Muestra estadísticas del bus
   stats                Resume la corrida: estado, cards por columna, iteración y agentes vivos
+  report               Genera la tarjeta de reporte compartible (report-card.md)
   audit [cardId]       Audita una card: artefactos, gates, review
   verify               Corre los gates de todas las cards en review
   install              Instala skill, agentes y comando en un directorio de OpenCode
@@ -86,6 +88,17 @@ async function main(): Promise<number> {
 
   // `stats` solo lee: se resuelve antes de armar la Oficina, que crea `.oficina/`.
   if (command === "stats") return statsCommand(cwd, json)
+
+  // `report` genera la tarjeta de reporte de la corrida
+  if (command === "report") {
+    const office = new Office({ cwd, agencyRoot: arg("agency-root") })
+    await office.init()
+    const state = await office.loadState("")
+    const card = await generateReportCard(state, office.paths.projectRoot)
+    process.stdout.write(formatReportCard(card))
+    if (json) emit(true, card)
+    return 0
+  }
 
   // `demo` abre el dashboard con una corrida pregrabada (no requiere OpenCode)
   if (command === "demo") {

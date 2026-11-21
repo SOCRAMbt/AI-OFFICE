@@ -106,6 +106,7 @@ describe("Dashboard server: contrato HTTP", () => {
     expect(Object.keys(data.agents as object)).toContain("e-1")
     expect(Array.isArray(data.bus)).toBe(true)
     expect((data.bus as unknown[]).length).toBeGreaterThan(0)
+    expect(data.liesCaught).toBe(0)
   })
 
   it("/api/memory devuelve el markdown de la memoria", async () => {

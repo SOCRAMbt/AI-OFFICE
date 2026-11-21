@@ -131,3 +131,24 @@ export async function startDashboard(
   log.warn("el dashboard no respondio despues de arrancar", { officeDir })
   return undefined
 }
+
+/**
+ * Cuenta las "mentiras atrapadas": cards que llegaron a `done` solo tras
+ * fallos de gate (rejections > 0 o attempts > 1), o cards `blocked_escalated`
+ * que el agente no pudo arreglar en 3 intentos.
+ */
+export function countLiesCaught(cards: Record<string, any> | undefined | null): number {
+  if (!cards) return 0
+  let n = 0
+  for (const c of Object.values(cards)) {
+    if (!c || typeof c !== "object") continue
+    if (c.state === "blocked_escalated") {
+      n += 1
+      continue
+    }
+    if (c.state === "done" && ((Number(c.rejections) || 0) > 0 || (Number(c.attempts) || 0) > 1)) {
+      n += 1
+    }
+  }
+  return n
+}

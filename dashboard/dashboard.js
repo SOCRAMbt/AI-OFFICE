@@ -420,6 +420,9 @@ async function loadViaServer() {
   state.cards = data.cards || {};
   state.agents = data.agents || {};
   state.bus = data.bus || [];
+  state.liesCaught = data.liesCaught || 0;
+  const liesEl = document.getElementById("liesCaught");
+  if (liesEl) liesEl.textContent = "Mentiras atrapadas: " + (data.liesCaught || 0);
   render();
   detectEvents(knownAgents, knownCards);
   return true;

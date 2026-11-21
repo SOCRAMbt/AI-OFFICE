@@ -92,6 +92,17 @@ function aggregate() {
     // permite al dashboard mostrar paperclip de artefactos sin un fetch extra
     card.artifactsExist = fs.existsSync(path.join(OFICINA, "artifacts", id));
   }
+  // "Mentiras atrapadas": cards que llegaron a done solo tras fallos de gate,
+  // o cards escaladas/bloqueadas que el agente no pudo arreglar en 3 intentos.
+  let liesCaught = 0;
+  for (const card of Object.values(cards)) {
+    if (!card || typeof card !== "object") continue;
+    const st = card.state;
+    if (st === "blocked_escalated") { liesCaught += 1; continue; }
+    if (st === "done" && ((Number(card.rejections) || 0) > 0 || (Number(card.attempts) || 0) > 1)) {
+      liesCaught += 1;
+    }
+  }
   return {
     runId: stateFile.runId || rosterFile.runId || null,
     objective: stateFile.objective || "",
@@ -104,6 +115,7 @@ function aggregate() {
     cards,
     agents: rosterFile.agents || {},
     bus: listBus(),
+    liesCaught,
   };
 }
 
