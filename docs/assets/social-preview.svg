@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#0d1117"/>
+  <text x="640" y="200" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#ffffff">AI-OFFICE</text>
+  <text x="640" y="280" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#8b949e">Your AI agent says "done". AI-OFFICE makes it prove it.</text>
+  <text x="640" y="380" text-anchor="middle" font-family="monospace" font-size="24" fill="#f85149">✗ tests failed</text>
+  <text x="640" y="420" text-anchor="middle" font-family="monospace" font-size="24" fill="#3fb950">✓ tests passed</text>
+  <text x="640" y="520" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#6e7681">Multi-agent orchestration with quality gates · OpenCode plugin · MIT</text>
+</svg>
