@@ -48,6 +48,7 @@ Comandos:
   init [objetivo]      Crea la estructura .oficina/ en el proyecto
   status               Muestra el estado de la corrida
   dashboard            Abre el dashboard visual en tiempo real (http://localhost:7333)
+  demo                 Abre el dashboard con una corrida pregrabada (no requiere OpenCode)
   board                Muestra el tablero Kanban
   bus                  Muestra estadísticas del bus
   stats                Resume la corrida: estado, cards por columna, iteración y agentes vivos
@@ -85,6 +86,30 @@ async function main(): Promise<number> {
 
   // `stats` solo lee: se resuelve antes de armar la Oficina, que crea `.oficina/`.
   if (command === "stats") return statsCommand(cwd, json)
+
+  // `demo` abre el dashboard con una corrida pregrabada (no requiere OpenCode)
+  if (command === "demo") {
+    const { spawn } = await import("node:child_process")
+    const packageRoot = path.resolve(fileURLToPath(import.meta.url), "..", "..")
+    const seedScript = path.join(packageRoot, "dashboard", "scripts", "seed-demo.mjs")
+    const serverScript = path.join(packageRoot, "dashboard", "scripts", "serve.mjs")
+    const demoDir = path.join(cwd, ".oficina-demo")
+    // Seed demo data
+    const seed = spawn(process.execPath, [seedScript, demoDir], { stdio: "inherit", cwd: packageRoot })
+    await new Promise<void>((resolve, reject) => {
+      seed.on("close", (code) => {
+        if (code === 0) resolve()
+        else reject(new Error(`seed failed: ${code}`))
+      })
+    })
+    // Start dashboard server
+    const server = spawn(process.execPath, [serverScript, "--oficina", demoDir], { stdio: "inherit", cwd: packageRoot, detached: true })
+    server.unref()
+    process.stdout.write(`\nDemo iniciada en http://localhost:7333\n`)
+    process.stdout.write(`Directorio demo: ${demoDir}\n`)
+    process.stdout.write(`Para detener: Ctrl+C o matar el proceso del servidor\n\n`)
+    return 0
+  }
 
   const office = new Office({
     cwd,
