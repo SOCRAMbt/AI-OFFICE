@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-11-21T12:37:34.204Z",
+  "tasks": 1,
+  "results": {
+    "alone": [
+      {
+        "taskId": "sample-001",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 5000,
+        "mode": "alone"
+      }
+    ],
+    "office": [
+      {
+        "taskId": "sample-001",
+        "agentSaidDone": false,
+        "testsPassed": false,
+        "testsActuallyRan": false,
+        "timeMs": 0,
+        "tokenEstimate": 15000,
+        "mode": "office"
+      }
+    ]
+  },
+  "summary": {
+    "aloneDoneRate": 0,
+    "alonePassRate": 0,
+    "officeDoneRate": 0,
+    "officePassRate": 0,
+    "liesCaught": 0,
+    "tokenOverhead": 10000
+  }
+}
