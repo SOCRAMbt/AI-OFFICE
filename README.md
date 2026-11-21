@@ -64,7 +64,7 @@ The agent can't close a task until all three pass.
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v3.4.0 |
+| **Paquete** | `ai-office` v3.4.0 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
