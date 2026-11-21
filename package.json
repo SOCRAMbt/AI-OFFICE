@@ -1,5 +1,5 @@
 {
-  "name": "@marcos2710/ai-office",
+  "name": "oficina-opencode",
   "version": "3.4.1",
   "description": "A team of AI agents that can't mark work 'done' until real tests pass. Plugin for OpenCode. Multi-agent orchestration with quality gates, evidence, and durable state.",
   "license": "MIT",
