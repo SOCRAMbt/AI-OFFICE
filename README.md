@@ -8,7 +8,7 @@
 
 **Your AI agent says "done". AI-OFFICE makes it prove it.**
 
-[![npm](https://img.shields.io/npm/v/ai-office)](https://www.npmjs.com/package/ai-office)
+[![npm](https://img.shields.io/npm/v/oficina-opencode)](https://www.npmjs.com/package/oficina-opencode)
 [![CI](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml/badge.svg)](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -25,7 +25,7 @@ Every "done" claim is backed by evidence: build output, test results, secret sca
 ## Quickstart
 
 ```bash
-npm install -g ai-office
+npm install -g oficina-opencode
 ```
 
 Then in OpenCode:
@@ -64,7 +64,7 @@ The agent can't close a task until all three pass.
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `ai-office` v3.4.0 |
+| **Paquete** | `oficina-opencode` v3.4.0 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
