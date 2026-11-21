@@ -3,7 +3,7 @@
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `oficina-opencode` v3.4.1 |
+| **Paquete** | `@marcos2710/ai-office` v3.4.3 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.1.2` |
