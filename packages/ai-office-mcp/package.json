@@ -1,0 +1,46 @@
+{
+  "name": "ai-office-mcp",
+  "version": "4.1.0",
+  "description": "MCP server for AI-OFFICE — exposes office tools to any MCP-compatible agent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ai-office-mcp": "./dist/index.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ai-office-core": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOCRAMbt/AI-OFFICE.git",
+    "directory": "packages/ai-office-mcp"
+  },
+  "homepage": "https://github.com/SOCRAMbt/AI-OFFICE#readme",
+  "bugs": {
+    "url": "https://github.com/SOCRAMbt/AI-OFFICE/issues"
+  },
+  "keywords": ["ai-agents", "mcp", "multi-agent", "quality-gates", "model-context-protocol"],
+  "engines": {
+    "node": ">=22"
+  },
+  "author": "SOCRAMbt"
+}
