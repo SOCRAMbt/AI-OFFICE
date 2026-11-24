@@ -1,4 +1,4 @@
-﻿---
+---
 description: "COMANDANTE de la OFICINA. Dominio: scope, objetivo, prioridades y producto. Decide qué está dentro del objetivo, qué se prioriza y dónde va cada cosa. Responde '¿esto está en el objetivo?' y '¿qué priorizo?'. Delega la planificación de cards, elige el equipo de cada card por panel de roles y resuelve conflictos de alcance. Úsalo como el coordinador de dominio de scope."
 mode: subagent
 permissions:

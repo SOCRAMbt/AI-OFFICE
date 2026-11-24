@@ -1,4 +1,4 @@
-﻿# Capa 2-3 — El mesh (v2)
+# Capa 2-3 — El mesh (v2)
 
 Detalle de la malla: bus, fichas, roster, leases, spawn policy, idle pool.
 

@@ -1,4 +1,4 @@
-# ¿Qué es AI-OFFICE?
+# ┬┐Qu├® es AI-OFFICE?
 
 <!-- BEGIN GENERATED: facts -->
 | | |
@@ -8,7 +8,7 @@
 | **Hooks** | 7 |
 | **API de plugin** | `@opencode/plugin@2.3.2` |
 | **Node** | >=22 |
-| **Catálogo** | 258 agentes resolubles en 18 divisiones |
+| **Cat├ílogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
 <!-- Catalog source: agency-agents @ 4e3ac3c -->
 <!-- END GENERATED: facts -->
@@ -16,13 +16,13 @@
 
 > Una oficina de agentes de IA para OpenCode. Le das un objetivo, y el equipo lo trabaja, lo revisa, lo verifica y no para hasta terminarlo.
 
-Este documento explica el sistema sin jerga. Si querés saber **cómo está construido por dentro**, está [`docs/ARCHITECTURE.md`](ARCHITECTURE.md). Si querés **usarlo**, está el [README](../README.md).
+Este documento explica el sistema sin jerga. Si quer├®s saber **c├│mo est├í construido por dentro**, est├í [`docs/ARCHITECTURE.md`](ARCHITECTURE.md). Si quer├®s **usarlo**, est├í el [README](../README.md).
 
 ---
 
-## 1. En una línea
+## 1. En una l├¡nea
 
-AI-OFFICE convierte un asistente de IA en **un equipo de trabajo con jefe, especialistas, control de calidad y comunicación interna** — que trabaja de forma autónoma y se audita a sí misma.
+AI-OFFICE convierte un asistente de IA en **un equipo de trabajo con jefe, especialistas, control de calidad y comunicaci├│n interna** ÔÇö que trabaja de forma aut├│noma y se audita a s├¡ misma.
 
 ---
 
@@ -30,65 +30,65 @@ AI-OFFICE convierte un asistente de IA en **un equipo de trabajo con jefe, espec
 
 Todos los que trabajan con agentes de IA Known estos cinco momentos:
 
-### «Repíteme lo que ya dijimos»
+### ┬½Rep├¡teme lo que ya dijimos┬╗
 
-El agente funciona bien mientras la conversación sea corta. En cuanto el trabajo se extiende, empieza a olvidar: qué decidiste, qué encontraste, qué quedó a medias. Y ahí es cuando tenés que recordarle.
+El agente funciona bien mientras la conversaci├│n sea corta. En cuanto el trabajo se extiende, empieza a olvidar: qu├® decidiste, qu├® encontraste, qu├® qued├│ a medias. Y ah├¡ es cuando ten├®s que recordarle.
 
-### «No avanza solo»
+### ┬½No avanza solo┬╗
 
-Le pedís algo, te dice «listo, terminado» — y se quedó en la mitad. No porque sea perezoso, sino porque **nadie lo obliga a seguir**. En una sesión larga, el modelo interpreta que su turno terminó y para.
+Le ped├¡s algo, te dice ┬½listo, terminado┬╗ ÔÇö y se qued├│ en la mitad. No porque sea perezoso, sino porque **nadie lo obliga a seguir**. En una sesi├│n larga, el modelo interpreta que su turno termin├│ y para.
 
-### «Hice todo yo»
+### ┬½Hice todo yo┬╗
 
-El asistente tiene la capacidad de delegar en subagentes, pero casi nunca lo hace. Termina resolviendo todo en un solo hilo, con un solo contexto, y con el cuello de botella de que vos sos el único que puede desbloquearlo.
+El asistente tiene la capacidad de delegar en subagentes, pero casi nunca lo hace. Termina resolviendo todo en un solo hilo, con un solo contexto, y con el cuello de botella de que vos sos el ├║nico que puede desbloquearlo.
 
-### «Cada uno por su lado»
+### ┬½Cada uno por su lado┬╗
 
-Cuando sí hay varios subagentes, trabajan como islands. Uno no sabe qué está haciendo el otro. No se piden ayuda. No se detectan los choques. Terminan tocando los mismos archivos con criterios distintos.
+Cuando s├¡ hay varios subagentes, trabajan como islands. Uno no sabe qu├® est├í haciendo el otro. No se piden ayuda. No se detectan los choques. Terminan tocando los mismos archivos con criterios distintos.
 
-### «Repetimos las mismas rules»
+### ┬½Repetimos las mismas rules┬╗
 
-Acá está el detalle importante: cuando algo falla, el error no es «el modelo no es inteligente». Es que **el sistema no tiene estructura**. Nada obliga a que:
+Ac├í est├í el detalle importante: cuando algo falla, el error no es ┬½el modelo no es inteligente┬╗. Es que **el sistema no tiene estructura**. Nada obliga a que:
 - se planifique antes de actuar
 - el trabajo se reparta
 - alguien verifique lo que otro hizo
 - se detecte el estancamiento
 
-Una skill de instrucciones ayuda. Un sistema con reglas escritas en código, no: porque **no dependen de que el modelo tenga ganas de seguirlas**.
+Una skill de instrucciones ayuda. Un sistema con reglas escritas en c├│digo, no: porque **no dependen de que el modelo tenga ganas de seguirlas**.
 
 ---
 
-## 3. La analogía
+## 3. La analog├¡a
 
-La forma más rápida de entender AI-OFFICE es pensarlo como **una oficina con estructura**.
+La forma m├ís r├ípida de entender AI-OFFICE es pensarlo como **una oficina con estructura**.
 
 ```
-              ┌─────────────────────────────────────┐
-              │        TÚ — el que encarga          │
-              │   "necesito que pase esto"           │
-              └──────────────────┬──────────────────┘
-                                 │
-                                 ▼
-              ┌─────────────────────────────────────┐
-              │   COMANDANTE — el jefe de proyecto  │
-              │   Desarma el encargo en tareas      │
-              └──────────────────┬──────────────────┘
-                                 │
-        ┌────────────────────────┼────────────────────────┐
-        ▼                        ▼                        ▼
-   ┌─────────┐            ┌─────────┐            ┌─────────┐
-   │Explorador│           │Implementador│          │Crítico  │
-   │"qué hay  │            │"hacelo"   │            │"está bien│
-   │ acá"     │            │           │            │ o no?"   │
-   └────┬────┘            └─────┬─────┘            └────┬────┘
-        │                       │                      │
-        └───────────────────────┴──────────┬───────────┘
-                                           ▼
-                              ┌────────────────────────┐
-                              │  CONTROL DE CALIDAD    │
-                              │  ¿Compila? ¿Pasa los   │
-                              │  tests? ¿Filtra datos? │
-                              └────────────────────────┘
+              ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+              Ôöé        T├Ü ÔÇö el que encarga          Ôöé
+              Ôöé   "necesito que pase esto"           Ôöé
+              ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+                                 Ôöé
+                                 Ôû╝
+              ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+              Ôöé   COMANDANTE ÔÇö el jefe de proyecto  Ôöé
+              Ôöé   Desarma el encargo en tareas      Ôöé
+              ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+                                 Ôöé
+        ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+        Ôû╝                        Ôû╝                        Ôû╝
+   ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ            ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ            ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+   ÔöéExploradorÔöé           ÔöéImplementadorÔöé          ÔöéCr├¡tico  Ôöé
+   Ôöé"qu├® hay  Ôöé            Ôöé"hacelo"   Ôöé            Ôöé"est├í bienÔöé
+   Ôöé ac├í"     Ôöé            Ôöé           Ôöé            Ôöé o no?"   Ôöé
+   ÔööÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÿ            ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ            ÔööÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÿ
+        Ôöé                       Ôöé                      Ôöé
+        ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+                                           Ôû╝
+                              ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+                              Ôöé  CONTROL DE CALIDAD    Ôöé
+                              Ôöé  ┬┐Compila? ┬┐Pasa los   Ôöé
+                              Ôöé  tests? ┬┐Filtra datos? Ôöé
+                              ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
 ```
 
 Lo que cambia contra trabajar con un asistente suelto:
@@ -101,203 +101,203 @@ Lo que cambia contra trabajar con un asistente suelto:
 | Nadie entrega sin pasar el control de calidad | Se da por terminado cuando parece |
 | Alguien pide ayuda a un colega | Cada uno se las arregla |
 | Cuando alguien termina, va a ayudar a otro | Quedan esperando |
-| La oficina sigue abierta hasta que el trabajo está hecho | La sesión se cierra |
+| La oficina sigue abierta hasta que el trabajo est├í hecho | La sesi├│n se cierra |
 
 ---
 
-## 4. Cómo trabaja un encargo, de punta a punta
+## 4. C├│mo trabaja un encargo, de punta a punta
 
-### Paso 1 — El encargo
+### Paso 1 ÔÇö El encargo
 
-Vos escribís una sola línea:
+Vos escrib├¡s una sola l├¡nea:
 
-> `/oficina Agregar autenticación JWT con refresh rotation`
+> `/oficina Agregar autenticaci├│n JWT con refresh rotation`
 
-Eso es todo. No das instrucciones paso a paso. No repetís contexto. No armás una lista de tareas.
+Eso es todo. No das instrucciones paso a paso. No repet├¡s contexto. No arm├ís una lista de tareas.
 
-### Paso 2 — El Comandante lo desarma
+### Paso 2 ÔÇö El Comandante lo desarma
 
 El Comandante (el jefe de proyecto) convierte tu encargo en **tareas concretas**, cada una con:
 
-- **Qué tiene que producir** — un entregable claro, no «arreglar cosas»
-- **Cómo se sabe que está bien** — criterios verificables («el endpoint responde 401 sin token», no «el código está bien»)
-- **Qué control tiene que pasar** — el criterio de calidad
-- **Quién lo hace** — se reparte automáticamente según las capacidades
-- **Qué archivos puede tocar** — su territorio, para que dos personas no se pisen
+- **Qu├® tiene que producir** ÔÇö un entregable claro, no ┬½arreglar cosas┬╗
+- **C├│mo se sabe que est├í bien** ÔÇö criterios verificables (┬½el endpoint responde 401 sin token┬╗, no ┬½el c├│digo est├í bien┬╗)
+- **Qu├® control tiene que pasar** ÔÇö el criterio de calidad
+- **Qui├®n lo hace** ÔÇö se reparte autom├íticamente seg├║n las capacidades
+- **Qu├® archivos puede tocar** ÔÇö su territorio, para que dos personas no se pisen
 
-Y hay un detalle importante: **el Comandante ordena las tareas por causa, no por apariencia**. Si arreglar B rompe la validación de A, B va primero. Sin eso, el trabajo da vueltas.
+Y hay un detalle importante: **el Comandante ordena las tareas por causa, no por apariencia**. Si arreglar B rompe la validaci├│n de A, B va primero. Sin eso, el trabajo da vueltas.
 
-### Paso 3 — Los especialistas hacen su parte
+### Paso 3 ÔÇö Los especialistas hacen su parte
 
-Cada tarea la toma un agente con el perfil adecuado. El sistema busca en el **catálogo real de agency-agents** (80+ agentes organizados por división) el que mejor encaja con lo que la tarea necesita. Si nadie encaja bien, **fabrica el rol** en vez de poner a alguien a hacer un trabajo para el que no sirve.
+Cada tarea la toma un agente con el perfil adecuado. El sistema busca en el **cat├ílogo real de agency-agents** (80+ agentes organizados por divisi├│n) el que mejor encaja con lo que la tarea necesita. Si nadie encaja bien, **fabrica el rol** en vez de poner a alguien a hacer un trabajo para el que no sirve.
 
 Cada agente, al terminar, deja dos cosas en disco:
 
-- **El handoff** — qué hizo, qué archivos tocó, qué decidió, qué quedó afuera
-- **La evidencia** — la salida *real* de los comandos que corrió, pegada literal
+- **El handoff** ÔÇö qu├® hizo, qu├® archivos toc├│, qu├® decidi├│, qu├® qued├│ afuera
+- **La evidencia** ÔÇö la salida *real* de los comandos que corri├│, pegada literal
 
-### Paso 4 — Alguien lo revisa, y no es el mismo
+### Paso 4 ÔÇö Alguien lo revisa, y no es el mismo
 
-El trabajo vuelve a **otro** agente, que lo revisa buscando bugs, problemas de seguridad, falta de tests, código fuera de scope. Tiene que dejar un veredicto: aprobado o rechazado, con el motivo.
+El trabajo vuelve a **otro** agente, que lo revisa buscando bugs, problemas de seguridad, falta de tests, c├│digo fuera de scope. Tiene que dejar un veredicto: aprobado o rechazado, con el motivo.
 
 El motor **impide** que alguien revise su propio trabajo. Es una regla del sistema, no una sugerencia.
 
-### Paso 5 — El control de calidad
+### Paso 5 ÔÇö El control de calidad
 
-Se ejecutan seis controles reales, y se lee el código de salida de cada uno:
+Se ejecutan seis controles reales, y se lee el c├│digo de salida de cada uno:
 
-1. ¿Compila?
-2. ¿Los tipos están bien?
-3. ¿Pasa el linter?
-4. ¿Pasan los tests?
-5. ¿Quedó algún dato sensible en el código?
-6. ¿Se tocó algo que no se debía?
+1. ┬┐Compila?
+2. ┬┐Los tipos est├ín bien?
+3. ┬┐Pasa el linter?
+4. ┬┐Pasan los tests?
+5. ┬┐Qued├│ alg├║n dato sensible en el c├│digo?
+6. ┬┐Se toc├│ algo que no se deb├¡a?
 
 **Una fase aplicable que falla = la tarea vuelve al trabajo.** No se promedia, no se pasa, no se ignora.
 
-### Paso 6 — Si algo falla, el sistema reacciona
+### Paso 6 ÔÇö Si algo falla, el sistema reacciona
 
-| Qué pasó | Qué hace el sistema |
+| Qu├® pas├│ | Qu├® hace el sistema |
 |---|---|
 | Primer rechazo | Vuelve al mismo agente, con el motivo exacto que hay que corregir |
-| Segundo rechazo | El Comandante rehace la tarea y **cambia de agente** — si dos intentos fallaron, el problema probablemente no es el código |
-| Tercer rechazo | Te lo pregunta a vos, con 2 o 3 opciones concretas y una recomendación |
+| Segundo rechazo | El Comandante rehace la tarea y **cambia de agente** ÔÇö si dos intentos fallaron, el problema probablemente no es el c├│digo |
+| Tercer rechazo | Te lo pregunta a vos, con 2 o 3 opciones concretas y una recomendaci├│n |
 
-Nunca te llega un «no pude, algo falló». Te llega: qué intentó, por qué no avanzó, y qué podés hacer.
+Nunca te llega un ┬½no pude, algo fall├│┬╗. Te llega: qu├® intent├│, por qu├® no avanz├│, y qu├® pod├®s hacer.
 
-### Paso 7 — Y sigue hasta terminar
+### Paso 7 ÔÇö Y sigue hasta terminar
 
 Este es el punto que resuelve tu frustration principal.
 
-Cuando el modelo termina su turno y la sesión queda quieta, **el sistema revisa si la tarea se terminó**. Si quedó trabajo pendiente, **se retoma solo**. No te pide permiso. No te espera.
+Cuando el modelo termina su turno y la sesi├│n queda quieta, **el sistema revisa si la tarea se termin├│**. Si qued├│ trabajo pendiente, **se retoma solo**. No te pide permiso. No te espera.
 
-El modelo no puede decir «listo, terminé» y dar por cerrada la oficina mientras queden tareas sin terminar. **El estado lo dice, no la confianza.**
+El modelo no puede decir ┬½listo, termin├®┬╗ y dar por cerrada la oficina mientras queden tareas sin terminar. **El estado lo dice, no la confianza.**
 
 ---
 
-## 5. Quién decide qué
+## 5. Qui├®n decide qu├®
 
-No hay un jefe único. Hay **tres coordinadores con terrenos separados**, para que uno no sea cuello de botella:
+No hay un jefe ├║nico. Hay **tres coordinadores con terrenos separados**, para que uno no sea cuello de botella:
 
-### El Comandante — el alcance
+### El Comandante ÔÇö el alcance
 
-Decide **qué está dentro de tu encargo y qué no**. Qué va primero. Qué es scope creep y qué es deuda que se acepta.
+Decide **qu├® est├í dentro de tu encargo y qu├® no**. Qu├® va primero. Qu├® es scope creep y qu├® es deuda que se acepta.
 
 Si algo se sale de lo que pediste, lo frena y te lo dice.
 
-### El Arquitecto — lo técnico
+### El Arquitecto ÔÇö lo t├®cnico
 
-Decide **qué patrón se usa** y resuelve los conflictos de diseño entre tareas. Si dos personas resolvieron el mismo problema de dos formas distintas, él decide cuál vale.
+Decide **qu├® patr├│n se usa** y resuelve los conflictos de dise├▒o entre tareas. Si dos personas resolvieron el mismo problema de dos formas distintas, ├®l decide cu├íl vale.
 
-Es el único que puede decir «esto contradice lo que hizo la otra tarea».
+Es el ├║nico que puede decir ┬½esto contradice lo que hizo la otra tarea┬╗.
 
-### El Integrador — el flujo
+### El Integrador ÔÇö el flujo
 
-Decide **quién tiene cada tarea, si pasó el control de calidad, y si el presupuesto aguanta**. Detecta bloqueos, detecte que dos personas tomaron lo mismo, y detecta a los agentes que se quedaron colgados.
+Decide **qui├®n tiene cada tarea, si pas├│ el control de calidad, y si el presupuesto aguanta**. Detecta bloqueos, detecte que dos personas tomaron lo mismo, y detecta a los agentes que se quedaron colgados.
 
-Es el único que puede decir «esa tarea ya la tiene otro» o «no te paso el control de calidad».
+Es el ├║nico que puede decir ┬½esa tarea ya la tiene otro┬╗ o ┬½no te paso el control de calidad┬╗.
 
 ### Y las preguntas no te interrumpen a vos
 
-Cuando un agente tiene una duda, **no te pregunta a vos**. Le pregunta al coordinador que corresponde. Ese le contesta. Solo llega hasta vos cuando hay algo que de verdad necesita tu criterio: una decisión de producto, un conflicto que ningún coordinador puede resolver, o el presupuesto agotado.
+Cuando un agente tiene una duda, **no te pregunta a vos**. Le pregunta al coordinador que corresponde. Ese le contesta. Solo llega hasta vos cuando hay algo que de verdad necesita tu criterio: una decisi├│n de producto, un conflicto que ning├║n coordinador puede resolver, o el presupuesto agotado.
 
 ---
 
 ## 6. Los agentes se hablan entre ellos
 
-Esta es la parte que más cambia el resultado, y la que menos se ve.
+Esta es la parte que m├ís cambia el resultado, y la que menos se ve.
 
-Los subagentes de OpenCode son **procesos aislados**: no comparten memoria, no se ven entre sí. Por eso, en la práctica, cuando delegás, cada agente trabaja a ciegas.
+Los subagentes de OpenCode son **procesos aislados**: no comparten memoria, no se ven entre s├¡. Por eso, en la pr├íctica, cuando deleg├ís, cada agente trabaja a ciegas.
 
-AI-OFFICE les da **un canal de comunicación propio**, que es un tablón de avisos en disco:
+AI-OFFICE les da **un canal de comunicaci├│n propio**, que es un tabl├│n de avisos en disco:
 
-- Un agente escribe: «necesito que alguien convierte este componente a streaming SSR, tengo el contexto del componente pero no el del servidor».
-- Ese mensaje **queda disponible** para los demás.
-- Los que pueden ayudar, **lo evalúan y responden**. Y acá está lo bueno: **no aceptan por cortesía**. Antes de decir que sí, se hacen seis preguntas: ¿entiendo la tarea? ¿está en mi alcance? ¿puedo hacerlo ahora sin romper lo mío? ¿tengo el contexto? ¿vale la pena? ¿tengo presupuesto?
-- Si no pueden, **dicen a quién conviene preguntarle** en lugar de quedarse mudos.
+- Un agente escribe: ┬½necesito que alguien convierte este componente a streaming SSR, tengo el contexto del componente pero no el del servidor┬╗.
+- Ese mensaje **queda disponible** para los dem├ís.
+- Los que pueden ayudar, **lo eval├║an y responden**. Y ac├í est├í lo bueno: **no aceptan por cortes├¡a**. Antes de decir que s├¡, se hacen seis preguntas: ┬┐entiendo la tarea? ┬┐est├í en mi alcance? ┬┐puedo hacerlo ahora sin romper lo m├¡o? ┬┐tengo el contexto? ┬┐vale la pena? ┬┐tengo presupuesto?
+- Si no pueden, **dicen a qui├®n conviene preguntarle** en lugar de quedarse mudos.
 
 Y hay dos protecciones:
 
-- **No se enreda**: una cadena de ayuda tiene máximo dos saltos. Si se alarga, la resuelve el Integrador.
-- **No se vuelven predecibles**: si dos agentes ya se ayudaron dos veces, el tercero pedido se lo derivan a otro. Se rompe la monotonía.
+- **No se enreda**: una cadena de ayuda tiene m├íximo dos saltos. Si se alarga, la resuelve el Integrador.
+- **No se vuelven predecibles**: si dos agentes ya se ayudaron dos veces, el tercero pedido se lo derivan a otro. Se rompe la monoton├¡a.
 
 ### Y cuando alguien termina, va a ayudar
 
 Cuando un agente termina su tarea, no queda esperando. Entra en un **pool de disponibles** y puede:
 
-1. Atender un pedido que lo apunta específicamente
+1. Atender un pedido que lo apunta espec├¡ficamente
 2. Atender un pedido general (el primero que puede, toma el trabajo)
-3. **Ir a buscar trabajo él mismo** si hay tareas sin dueño que le quedan bien
+3. **Ir a buscar trabajo ├®l mismo** si hay tareas sin due├▒o que le quedan bien
 
-El punto 3 es el que cambia la naturaleza del sistema: deja de ser «N tareas corriendo en paralelo» y pasa a ser «N personas acomodándose solas según la carga».
+El punto 3 es el que cambia la naturaleza del sistema: deja de ser ┬½N tareas corriendo en paralelo┬╗ y pasa a ser ┬½N personas acomod├índose solas seg├║n la carga┬╗.
 
 ---
 
 ## 7. Las cinco cosas que no puede hacer mal
 
-Estas reglas están escritas en código, no en el prompt. El modelo no puede saltárselas.
+Estas reglas est├ín escritas en c├│digo, no en el prompt. El modelo no puede salt├írselas.
 
-| Regla | Qué previene |
+| Regla | Qu├® previene |
 |---|---|
-| **Ninguna tarea se da por terminada sin el control de calidad en verde** | «Listo, terminado» sin que funcione |
-| **Nadie revisa su propio trabajo** | Auto-aprobación |
-| **Los archivos de cada agente están delimitados** | Que dos agentes se pisen el mismo archivo |
-| **Máximo 3 rechazos antes de preguntarte** | Que el sistema gire en loop quemando presupuesto |
+| **Ninguna tarea se da por terminada sin el control de calidad en verde** | ┬½Listo, terminado┬╗ sin que funcione |
+| **Nadie revisa su propio trabajo** | Auto-aprobaci├│n |
+| **Los archivos de cada agente est├ín delimitados** | Que dos agentes se pisen el mismo archivo |
+| **M├íximo 3 rechazos antes de preguntarte** | Que el sistema gire en loop quemando presupuesto |
 | **Hay un tope de tareas y de invocaciones** | Que la corrida se dispare sola |
 
-Y hay una más, que es la que hace que todo lo demás sea confiable:
+Y hay una m├ís, que es la que hace que todo lo dem├ís sea confiable:
 
 > **El control de calidad revisa los cambios de todos, incluido el del Director.** Si alguien toca algo fuera de su territorio, se detecta.
 
-El sistema no confía en la disciplina: **la audita**.
+El sistema no conf├¡a en la disciplina: **la audita**.
 
 ---
 
-## 8. Qué vas a ver en pantalla
+## 8. Qu├® vas a ver en pantalla
 
 No es un firehose de texto. Es un ritmo:
 
-**Al arrancar** — el plan de tareas en 5-8 líneas. Ves el objetivo, cuántas tareas, qué se hace primero.
+**Al arrancar** ÔÇö el plan de tareas en 5-8 l├¡neas. Ves el objetivo, cu├íntas tareas, qu├® se hace primero.
 
-**Cada 3 tareas** — un parte:
+**Cada 3 tareas** ÔÇö un parte:
 
 ```
-OFICINA — Agregar autenticación JWT
+OFICINA ÔÇö Agregar autenticaci├│n JWT
 Progreso: 3/6 tareas
 
-  T-00  [✓]  Mapear el sistema de auth actual
-  T-01  [✓]  Diseñar el esquema de tokens
-  T-02  [→]  Implementar el login
-  T-03  [ ]  Tests de regresión
-  T-04  [ ]  Verificación de seguridad
-  T-05  [ ]  Revisión final
+  T-00  [Ô£ô]  Mapear el sistema de auth actual
+  T-01  [Ô£ô]  Dise├▒ar el esquema de tokens
+  T-02  [ÔåÆ]  Implementar el login
+  T-03  [ ]  Tests de regresi├│n
+  T-04  [ ]  Verificaci├│n de seguridad
+  T-05  [ ]  Revisi├│n final
 
-Agentes: 3 trabajando · 2 disponibles
-Presupuesto: 3/20 tareas · 11/40 invocaciones
+Agentes: 3 trabajando ┬À 2 disponibles
+Presupuesto: 3/20 tareas ┬À 11/40 invocaciones
 ```
 
-**Cuando algo se bloquea** — no un error genérico. Una causa, tres intentos, y opciones con recomendación.
+**Cuando algo se bloquea** ÔÇö no un error gen├®rico. Una causa, tres intentos, y opciones con recomendaci├│n.
 
-**Al terminar** — el informe de entrega: qué se hizo, qué se probó, qué archivos se tocaron, qué decisiones se tomaron, **qué NO se hizo y por qué**, qué deuda quedó, y qué harías distinto la próxima vez.
+**Al terminar** ÔÇö el informe de entrega: qu├® se hizo, qu├® se prob├│, qu├® archivos se tocaron, qu├® decisiones se tomaron, **qu├® NO se hizo y por qu├®**, qu├® deuda qued├│, y qu├® har├¡as distinto la pr├│xima vez.
 
-Y si querés mirar por debajo, todo está en `.oficina/`: el tablero, el historial, los mensajes entre agentes, los artefactos de cada tarea, y los logs de cada control con la salida real.
+Y si quer├®s mirar por debajo, todo est├í en `.oficina/`: el tablero, el historial, los mensajes entre agentes, los artefactos de cada tarea, y los logs de cada control con la salida real.
 
 ---
 
 ## 9. Lo que NO hace (con honestidad)
 
-- **No adivina tu objetivo.** Si el encargo es ambiguo en un punto que cambia qué construye, te lo pregunta. En el resto, hace las inferencias razonables y las anota.
-- **No es un chatbot de empresa.** No trae tus datos, no se conecta a tus APIs, no se integra con tu CRM. Es un motor de orquestación: vos lo apuntás a tu código.
-- **No reemplaza la revisión humana.** Automatiza la parte mecánica de la verificación (compila, pasa los tests, filtra secretos, revisa el diff). La decisión de si el producto está bien sigue siendo tuya.
+- **No adivina tu objetivo.** Si el encargo es ambiguo en un punto que cambia qu├® construye, te lo pregunta. En el resto, hace las inferencias razonables y las anota.
+- **No es un chatbot de empresa.** No trae tus datos, no se conecta a tus APIs, no se integra con tu CRM. Es un motor de orquestaci├│n: vos lo apunt├ís a tu c├│digo.
+- **No reemplaza la revisi├│n humana.** Automatiza la parte mec├ínica de la verificaci├│n (compila, pasa los tests, filtra secretos, revisa el diff). La decisi├│n de si el producto est├í bien sigue siendo tuya.
 - **No es gratis.** Corre agentes de verdad, consume tokens. El presupuesto por defecto es 20 tareas y 40 invocaciones por corrida, y te avisa antes de agotarse.
 - **Necesita que configures una cosa**: `subagent_depth: 3` en la config de OpenCode. Sin eso, un subagente no puede delegar y la malla no arranca.
-- **El bus vive en tu disco.** Es una decisión de diseño (auditabilidad, portabilidad, cero dependencias), pero implica que el estado de la corrida es visible para cualquier proceso con acceso a esa carpeta.
+- **El bus vive en tu disco.** Es una decisi├│n de dise├▒o (auditabilidad, portabilidad, cero dependencias), pero implica que el estado de la corrida es visible para cualquier proceso con acceso a esa carpeta.
 
 ---
 
-## 10. Cómo probarlo
+## 10. C├│mo probarlo
 
-### La prueba rápida (5 minutos)
+### La prueba r├ípida (5 minutos)
 
 ```bash
 npm install -g oficina-opencode
@@ -310,21 +310,21 @@ Y en `~/.config/opencode/opencode.json`:
 { "experimental": { "subagent_depth": 3 } }
 ```
 
-Después, en un proyecto tuyo:
+Despu├®s, en un proyecto tuyo:
 
 ```text
 /oficina Agregar un endpoint de health check que devuelva el estado de la DB
 ```
 
-Mirá cómo el plan aparece, cómo se reparten las tareas, cómo alguien pide ayuda, y cómo el control de calidad frena lo que no está listo.
+Mir├í c├│mo el plan aparece, c├│mo se reparten las tareas, c├│mo alguien pide ayuda, y c├│mo el control de calidad frena lo que no est├í listo.
 
 ### La prueba honesta
 
-Elegí un encargo real pero **acotado** (un bug, una función, un endpoint). Y prestá atención a tres cosas:
+Eleg├¡ un encargo real pero **acotado** (un bug, una funci├│n, un endpoint). Y prest├í atenci├│n a tres cosas:
 
-1. ¿Se repartió solo, o tuviste que pedir que delegue?
-2. ¿Los controles de calidad encontraron algo que vos no habías visto?
-3. ¿Terminó sin que tuvieras que recordarle lo que ya sabía?
+1. ┬┐Se reparti├│ solo, o tuviste que pedir que delegue?
+2. ┬┐Los controles de calidad encontraron algo que vos no hab├¡as visto?
+3. ┬┐Termin├│ sin que tuvieras que recordarle lo que ya sab├¡a?
 
 Si las tres respuestas son buenas, la oficina funciona.
 
@@ -336,7 +336,7 @@ Si las tres respuestas son buenas, la oficina funciona.
 
 - Vos das **un objetivo**, no una lista de instrucciones.
 - El sistema **descompone, reparte, coordina y verifica** solo.
-- Los agentes **se hablan entre sí** y se piden ayuda.
+- Los agentes **se hablan entre s├¡** y se piden ayuda.
 - El trabajo **se revisa entre pares**, nunca se auto-aprueba.
 - **Pasa controles de calidad reales** antes de darse por terminado.
 - **No para hasta terminar**, y si no puede, te lo pregunta con opciones.
@@ -346,26 +346,26 @@ Es la diferencia entre un asistente que responde y una oficina que entrega.
 
 ---
 
-**¿Querés ver los detalles técnicos?** → [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
-**¿Querés ver cómo se usa?** → [`README.md`](../README.md)
-**¿Querés ver el protocolo completo?** → [`skills/oficina/`](../skills/oficina/)
+**┬┐Quer├®s ver los detalles t├®cnicos?** ÔåÆ [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)
+**┬┐Quer├®s ver c├│mo se usa?** ÔåÆ [`README.md`](../README.md)
+**┬┐Quer├®s ver el protocolo completo?** ÔåÆ [`skills/oficina/`](../skills/oficina/)
 
 ---
 
-## 12. Qu� hay de nuevo en v3.2.0 (y qu� sigue siendo limitaci�n)
+## 12. Qu´┐¢ hay de nuevo en v3.2.0 (y qu´┐¢ sigue siendo limitaci´┐¢n)
 
 **Lo nuevo:**
 
-- **Modo C�lula** (/oficina lite): 1 Ejecutor + 1 Revisor Cruzado, briefing compacto; auto-degrada cuando el objetivo es chico y aislado.
-- **Circuit Breaker** (BLOCKED_ESCALATED): 3 fallos id�nticos seguidos o 5 intentos totales bloquean la card y liberan el lease; el resto del DAG avanza.
-- **Traits**: el dispatch inyecta solo los traits del stack detectado (TypeScript strict, Vitest, Windows/PowerShell�).
-- **Memoria epis�dica** .oficina/memory.md: hasta 150 l�neas con rotaci�n FIFO; al reabrir una corrida, el dispatch recibe el resumen.
+- **Modo C´┐¢lula** (/oficina lite): 1 Ejecutor + 1 Revisor Cruzado, briefing compacto; auto-degrada cuando el objetivo es chico y aislado.
+- **Circuit Breaker** (BLOCKED_ESCALATED): 3 fallos id´┐¢nticos seguidos o 5 intentos totales bloquean la card y liberan el lease; el resto del DAG avanza.
+- **Traits**: el dispatch inyecta solo los traits del stack detectado (TypeScript strict, Vitest, Windows/PowerShell´┐¢).
+- **Memoria epis´┐¢dica** .oficina/memory.md: hasta 150 l´┐¢neas con rotaci´┐¢n FIFO; al reabrir una corrida, el dispatch recibe el resumen.
 - **Matching = 0.70**.
 - **Dashboard SSE en vivo** (dark, Linear/Grafana-like): tabboard, gates detallados por card, bus inspector y visor de memory.md.
 
-**Lo que sigue siendo l�mite, sin excusas:**
+**Lo que sigue siendo l´┐¢mite, sin excusas:**
 
 - Un plugin de OpenCode **no es un sandbox de OS**. Un interpreter embebido con escritura (python -c, 
-ode -e, heredocs) puede escapar al guard; el tripwire lo **detecta despu�s**, no lo revierte.
-- La evidencia demuestra criterios de aceptaci�n, no que el producto sea el correcto. La decisi�n sigue siendo tuya.
-- El dashboard es para localhost: bindea a 127.0.0.1 y **no tiene autenticaci�n**. No lo expongas a la red.
+ode -e, heredocs) puede escapar al guard; el tripwire lo **detecta despu´┐¢s**, no lo revierte.
+- La evidencia demuestra criterios de aceptaci´┐¢n, no que el producto sea el correcto. La decisi´┐¢n sigue siendo tuya.
+- El dashboard es para localhost: bindea a 127.0.0.1 y **no tiene autenticaci´┐¢n**. No lo expongas a la red.

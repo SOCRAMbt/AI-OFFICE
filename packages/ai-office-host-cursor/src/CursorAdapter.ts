@@ -20,8 +20,8 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
-import { registerAdapter } from '@ai-office/core';
+} from 'ai-office-core/host';
+import { registerAdapter } from 'ai-office-core';
 import { z } from 'zod';
 import { resolve } from 'node:path';
 

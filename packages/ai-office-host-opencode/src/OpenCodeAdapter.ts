@@ -24,7 +24,7 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
+} from 'ai-office-core/host';
 import {
   Tripwire,
   analyzeShellCommand,
@@ -41,7 +41,7 @@ import {
   type OficinaTool,
   startDashboard,
   openBrowser,
-} from '@ai-office/core';
+} from 'ai-office-core';
 import { z } from 'zod';
 
 // ============================================================================
@@ -623,7 +623,7 @@ export class OpenCodeAdapter implements HostAdapter {
               this.lastResume.set(sessionID, Date.now());
               this.resumes.set(sessionID, count + 1);
 
-              const { renderMesaBrief, snapshotMesa } = await import('@ai-office/core/mesa');
+              const { renderMesaBrief, snapshotMesa } = await import('ai-office-core/mesa');
               const mesa = await snapshotMesa(off);
               const mesaBrief = renderMesaBrief(mesa);
 
@@ -795,7 +795,7 @@ export class OpenCodeAdapter implements HostAdapter {
 
     await this.ctx.session.hook('context', async (event: any) => {
       try {
-        const { buildSystemPrompt } = await import('@ai-office/core/systemPrompt');
+        const { buildSystemPrompt } = await import('ai-office-core/systemPrompt');
         const sid = (event as { sessionID?: string }).sessionID;
         const off = typeof sid === 'string' && sid.length > 0
           ? this.officeFactory?.get(await this.resolveSessionDir(sid))
@@ -810,7 +810,7 @@ export class OpenCodeAdapter implements HostAdapter {
 
     await this.ctx.session.hook('compaction', async (event: any) => {
       try {
-        const { buildSystemPrompt } = await import('@ai-office/core/systemPrompt');
+        const { buildSystemPrompt } = await import('ai-office-core/systemPrompt');
         const sid = (event as { sessionID?: string }).sessionID;
         const off = typeof sid === 'string' && sid.length > 0
           ? this.officeFactory?.get(await this.resolveSessionDir(sid))
@@ -837,7 +837,7 @@ export async function createOpenCodeAdapter(config: InitConfig): Promise<OpenCod
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from '@ai-office/core';
+import { registerAdapter } from 'ai-office-core';
 registerAdapter('opencode', createOpenCodeAdapter, undefined, true);
 
 export default OpenCodeAdapter;

@@ -1,24 +1,24 @@
 /**
- * Factory: creación de roles que el catálogo no cubre.
+ * Factory: creaci├│n de roles que el cat├ílogo no cubre.
  *
- * ## Por qué una factory y no un prompt genérico
+ * ## Por qu├® una factory y no un prompt gen├®rico
  *
  * Un rol fabricado tiene que ser **indistinguible en calidad** de uno del
- * catálogo. Si el catálogo de agency-agents tiene 306 agentes con briefing de
- * 10 secciones, un rol fabricado con un prompt de 5 líneas se nota: es
- * monótono, no tiene criterio propio, y el resto de la malla lo trata como
+ * cat├ílogo. Si el cat├ílogo de agency-agents tiene 306 agentes con briefing de
+ * 10 secciones, un rol fabricado con un prompt de 5 l├¡neas se nota: es
+ * mon├│tono, no tiene criterio propio, y el resto de la malla lo trata como
  * un agente de segunda.
  *
  * Por eso la factory emite **exactamente la misma estructura** que agency-agents:
  * Identity & Memory, Core Mission, Critical Rules, Technical Deliverables,
  * Workflow Process, Communication Style, Learning & Memory, Success Metrics,
- * Advanced Capabilities. El parser del catálogo no distingue el origen.
+ * Advanced Capabilities. El parser del cat├ílogo no distingue el origen.
  *
- * ## Qué hace de un briefing bueno
+ * ## Qu├® hace de un briefing bueno
  *
- * No es largo: es **específico**. Un briefing que dice "sos un experto en X"
- * no sirve para nada. Uno que dice qué mirás primero, qué error típico cometés
- * y qué entregás, sirve.
+ * No es largo: es **espec├¡fico**. Un briefing que dice "sos un experto en X"
+ * no sirve para nada. Uno que dice qu├® mir├ís primero, qu├® error t├¡pico comet├®s
+ * y qu├® entreg├ís, sirve.
  */
 
 import type { Ficha, FichaSource, CoordinatorId } from "./types.js"
@@ -36,15 +36,15 @@ export interface FactoryInput {
   delegateBudget?: number
   peers?: string[]
   escalateTo?: CoordinatorId
-  /** Contexto del objetivo, para que el briefing no sea genérico. */
+  /** Contexto del objetivo, para que el briefing no sea gen├®rico. */
   objective?: string
   /** Lo que la card necesita saber. */
   mission?: string
-  /** T�tulo de la card/tarea para la que se fabric�. */
+  /** T´┐¢tulo de la card/tarea para la que se fabric´┐¢. */
   createdForTask?: string
   /** Stack/capabilities concretas para indexar el agente fabricado. */
   stackTags?: string[]
-  /** Áreas donde este rol suele meterse en problemas. */
+  /** ├üreas donde este rol suele meterse en problemas. */
   failureModes?: string[]
 }
 
@@ -53,7 +53,7 @@ export const FACTORY_DISPLAY_FALLBACK = "Especialista"
 /**
  * Template de un agente fabricado.
  *
- * La estructura es la de agency-agents a propósito: mismo orden, mismas
+ * La estructura es la de agency-agents a prop├│sito: mismo orden, mismas
  * secciones, mismo nivel de especificidad.
  */
 export const FACTORY_PROMPT_TEMPLATE = `# {{display_name}} Agent Personality
@@ -128,9 +128,9 @@ const BASE_RULES = [
 /**
  * Fabrica una ficha a partir del template.
  *
- * El prompt generado no es genérico: incluye las capabilities concretas, el
+ * El prompt generado no es gen├®rico: incluye las capabilities concretas, el
  * scope, el objetivo de la corrida y los modos de fallo del rol. Un agente
- * fabricado con contexto es usable; uno con un prompt vacío no sirve.
+ * fabricado con contexto es usable; uno con un prompt vac├¡o no sirve.
  */
 export function createFicha(input: FactoryInput): Ficha {
   const displayName = input.displayName ?? titleize(input.role)
@@ -179,7 +179,7 @@ export function createFicha(input: FactoryInput): Ficha {
   }
 }
 
-/** Cómo suena un agente con un rol mal definido. */
+/** C├│mo suena un agente con un rol mal definido. */
 function defaultFailureModes(role: string): string[] {
   return [
     `Actuar sobre supuestos en vez de sobre lo que el briefing dice: el rol "${role}" tiene un alcance que no se negocia`,
@@ -202,11 +202,11 @@ function renderPrompt(
     .replaceAll("{{mission_phrase}}", missionPhrase)
     .replaceAll(
       "{{personality}}",
-      "Directo y sin rodeos. Preferís la solución más simple que cumple el requisito, y decís explícitamente cuando una regla no aplica.",
+      "Directo y sin rodeos. Prefer├¡s la soluci├│n m├ís simple que cumple el requisito, y dec├¡s expl├¡citamente cuando una regla no aplica.",
     )
     .replaceAll(
       "{{memory}}",
-      "Trackeás las decisiones ya tomadas en la corrida, los archivos que ya existen y las restricciones descubiertas, para no repetir trabajo ni contradecir lo anterior.",
+      "Tracke├ís las decisiones ya tomadas en la corrida, los archivos que ya existen y las restricciones descubiertas, para no repetir trabajo ni contradecir lo anterior.",
     )
     .replaceAll(
       "{{experience}}",
@@ -216,9 +216,9 @@ function renderPrompt(
       "{{core_mission}}",
       [
         `### ${titleize(input.role)}`,
-        `- Ejecutá la card asignada con foco en: ${capabilities.join(", ") || "el objetivo de la card"}`,
-        "- Dejá el resultado en el formato que el briefing pide: handoff y evidencia",
-        "- Pedí ayuda en el bus en cuanto detectes que la tarea se sale de tu dominio",
+        `- Ejecut├í la card asignada con foco en: ${capabilities.join(", ") || "el objetivo de la card"}`,
+        "- Dej├í el resultado en el formato que el briefing pide: handoff y evidencia",
+        "- Ped├¡ ayuda en el bus en cuanto detectes que la tarea se sale de tu dominio",
       ].join("\n"),
     )
     .replaceAll(
@@ -229,26 +229,26 @@ function renderPrompt(
       "{{technical_deliverables}}",
       [
         "### Handoff",
-        "- Qué se hizo, en concreto y con paths de archivo",
-        "- Qué decisiones se tomaron y por qué",
-        "- Qué quedó afuera y qué necesita el siguiente",
+        "- Qu├® se hizo, en concreto y con paths de archivo",
+        "- Qu├® decisiones se tomaron y por qu├®",
+        "- Qu├® qued├│ afuera y qu├® necesita el siguiente",
         "",
         "### Evidencia",
         "- La salida real de los comandos ejecutados, con su exit code",
-        "- Qué quedó sin verificar y por qué",
+        "- Qu├® qued├│ sin verificar y por qu├®",
       ].join("\n"),
     )
     .replaceAll(
       "{{step_1}}",
-      "Leé el briefing completo. Identificá lo que no sabés y pedilo por el bus antes de tocar nada.",
+      "Le├® el briefing completo. Identific├í lo que no sab├®s y pedilo por el bus antes de tocar nada.",
     )
     .replaceAll(
       "{{step_2}}",
-      "Decidí el enfoque más simple que cumple los criterios de aceptación. Anotá la decisión en el handoff.",
+      "Decid├¡ el enfoque m├ís simple que cumple los criterios de aceptaci├│n. Anot├í la decisi├│n en el handoff.",
     )
     .replaceAll(
       "{{step_3}}",
-      "Implementá dentro del territorio declarado. Si el scope no alcanza para la solución, pedí ampliación — no te la-expiendas.",
+      "Implement├í dentro del territorio declarado. Si el scope no alcanza para la soluci├│n, ped├¡ ampliaci├│n ÔÇö no te la-expiendas.",
     )
     .replaceAll(
       "{{step_4}}",
@@ -257,9 +257,9 @@ function renderPrompt(
     .replaceAll(
       "{{communication_style}}",
       [
-        '- Arrancás por lo concreto: qué vas a hacer, en qué archivos, y con qué criterio.',
-        "- Cuando algo no cierra, decís exactamente qué falta y a quién le corresponde, sin rodeos.",
-        "- No decís «está listo» sin el comando que lo demuestra.",
+        '- Arranc├ís por lo concreto: qu├® vas a hacer, en qu├® archivos, y con qu├® criterio.',
+        "- Cuando algo no cierra, dec├¡s exactamente qu├® falta y a qui├®n le corresponde, sin rodeos.",
+        "- No dec├¡s ┬½est├í listo┬╗ sin el comando que lo demuestra.",
       ].join("\n"),
     )
     .replaceAll(
@@ -273,7 +273,7 @@ function renderPrompt(
     .replaceAll(
       "{{success_metrics}}",
       [
-        `- Los criterios de aceptación de la card se cumplen y están demostrados con evidencia`,
+        `- Los criterios de aceptaci├│n de la card se cumplen y est├ín demostrados con evidencia`,
         `- El control de calidad de la card pasa en verde`,
         "- Nadie tiene que volver a preguntar lo que dejaste escrito en el handoff",
         "- No tocaste nada fuera de tu scope",
@@ -283,7 +283,7 @@ function renderPrompt(
       "{{advanced_capabilities}}",
       [
         "### Deep Work",
-        `- Aplicar ${capabilities.join(", ") || "el dominio del rol"} más allá del caso obvio: detectar el problema de raíz en vez de parchear el síntoma`,
+        `- Aplicar ${capabilities.join(", ") || "el dominio del rol"} m├ís all├í del caso obvio: detectar el problema de ra├¡z en vez de parchear el s├¡ntoma`,
         "",
         "### Failure Modes",
         ...failureModes.map((f) => `- ${f}`),
@@ -292,12 +292,12 @@ function renderPrompt(
     .replaceAll(
       "{{objective}}",
       input.objective
-        ? `**Objetivo de la corrida:** ${input.objective}\n\n**Misión de tu card:** ${mission}\n`
-        : `**Misión de tu card:** ${mission}\n`,
+        ? `**Objetivo de la corrida:** ${input.objective}\n\n**Misi├│n de tu card:** ${mission}\n`
+        : `**Misi├│n de tu card:** ${mission}\n`,
     )
 }
 
-/** "frontend-developer" → "Frontend Developer". */
+/** "frontend-developer" ÔåÆ "Frontend Developer". */
 export function titleize(slug: string): string {
   return slug
     .split(/[^a-zA-Z0-9]+/)
@@ -306,7 +306,7 @@ export function titleize(slug: string): string {
     .join(" ")
 }
 
-/** Candidato a promoción a skill: roles de factory con uso repetido. */
+/** Candidato a promoci├│n a skill: roles de factory con uso repetido. */
 export interface AgentCandidate {
   role: string
   uses: number
@@ -341,7 +341,7 @@ export class CandidateRegistry {
 /**
  * Genera el slug para el archivo de agente.
  * Ej: "implementador-jwt-auth" -> "implementador-jwt-auth"
- * (el prefijo "oficina-" lo añade agentNameFor al registrar en OpenCode)
+ * (el prefijo "oficina-" lo a├▒ade agentNameFor al registrar en OpenCode)
  */
 export function agentSlugFromRole(role: string): string {
   return role.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
@@ -396,13 +396,13 @@ function generateAgentBody(
   const capabilityTokensStr = capabilities.join(" ")
 
   const missionTitle = `### ${titleize(role)}`
-  const missionDesc = `- Ejecutá la card asignada con foco en: ${capabilitiesList}\n- Dejá el resultado en el formato que el briefing pide: handoff y evidencia\n- Pedí ayuda en el bus en cuanto detectes que la tarea se sale de tu dominio`
+  const missionDesc = `- Ejecut├í la card asignada con foco en: ${capabilitiesList}\n- Dej├í el resultado en el formato que el briefing pide: handoff y evidencia\n- Ped├¡ ayuda en el bus en cuanto detectes que la tarea se sale de tu dominio`
 
   const failureModesList = failureModes.map(f => `- ${f}`).join("\n")
 
   const objectiveSection = objective
-    ? `**Objetivo de la corrida:** ${objective}\n\n**Misión de tu card:** ${mission}\n`
-    : `**Misión de tu card:** ${mission}\n`
+    ? `**Objetivo de la corrida:** ${objective}\n\n**Misi├│n de tu card:** ${mission}\n`
+    : `**Misi├│n de tu card:** ${mission}\n`
 
   const sections = [
     `# ${displayName} Agent Personality`,
@@ -483,7 +483,7 @@ function generateAgentBody(
  * Crea un archivo de agente persistente en `.opencode/agents/<slug>.md`.
  *
  * Este archivo es directamente usable por OpenCode como subagent (`@oficina-<slug>`)
- * y es descubierto por el catálogo dinámico para matching futuro.
+ * y es descubierto por el cat├ílogo din├ímico para matching futuro.
  */
 export async function createPersistentAgent(
   projectRoot: string,
@@ -503,7 +503,7 @@ export async function createPersistentAgent(
 
   const filePath = path.join(agentsDir, `${slug}.md`)
 
-  const description = `${displayName} — ${capabilities.slice(0, 5).join(", ") || "especialista de la oficina"}`
+  const description = `${displayName} ÔÇö ${capabilities.slice(0, 5).join(", ") || "especialista de la oficina"}`
   const vibe = `Rol fabricado para esta corrida: ${capabilities.slice(0, 3).join(", ")}.`
 
   const frontmatter = generateAgentFrontmatter(displayName, description, vibe, capabilities, { createdForTask: input.createdForTask, stackTags: input.stackTags })

@@ -104,7 +104,7 @@ export async function createAutoAdapter(config: InitConfig): Promise<HostAdapter
   if (!registration) {
     throw new Error(
       `Detected platform ${detected} but no adapter is registered. ` +
-      `Install @ai-office/host-${detected} package.`
+      `Install ai-office-host-${detected} package.`
     );
   }
 

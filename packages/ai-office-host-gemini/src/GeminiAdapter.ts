@@ -20,7 +20,7 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
+} from 'ai-office-core/host';
 import { z } from 'zod';
 import type { GenerativeModel, ChatSession } from '@google/generative-ai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -326,7 +326,7 @@ export async function createGeminiAdapter(config: InitConfig): Promise<GeminiAda
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from '@ai-office/core';
+import { registerAdapter } from 'ai-office-core';
 registerAdapter('gemini', createGeminiAdapter, undefined, false);
 
 export default GeminiAdapter;

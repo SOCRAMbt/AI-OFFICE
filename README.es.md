@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="docs/assets/banner.svg" width="1000" alt="AI-OFFICE — una oficina de agentes para OpenCode" />
 

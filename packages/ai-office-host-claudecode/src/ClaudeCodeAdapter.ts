@@ -20,7 +20,7 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
+} from 'ai-office-core/host';
 import { z } from 'zod';
 import { Anthropic } from '@anthropic-ai/sdk';
 
@@ -350,7 +350,7 @@ export async function createClaudeCodeAdapter(config: InitConfig): Promise<Claud
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from '@ai-office/core';
+import { registerAdapter } from 'ai-office-core';
 registerAdapter('claude-code', createClaudeCodeAdapter, undefined, false);
 
 export default ClaudeCodeAdapter;

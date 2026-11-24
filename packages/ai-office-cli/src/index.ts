@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * AI-OFFICE Unified CLI
  *
@@ -9,8 +10,8 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
-import { AdapterFactory, detectPlatform } from '@ai-office/core/host';
-import { OfficeFactory } from '@ai-office/core';
+import { AdapterFactory, detectPlatform } from 'ai-office-core/host';
+import { OfficeFactory } from 'ai-office-core';
 import * as path from 'node:path';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -261,9 +262,9 @@ async function writeOpenCodeConfig(path: string): Promise<void> {
   const config = `
 // AI-OFFICE OpenCode Plugin Entry
 import { Plugin } from "@opencode/plugin";
-import { OfficeFactory } from "@ai-office/core";
-import { OpenCodeAdapter } from "@ai-office/host-opencode";
-import { logger } from "@ai-office/core";
+import { OfficeFactory } from "ai-office-core";
+import { OpenCodeAdapter } from "ai-office-host-opencode";
+import { logger } from "ai-office-core";
 
 const log = logger("oficina:v2");
 
@@ -326,7 +327,7 @@ async function writeCodexConfig(path: string): Promise<void> {
     mcpServers: {
       'ai-office': {
         command: 'npx',
-        args: ['@ai-office/host-codex'],
+        args: ['ai-office-host-codex'],
         env: {
           CODEX_SESSION_ID: '${env:CODEX_SESSION_ID}',
         },
@@ -342,7 +343,7 @@ async function writeClaudeCodeConfig(path: string): Promise<void> {
     mcpServers: {
       'ai-office': {
         command: 'npx',
-        args: ['@ai-office/host-claudecode'],
+        args: ['ai-office-host-claudecode'],
         env: {
           ANTHROPIC_API_KEY: '${env:ANTHROPIC_API_KEY}',
         },
@@ -358,7 +359,7 @@ async function writeGrokConfig(path: string): Promise<void> {
     mcpServers: {
       'ai-office': {
         command: 'npx',
-        args: ['@ai-office/host-grok'],
+        args: ['ai-office-host-grok'],
         env: {
           GROK_API_KEY: '${env:GROK_API_KEY}',
           XAI_API_KEY: '${env:XAI_API_KEY}',
@@ -375,7 +376,7 @@ async function writeGeminiConfig(path: string): Promise<void> {
     mcpServers: {
       'ai-office': {
         command: 'npx',
-        args: ['@ai-office/host-gemini'],
+        args: ['ai-office-host-gemini'],
         env: {
           GOOGLE_API_KEY: '${env:GOOGLE_API_KEY}',
           GEMINI_API_KEY: '${env:GEMINI_API_KEY}',

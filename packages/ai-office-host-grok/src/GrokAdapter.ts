@@ -20,7 +20,7 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
+} from 'ai-office-core/host';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
@@ -300,7 +300,7 @@ export async function createGrokAdapter(config: InitConfig): Promise<GrokAdapter
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from '@ai-office/core';
+import { registerAdapter } from 'ai-office-core';
 registerAdapter('grok', createGrokAdapter, undefined, false);
 
 export default GrokAdapter;

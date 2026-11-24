@@ -1,17 +1,17 @@
 /**
- * Gates: verificación ejecutable, no opinada.
+ * Gates: verificaci├│n ejecutable, no opinada.
  *
- * Un gate que dice "debería compilar" no es un gate. Acá se corren comandos
+ * Un gate que dice "deber├¡a compilar" no es un gate. Ac├í se corren comandos
  * de verdad, se captura la salida real y se decide por exit code. La salida
  * se pega en el artefacto para que un humano pueda auditarla.
  *
  * Las 6 fases vienen de la skill `verification-loop`:
- * build → typecheck → lint → test → security grep → diff review.
+ * build ÔåÆ typecheck ÔåÆ lint ÔåÆ test ÔåÆ security grep ÔåÆ diff review.
  *
  * Reglas de honestidad (no negociables):
- * - Nunca PASS en una fase que no se corrió.
+ * - Nunca PASS en una fase que no se corri├│.
  * - Nunca output inventado.
- * - N/A siempre con motivo explícito.
+ * - N/A siempre con motivo expl├¡cito.
  * - Una fase aplicable en FAIL = gate FAIL. No se promedia.
  */
 
@@ -21,7 +21,7 @@ import fs from "node:fs/promises"
 import type { Card, GateOutcome, GatePhase, GatePhaseResult, GateResult } from "./types.js"
 import { nowIso } from "./fsx.js"
 
-/** Configuración de un gate. */
+/** Configuraci├│n de un gate. */
 export interface Tooling {
   packageManager: "npm" | "pnpm" | "yarn" | "bun" | null
   hasBuild: boolean
@@ -32,7 +32,7 @@ export interface Tooling {
   isGo: boolean
   isRust: boolean
   hasGit: boolean
-  /** Descripción de qué se detect��, para el informe. */
+  /** Descripci├│n de qu├® se detect´┐¢´┐¢, para el informe. */
   detected: string[]
 }
 
@@ -186,7 +186,7 @@ export async function runPhase(
 ): Promise<GatePhaseResult> {
   // PRE-CHECK: validar que comando existe en PATH.
   // Solo cuando el runner es el real: un runner inyectado (tests) define su
-  // propio mundo y no debe depender de que el binario exista en la máquina.
+  // propio mundo y no debe depender de que el binario exista en la m├íquina.
   if (runner === defaultRunner) {
     const checkCmd = process.platform === "win32" ? "where.exe" : "which"
     const notFound: GatePhaseResult = {
@@ -196,7 +196,7 @@ export async function runPhase(
       exitCode: 127,
       output: `Command not found: ${command}. Is it installed and in PATH?`,
       detail: `Command not found: ${command}`,
-      reason: `El comando "${command}" no se encuentra en PATH. Verifica que está instalado.`,
+      reason: `El comando "${command}" no se encuentra en PATH. Verifica que est├í instalado.`,
     }
     const found = await new Promise<boolean>((resolve) => {
       execFile(checkCmd, [command], { cwd, timeout: 5000 }, (err) => resolve(!err))
@@ -215,17 +215,17 @@ export async function runPhase(
     outcome,
     exitCode: code,
     output,
-    detail: `${outcome === "pass" ? "exit 0" : `exit ${code}`} en ${duration}ms${timeoutNote ? ` — ${timeoutNote}` : ""}`,
-    ...(outcome === "fail" ? { reason: `La fase ${phase} falló con exit code ${code}` } : {}),
+    detail: `${outcome === "pass" ? "exit 0" : `exit ${code}`} en ${duration}ms${timeoutNote ? ` ÔÇö ${timeoutNote}` : ""}`,
+    ...(outcome === "fail" ? { reason: `La fase ${phase} fall├│ con exit code ${code}` } : {}),
   }
 }
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
-  return `${text.slice(0, max)}\n… [salida truncada: ${text.length - max} caracteres más]`
+  return `${text.slice(0, max)}\nÔÇª [salida truncada: ${text.length - max} caracteres m├ís]`
 }
 
-/** Ejecuta las 6 fases técnicas. */
+/** Ejecuta las 6 fases t├®cnicas. */
 export async function runTechnicalGates(
   projectRoot: string,
   tooling: Tooling,
@@ -283,7 +283,7 @@ export async function runTechnicalGates(
     results.push(na("test", "el proyecto no define script `test`"))
   }
 
-  // 5. Security grep — escaneo en código, portable a cualquier SO.
+  // 5. Security grep ÔÇö escaneo en c├│digo, portable a cualquier SO.
   const hits = await scanForSecrets(projectRoot, scope)
   if (hits.length > 0) {
     results.push({
@@ -310,20 +310,20 @@ export async function runTechnicalGates(
   if (tooling.hasGit) {
     results.push(await runPhase("diff", "git", ["diff", "--stat", "HEAD"], projectRoot, runner))
   } else {
-    results.push(na("diff", "el proyecto no está bajo control de versiones (no hay .git)"))
+    results.push(na("diff", "el proyecto no est├í bajo control de versiones (no hay .git)"))
   }
 
   return results
 }
 
 /**
- * Patrones de detección de secretos.
+ * Patrones de detecci├│n de secretos.
  *
- * Se aplican EN CÓDIGO, no shelling out a `grep`.
+ * Se aplican EN C├ôDIGO, no shelling out a `grep`.
  *
- * Razón: `grep` no existe en Windows (viene con Git Bash, no con el sistema),
+ * Raz├│n: `grep` no existe en Windows (viene con Git Bash, no con el sistema),
  * y un gate de seguridad que depende de una tool opcional del SO es un gate
- * que falla en Windows por razones equivocadas. Además, escanear en código
+ * que falla en Windows por razones equivocadas. Adem├ís, escanear en c├│digo
  * permite manejar rutas con espacios, filtrar binarios y controlar el ruido.
  */
 export const SECRET_PATTERNS: { label: string; pattern: RegExp }[] = [
@@ -357,7 +357,7 @@ export const SECRET_PATTERNS: { label: string; pattern: RegExp }[] = [
   },
 ]
 
-/** Extensiones que se escanean. El código compilado no aporta. */
+/** Extensiones que se escanean. El c├│digo compilado no aporta. */
 const SCANNABLE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs",
   ".java", ".kt", ".php", ".cs", ".json", ".yaml", ".yml", ".toml", ".env",
@@ -379,7 +379,7 @@ export interface SecretHit {
   redacted: string
 }
 
-/** Redacta un valor: solo se ven los primeros y últimos 4 caracteres. */
+/** Redacta un valor: solo se ven los primeros y ├║ltimos 4 caracteres. */
 export function redact(value: string): string {
   if (value.length <= 10) return "[REDACTED]"
   return `${value.slice(0, 4)}${"*".repeat(Math.min(value.length - 8, 20))}${value.slice(-4)}`
@@ -388,7 +388,7 @@ export function redact(value: string): string {
 /**
  * Escanea un directorio en busca de secretos.
  *
- * Devuelve los hits con el valor redactado. El valor crudo no sale de acá:
+ * Devuelve los hits con el valor redactado. El valor crudo no sale de ac├í:
  * un log de gate que imprime la credencial completa la acaba de filtrar.
  */
 export async function scanForSecrets(root: string, scope: string[]): Promise<SecretHit[]> {
@@ -409,7 +409,7 @@ export async function scanForSecrets(root: string, scope: string[]): Promise<Sec
 
       const lines = content.split("\n")
       for (const [index, line] of lines.entries()) {
-        // PROTECCIÓN: saltar líneas > 10k chars (probablemente minificado)
+        // PROTECCI├ôN: saltar l├¡neas > 10k chars (probablemente minificado)
         if (line.length > 10_000) {
           continue
         }
@@ -454,8 +454,8 @@ async function collectFiles(dir: string): Promise<string[]> {
 /**
  * Corre el gate de seguridad.
  *
- * Distinto del gate técnico: audita trust boundaries y secretos. Un FAIL acá
- * bloquea la card aunque el técnico esté verde.
+ * Distinto del gate t├®cnico: audita trust boundaries y secretos. Un FAIL ac├í
+ * bloquea la card aunque el t├®cnico est├® verde.
  */
 export async function runSecurityGate(
   projectRoot: string,
@@ -478,8 +478,8 @@ export async function runSecurityGate(
         outcome: "fail",
         exitCode: 1,
         output: detail,
-        detail: `${label} — ${relevant.length} hallazgo(s)`,
-        reason: `Se detectaron ${relevant.length} secretos (${label}). El valor está redactado a propósito.`,
+        detail: `${label} ÔÇö ${relevant.length} hallazgo(s)`,
+        reason: `Se detectaron ${relevant.length} secretos (${label}). El valor est├í redactado a prop├│sito.`,
       })
     } else {
       results.push({
@@ -488,7 +488,7 @@ export async function runSecurityGate(
         outcome: "pass",
         exitCode: 0,
         output: "0 hallazgos",
-        detail: `${label} — limpio`,
+        detail: `${label} ÔÇö limpio`,
       })
     }
   }
@@ -546,19 +546,19 @@ export function consolidate(
   }
 }
 
-/** Motivo canónico de un gate de tests verde pero vacío. */
+/** Motivo can├│nico de un gate de tests verde pero vac├¡o. */
 export const EMPTY_TEST_GATE_REASON =
-  "Gate verde vacío: la fase test salió con exit 0 pero no ejecutó ningún test (no hay conteo legible en la salida)."
+  "Gate verde vac├¡o: la fase test sali├│ con exit 0 pero no ejecut├│ ning├║n test (no hay conteo legible en la salida)."
 
 /**
- * Degrada una fase de test `pass` a `not_run` si no corrió ningún test.
+ * Degrada una fase de test `pass` a `not_run` si no corri├│ ning├║n test.
  *
- * Por qué `not_run` y no `fail`: no falló nada, pero tampoco se probó nada.
- * Decir PASS sería mentir y decir FAIL inventaría un rojo. `not_run` es la
- * única etiqueta honesta, y `consolidate` la propaga como veredicto no verde.
+ * Por qu├® `not_run` y no `fail`: no fall├│ nada, pero tampoco se prob├│ nada.
+ * Decir PASS ser├¡a mentir y decir FAIL inventar├¡a un rojo. `not_run` es la
+ * ├║nica etiqueta honesta, y `consolidate` la propaga como veredicto no verde.
  *
  * Se conserva el `exitCode` real (0) y la `output` real: la evidencia de lo
- * que pasó no se reescribe, solo se corrige la clasificación.
+ * que pas├│ no se reescribe, solo se corrige la clasificaci├│n.
  */
 export function guardEmptyTestPhase(result: GatePhaseResult): GatePhaseResult {
   if (result.phase !== "test") return result
@@ -568,16 +568,16 @@ export function guardEmptyTestPhase(result: GatePhaseResult): GatePhaseResult {
   return {
     ...result,
     outcome: "not_run",
-    detail: `exit 0 sin tests ejecutados — ${EMPTY_TEST_GATE_REASON}`,
+    detail: `exit 0 sin tests ejecutados ÔÇö ${EMPTY_TEST_GATE_REASON}`,
     reason: EMPTY_TEST_GATE_REASON,
   }
 }
 
 /**
- * Corre una fase de tests aplicando el guard anti-gate-verde-vacío.
+ * Corre una fase de tests aplicando el guard anti-gate-verde-vac├¡o.
  *
- * Único punto de entrada para ejecutar tests en los gates técnicos: la
- * oficina (`Office.runGates`) hereda el guard sin duplicar lógica.
+ * ├Ünico punto de entrada para ejecutar tests en los gates t├®cnicos: la
+ * oficina (`Office.runGates`) hereda el guard sin duplicar l├│gica.
  */
 export async function runTestPhase(
   command: string,
@@ -589,17 +589,17 @@ export async function runTestPhase(
 }
 
 /**
- * Reconocimiento Go: ¿la salida de `go test` muestra que corrieron tests?
+ * Reconocimiento Go: ┬┐la salida de `go test` muestra que corrieron tests?
  *
- * `go test ./...` nunca imprime un conteo "N tests/passed": imprime una línea
- * `ok <paquete> <duración>` por cada paquete cuya suite corrió y pasó. La
- * distinción que importa:
+ * `go test ./...` nunca imprime un conteo "N tests/passed": imprime una l├¡nea
+ * `ok <paquete> <duraci├│n>` por cada paquete cuya suite corri├│ y pas├│. La
+ * distinci├│n que importa:
  *
- *   ok  m/pkg 0.084s            → corrieron tests del paquete y pasaron → ran
- *   ok  m/pkg [no test files]   → el paquete no tiene tests: corrió CERO
- *                                 tests → sigue siendo "no ran"
+ *   ok  m/pkg 0.084s            ÔåÆ corrieron tests del paquete y pasaron ÔåÆ ran
+ *   ok  m/pkg [no test files]   ÔåÆ el paquete no tiene tests: corri├│ CERO
+ *                                 tests ÔåÆ sigue siendo "no ran"
  *
- * Cualquier otra línea `ok` sin el marcador `[no test files]` cuenta como
+ * Cualquier otra l├¡nea `ok` sin el marcador `[no test files]` cuenta como
  * evidencia de tests ejecutados.
  */
 function goTestsActuallyRan(output: string): boolean {
@@ -612,19 +612,19 @@ function goTestsActuallyRan(output: string): boolean {
 }
 
 /**
- * ¿La fase de tests corrió y pasó con al menos un test?
+ * ┬┐La fase de tests corri├│ y pas├│ con al menos un test?
  *
- * Un gate que pasa con cero tests es un gate verde vacío. Los runners
+ * Un gate que pasa con cero tests es un gate verde vac├¡o. Los runners
  * imprimen el conteo en formatos distintos ("# tests 5", "5 passed",
- * "Tests: 5"), así que se buscan ambos órdenes. Para `go test` se reconoce
- * el formato por ecosistema (líneas `ok <paquete>`), porque no hay conteo
- * numérico: ver `goTestsActuallyRan`.
+ * "Tests: 5"), as├¡ que se buscan ambos ├│rdenes. Para `go test` se reconoce
+ * el formato por ecosistema (l├¡neas `ok <paquete>`), porque no hay conteo
+ * num├®rico: ver `goTestsActuallyRan`.
  */
 export function testsActuallyRan(technical: GatePhaseResult[]): boolean {
   const test = technical.find((r) => r.phase === "test")
   if (!test || test.outcome !== "pass") return false
 
-  // Ecosistema Go: el reconocimiento propio de `go test` es el árbitro.
+  // Ecosistema Go: el reconocimiento propio de `go test` es el ├írbitro.
   if (test.command?.startsWith("go test")) return goTestsActuallyRan(test.output)
 
   // "5 tests" / "5 passed" / "5 test"
@@ -639,15 +639,15 @@ export function testsActuallyRan(technical: GatePhaseResult[]): boolean {
   return false
 }
 
-/** Escapa una celda de tabla markdown: el `|` rompería la fila. */
+/** Escapa una celda de tabla markdown: el `|` romper├¡a la fila. */
 function escapeCell(text: string): string {
-  return text.replace(/\r?\n/g, " ").replace(/\|/g, "\\|").trim() || "—"
+  return text.replace(/\r?\n/g, " ").replace(/\|/g, "\\|").trim() || "ÔÇö"
 }
 
 /** Renderiza el gate como markdown para el artefacto. */
 export function renderGate(result: GateResult): string {
   const lines: string[] = []
-  lines.push(`# Gates — ${result.cardId}`)
+  lines.push(`# Gates ÔÇö ${result.cardId}`)
   lines.push("")
   lines.push(`**Corredor:** ${result.ranAt}`)
   lines.push("")
@@ -659,23 +659,23 @@ export function renderGate(result: GateResult): string {
     lines.push("|---|------|---------|-----------|---------|--------|")
     rows.forEach((r, i) => {
       // El motivo no puede quedar escondido: un `not_run` por gate verde
-      // vacío tiene que leerse en el artefacto, no solo en el exit code.
-      const reason = escapeCell(r.reason ?? "—")
+      // vac├¡o tiene que leerse en el artefacto, no solo en el exit code.
+      const reason = escapeCell(r.reason ?? "ÔÇö")
       lines.push(
-        `| ${i + 1} | ${r.phase} | \`${r.command ?? "—"}\` | ${r.outcome.toUpperCase()} | ${escapeCell(r.detail)} | ${reason} |`,
+        `| ${i + 1} | ${r.phase} | \`${r.command ?? "ÔÇö"}\` | ${r.outcome.toUpperCase()} | ${escapeCell(r.detail)} | ${reason} |`,
       )
     })
     lines.push("")
   }
 
-  table("Técnico", result.technical)
+  table("T├®cnico", result.technical)
   table("Seguridad", result.security)
 
   lines.push("## Salida de los comandos")
   lines.push("")
   for (const r of [...result.technical, ...result.security]) {
     if (r.outcome === "na" || !r.command) continue
-    lines.push(`### ${r.phase} — \`${r.command}\``)
+    lines.push(`### ${r.phase} ÔÇö \`${r.command}\``)
     lines.push("")
     lines.push("```")
     lines.push(r.output || "(sin salida)")
@@ -683,7 +683,7 @@ export function renderGate(result: GateResult): string {
     lines.push("")
   }
 
-  lines.push(`**Gate técnico:** ${result.technicalOutcome.toUpperCase()}`)
+  lines.push(`**Gate t├®cnico:** ${result.technicalOutcome.toUpperCase()}`)
   lines.push("")
   lines.push(`**Gate seguridad:** ${result.securityOutcome.toUpperCase()}`)
   lines.push("")

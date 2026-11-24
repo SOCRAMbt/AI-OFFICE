@@ -20,7 +20,7 @@ import type {
   InitConfig,
   ExecResult,
   TokenUsage,
-} from '@ai-office/core/host';
+} from 'ai-office-core/host';
 import { z } from 'zod';
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
@@ -408,7 +408,7 @@ export async function createCodexAdapter(config: InitConfig): Promise<CodexAdapt
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from '@ai-office/core';
+import { registerAdapter } from 'ai-office-core';
 registerAdapter('codex', createCodexAdapter, undefined, false);
 
 export default CodexAdapter;
