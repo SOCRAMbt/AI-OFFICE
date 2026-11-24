@@ -1,133 +1,114 @@
 {
-  "name": "@marcos2710/ai-office",
-  "version": "3.4.3",
-  "description": "A team of AI agents that can't mark work 'done' until real tests pass. Plugin for OpenCode. Multi-agent orchestration with quality gates, evidence, and durable state.",
-  "license": "MIT",
-  "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "main": "./dist/v2.js",
-  "types": "./dist/v2.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/v2.d.ts",
-      "import": "./dist/v2.js"
+    "name": "oficina-opencode",
+    "version": "4.0.0",
+    "description": "Universal multi-agent framework for AI coding platforms (OpenCode, Cursor, Codex, Claude Code, Grok, Gemini)",
+    "license": "MIT",
+    "type": "module",
+    "engines": {
+        "node": ">=22"
     },
-    "./v1": {
-      "types": "./dist/v1.d.ts",
-      "import": "./dist/v1.js"
+    "main": "./packages/ai-office-cli/dist/index.js",
+    "types": "./packages/ai-office-cli/dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./packages/ai-office-cli/dist/index.d.ts",
+            "import": "./packages/ai-office-cli/dist/index.js"
+        },
+        "./cli": {
+            "types": "./packages/ai-office-cli/dist/index.d.ts",
+            "import": "./packages/ai-office-cli/dist/index.js"
+        }
     },
-    "./cli": {
-      "types": "./dist/cli.d.ts",
-      "import": "./dist/cli.js"
-    }
-  },
-  "bin": {
-    "oficina": "dist/cli.js"
-  },
-  "files": [
-    "dist",
-    "skills",
-    "agents",
-    "commands",
-    "dashboard",
-    "!dashboard/shots",
-    "docs",
-    "traits",
-    "examples",
-    "DESIGN.md",
-    "README.md",
-    "LICENSE",
-    "!docs/assets/social-preview.png",
-    "!docs/assets/demo.gif",
-    "!docs/assets/demo-dashboard.png"
-  ],
-  "keywords": [
-    "opencode",
-    "opencode-plugin",
-    "opencode-agent",
-    "agents",
-    "orchestration",
-    "multi-agent",
-    "agent-mesh",
-    "peer-to-peer",
-    "durable-execution",
-    "workflow",
-    "state-machine",
-    "cli",
-    "ai",
-    "developer-tools",
-    "cli-tool",
-    "slash-command",
-    "agent-orchestration",
-    "opencode-command",
-    "plugin"
-  ],
-  "author": "SOCRAMbt <noreply@github.com>",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SOCRAMbt/AI-OFFICE.git"
-  },
-  "homepage": "https://github.com/SOCRAMbt/AI-OFFICE#readme",
-  "bugs": {
-    "url": "https://github.com/SOCRAMbt/AI-OFFICE/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "dev": "tsc -p tsconfig.build.json --watch",
-    "typecheck": "tsc --noEmit",
-    "pretest": "npm run build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "coverage": "npm run build && vitest run --coverage",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run docs:check",
-    "dashboard": "node dashboard/server.mjs",
-    "dashboard:demo": "node dashboard/scripts/seed-demo.mjs && node dashboard/server.mjs --oficina .oficina-demo",
-    "demo": "node dashboard/scripts/seed-demo.mjs && node dashboard/server.mjs --oficina .oficina-demo",
-    "docs:sync": "tsx scripts/sync-docs.ts",
-    "docs:check": "tsx scripts/sync-docs.ts --check",
-    "bench:selection": "tsx benchmarks/selection/run.ts",
-    "diagnose": "tsx scripts/diagnose-run.ts",
-    "smoke": "tsx scripts/smoke-e2e.mts"
-  },
-  "dependencies": {
-    "@opencode/plugin": "^2.1.2",
-    "zod": "^4.6.7"
-  },
-  "peerDependencies": {
-    "@opencode-ai/plugin": "^1.15.11"
-  },
-  "peerDependenciesMeta": {
-    "@opencode-ai/plugin": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@opencode-ai/plugin": "^1.19.5",
-    "@opencode/client": "^2.1.2",
-    "@opencode/plugin": "^2.1.2",
-    "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.0.5",
-    "playwright": "^1.64.1",
-    "tsx": "^4.20.3",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
-  },
-  "overrides": {
-    "toml": "^5.0.1",
-    "effect": "^4.0.0-rc.118",
-    "zod": "^4.6.7",
-    "glob": "^10.0.0",
-    "minimatch": "^9.0.0",
-    "rimraf": "^5.0.0",
-    "cacache": "^18.0.0",
-    "make-fetch-happen": "^11.0.0",
-    "pacote": "^17.0.0",
-    "sigstore": "^2.0.0",
-    "tuf-js": "^2.0.0"
-  }
+    "bin": {
+        "oficina": "./packages/ai-office-cli/dist/index.js",
+        "ai-office": "./packages/ai-office-cli/dist/index.js"
+    },
+    "dependencies": {
+        "@opencode-ai/plugin": "^1.19.6",
+        "@opencode/plugin": "^2.3.2"
+    },
+    "files": [
+            "dist"
+        ],
+    "keywords": [
+        "opencode",
+        "opencode-plugin",
+        "opencode-agent",
+        "agents",
+        "orchestration",
+        "multi-agent",
+        "agent-mesh",
+        "peer-to-peer",
+        "durable-execution",
+        "workflow",
+        "state-machine",
+        "cli",
+        "ai",
+        "developer-tools",
+        "cli-tool",
+        "slash-command",
+        "agent-orchestration",
+        "opencode-command",
+        "plugin"
+    ],
+    "author": "SOCRAMbt <noreply@github.com>",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/SOCRAMbt/oficina-opencode.git"
+    },
+    "homepage": "https://github.com/SOCRAMbt/oficina-opencode#readme",
+    "bugs": {
+        "url": "https://github.com/SOCRAMbt/oficina-opencode/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev",
+        "typecheck": "turbo run typecheck",
+        "test": "turbo run test",
+        "test:watch": "turbo run test:watch",
+        "coverage": "turbo run coverage",
+        "lint": "eslint . --ext .ts,.tsx",
+        "lint:fix": "eslint . --ext .ts,.tsx --fix",
+        "knip": "knip",
+        "semgrep": "semgrep scan --config=.semgrep.yml",
+        "docs:api": "typedoc --out docs/api packages/ai-office-core/src/index.ts",
+        "docs:sync": "tsx scripts/sync-docs.ts",
+        "docs:check": "turbo run docs:check",
+        "smoke": "tsx scripts/smoke-e2e.mts",
+        "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    },
+    "devDependencies": {
+        "@changesets/cli": "^3.0.3",
+        "@types/node": "^26.6.6",
+        "@typescript-eslint/eslint-plugin": "^7.18.0",
+        "@typescript-eslint/parser": "^7.18.0",
+        "@vitest/coverage-v8": "^5.1.1",
+        "eslint": "^9.39.5",
+        "semgrep": "^0.0.1",
+        "tsx": "^4.20.3",
+        "turbo": "^2.0.0",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.73.0",
+        "vite": "^8.3.8",
+        "vitest": "^5.1.1",
+        "zod": "^4.6.7"
+    },
+    "packageManager": "npm@10.8.2",
+    "overrides": {
+        "zod": "^4.6.7",
+        "glob": "^10.0.0",
+        "minimatch": "^9.0.0",
+        "rimraf": "^5.0.0",
+        "cacache": "^18.0.0",
+        "make-fetch-happen": "^11.0.0",
+        "pacote": "^17.0.0",
+        "sigstore": "^2.0.0",
+        "tuf-js": "^2.0.0"
+    },
+    "workspaces": [
+        "packages/*"
+    ]
 }

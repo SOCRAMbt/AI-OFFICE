@@ -1,10 +1,12 @@
 {
   "version": 1,
-  "pluginDependencies": {
-    "@opencode/plugin": "2.1.2",
-    "zod": "4.6.7"
-  },
   "skills": {
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "c2e0695f4d6bb9e1cc0b4c68d9965d062271cff387000fa59c1c2d31a18c25b8"
+    },
     "design-taste-frontend": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",

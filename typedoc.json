@@ -1,0 +1,8 @@
+{
+  "entryPoints": ["packages/ai-office-core/src/index.ts", "packages/ai-office-core/src/host/index.ts"],
+  "out": "docs/api",
+  "name": "AI-OFFICE API",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "readme": "packages/ai-office-core/README.md"
+}

@@ -1,0 +1,33 @@
+rules:
+  - id: no-unjustified-any
+    pattern: $X: any
+    message: "Avoid `any` without justification. Use a typed alternative or document why `any` is required."
+    severity: WARNING
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "packages/**/*.ts"
+        - "src/**/*.ts"
+
+  - id: no-console-log-in-prod
+    pattern: console.log(...)
+    message: "Remove console.log from production code; use the structured logger instead."
+    severity: WARNING
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "packages/**/*.ts"
+        - "src/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+
+  - id: async-without-try-catch
+    pattern: async $F(...) { ... await $X ... }
+    message: "Async functions should wrap await calls in try/catch or propagate errors explicitly."
+    severity: INFO
+    languages: [typescript, javascript]
+  - id: secrets-in-source
+    pattern: (api[_-]?key|secret|token|password)\s*[:=]\s*["'][^"']+["']
+    message: "Possible hardcoded secret detected. Use environment variables instead."
+    severity: ERROR
+    languages: [typescript, javascript, json, yaml]

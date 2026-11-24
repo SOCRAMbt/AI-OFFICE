@@ -26,7 +26,7 @@ import {
   writeCatalogSnapshot,
   FACTS_BEGIN,
   FACTS_END,
-} from "../src/core/docsync.ts"
+} from "../packages/ai-office-core/src/core/docsync.ts"
 
 // `import.meta.url.pathname` en Windows devuelve "/C:/ruta/..." y
 // `path.resolve` lo convierte en "C:\C:\ruta\...". `fileURLToPath` lo
@@ -87,10 +87,10 @@ async function main() {
   // cambiaron, se reescanea. Si no cambio, no se toca el archivo (para no
   // generar ruido en el diff con un timestamp).
   if (!check) {
-    const { defaultAgencyRoot, readGitCommit } = await import("../src/core/docsync.ts")
+    const { defaultAgencyRoot, readGitCommit } = await import("../packages/ai-office-core/src/core/docsync.ts")
     const root = defaultAgencyRoot()
     if (root) {
-      const { scanCatalog } = await import("../src/core/catalog.ts")
+      const { scanCatalog } = await import("../packages/ai-office-core/src/core/catalog.ts")
       try {
         const agents = await scanCatalog({ root })
         const divisions = [...new Set(agents.map((a) => a.division))].sort()

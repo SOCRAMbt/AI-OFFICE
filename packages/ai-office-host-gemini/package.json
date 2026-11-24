@@ -1,0 +1,40 @@
+{
+    "name":  "@ai-office/host-gemini",
+    "version":  "4.0.0",
+    "description":  "Gemini Host Adapter for AI-OFFICE",
+    "type":  "module",
+    "main":  "./dist/GeminiAdapter.js",
+    "types":  "./dist/GeminiAdapter.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/GeminiAdapter.d.ts",
+                              "import":  "./dist/GeminiAdapter.js"
+                          }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.build.json",
+                    "dev":  "tsc -p tsconfig.build.json --watch",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest"
+                },
+    "dependencies":  {
+                         "@ai-office/core": "^4.0.0",
+                         "@google/generative-ai":  "^0.15.0",
+                         "zod":  "^4.6.7"
+                     },
+    "peerDependenciesMeta":  {
+                                 "@google/generative-ai":  {
+                                                               "optional":  true
+                                                           }
+                             },
+    "devDependencies":  {
+                            "@types/node":  "^26.6.6",
+                            "typescript":  "^7.0.2",
+                            "vitest":  "^5.0.5"
+                        },
+    "publishConfig":  {
+                          "access":  "public"
+                      }
+}
+

@@ -1,0 +1,154 @@
+/**
+ * IO atómico.
+ *
+ * El bus es append-only y varios agentes leen y escriben a la vez. Un rename
+ * POSIX/Windows sobre un archivo temporal es atómico: un lector ve el archivo
+ * viejo completo o el nuevo completo, nunca un JSON partido. Ese detalle es la
+ * diferencia entre "el bus anda" y "el bus anda y de vez en cuando traga un
+ * error de parse que nadie entiende".
+ */
+
+import { createHash, randomBytes } from "node:crypto"
+import { existsSync } from "node:fs"
+import fs from "node:fs/promises"
+import path from "node:path"
+import { logger } from "./log.js"
+const log = logger("oficina:fsx")
+
+/** Escribe un archivo de forma atómica: tmp único + rename con backoff ante EPERM/EBUSY/EACCES (NTFS). */
+export async function writeAtomic(filePath: string, contents: string): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
+  const tmp = `${filePath}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`
+  try {
+    await fs.writeFile(tmp, contents, "utf8")
+    // `rename` sobre el target con observadores abiertos (antivirus, otra
+    // sesión de OpenCode, tail -f) falla en Windows con EPERM/EBUSY/EACCES.
+    // Es transitorio: backoff exponencial (20→320ms), 5 intentos.
+    const delays = [20, 40, 80, 160, 320]
+    let lastErr: unknown = null
+    for (let i = 0; i <= delays.length; i++) {
+      try {
+        await fs.rename(tmp, filePath)
+        lastErr = null
+        break
+      } catch (err) {
+        lastErr = err
+        const code = (err as NodeJS.ErrnoException).code
+        if (i < delays.length && (code === "EPERM" || code === "EACCES" || code === "EBUSY")) {
+          await new Promise((r) => setTimeout(r, delays[i]))
+          continue
+        }
+        throw err
+      }
+    }
+    if (lastErr) throw lastErr
+  } catch (err) {
+    await fs.rm(tmp, { force: true }).catch((e) => log.warn("rm tmp failed", { error: String(e) }))
+    throw err
+  }
+}
+
+/** Escribe JSON de forma atómica, con newline final. */
+export async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+  await writeAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+/**
+ * Lee JSON. Devuelve un resultado que distingue:
+ * - { ok: true, value: T } si el archivo existe y es JSON válido
+ * - { ok: false, kind: "not-found" } si el archivo no existe
+ * - { ok: false, kind: "corrupt", error: Error } si el archivo existe pero es JSON inválido
+ * - { ok: false, kind: "error", error: Error } para otros errores de I/O
+ *
+ * Un archivo corrupto no debe tumbar la corrida: se loguea y se sigue con lo
+ * que hubiera. Perder un artefacto es malo; perder la oficina entera es peor.
+ */
+export async function readJson<T>(filePath: string): Promise<
+  | { ok: true; value: T }
+  | { ok: false; kind: "not-found" }
+  | { ok: false; kind: "corrupt"; error: Error }
+  | { ok: false; kind: "error"; error: Error }
+> {
+  try {
+    const raw = await fs.readFile(filePath, "utf8")
+    // Strip UTF-8 BOM if present (U+FEFF)
+    const cleanRaw = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw
+    return { ok: true, value: JSON.parse(cleanRaw) as T }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === "ENOENT") return { ok: false, kind: "not-found" }
+    if (err instanceof SyntaxError) {
+      // Un archivo vacio casi siempre es una escritura en curso (otro
+      // proceso lo esta creando), no corrupcion. Ponerlo en cuarentena
+      // lo destruye: el escritor que estaba en medio pierde su archivo.
+      // Un archivo con contenido que no parsea SI es corrupcion.
+      const raw = await fs.readFile(filePath, "utf8").catch(() => "")
+      if (raw.trim().length === 0) return { ok: false, kind: "not-found" }
+      const quarantine = `${filePath}.corrupt-${Date.now()}`
+      await fs.rename(filePath, quarantine).catch((e) => log.warn("quarantine rename failed", { error: String(e) }))
+      return { ok: false, kind: "corrupt", error: new Error(`JSON corrupto en ${filePath}: ${String(err)}`) }
+    }
+    return { ok: false, kind: "error", error: err as Error }
+  }
+}
+
+/** Lee texto. Devuelve `undefined` si no existe. */
+export async function readText(filePath: string): Promise<string | undefined> {
+  try {
+    return await fs.readFile(filePath, "utf8")
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw err
+  }
+}
+
+/** Existe sin lanzar. */
+export function exists(filePath: string): boolean {
+  return existsSync(filePath)
+}
+
+/** Crea un directorio recursivamente (idempotente). */
+export async function ensureDir(dirPath: string): Promise<void> {
+  await fs.mkdir(dirPath, { recursive: true })
+}
+
+/** Lista archivos de un directorio. Devuelve `[]` si no existe. */
+export async function listFiles(dirPath: string): Promise<string[]> {
+  try {
+    return await fs.readdir(dirPath)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw err
+  }
+}
+
+/** Lista subdirectorios de un directorio. Devuelve `[]` si no existe. */
+export async function listDirs(dirPath: string): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw err
+  }
+}
+
+/** Elimina un archivo si existe. */
+export async function removeIfExists(filePath: string): Promise<void> {
+  await fs.rm(filePath, { force: true, recursive: true })
+}
+
+/** Id corto y único, con prefijo. */
+export function shortId(prefix: string): string {
+  return `${prefix}-${randomBytes(4).toString("hex")}`
+}
+
+/** Hash estable de un string, para claves de idempotencia. */
+export function stableHash(input: string): string {
+  return createHash("sha256").update(input).digest("hex").slice(0, 16)
+}
+
+/** Timestamp ISO. Inyectable para tests. */
+export function nowIso(clock: () => number = Date.now): string {
+  return new Date(clock()).toISOString()
+}

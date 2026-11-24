@@ -1,0 +1,83 @@
+# .npmignore - Files to exclude from npm package
+# Only the compiled dist/ and package.json should be published
+
+# Source files
+src/
+*.ts
+!src/**/*.d.ts
+
+# Config files (not needed in published package)
+tsconfig*.json
+*.config.js
+*.config.ts
+*.config.mjs
+.eslintrc*
+.prettierrc*
+*.md
+
+# Test files
+tests/
+**/*.test.ts
+**/*.spec.ts
+
+# Coverage & build artifacts
+coverage/
+*.tsbuildinfo
+
+# Tooling
+.turbo/
+.vercel/
+.netlify/
+.vscode/
+.idea/
+
+# Documentation (only in repo)
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+
+# Skills & templates (internal)
+skills/
+.oficina/
+.opencode/
+.oficina-demo/
+dashboard/shots/
+docs/archive/
+.agents/
+.hermes/
+
+# Traits (internal - used at runtime by core)
+traits/
+
+# Benchmarks
+benchmarks/
+
+# Agents & commands (internal)
+agents/
+commands/
+dashboard/
+
+# Design & misc docs
+DESIGN.md
+README.es.md
+
+# Packages directory (monorepo - only root package should be published)
+packages/
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+*.tgz
+.nyc_output/

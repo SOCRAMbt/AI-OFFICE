@@ -1,0 +1,35 @@
+{
+    "name":  "@ai-office/host-grok",
+    "version":  "4.0.0",
+    "description":  "Grok Host Adapter for AI-OFFICE",
+    "type":  "module",
+    "main":  "./dist/GrokAdapter.js",
+    "types":  "./dist/GrokAdapter.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/GrokAdapter.d.ts",
+                              "import":  "./dist/GrokAdapter.js"
+                          }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.build.json",
+                    "dev":  "tsc -p tsconfig.build.json --watch",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest"
+                },
+    "dependencies":  {
+                         "@ai-office/core": "^4.0.0",
+                         "openai":  "^4.104.0",
+                         "zod":  "^4.6.7"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^26.6.6",
+                            "typescript":  "^7.0.2",
+                            "vitest":  "^5.0.5"
+                        },
+    "publishConfig":  {
+                          "access":  "public"
+                      }
+}
+

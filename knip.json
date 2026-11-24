@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["src/v2.ts", "src/cli.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts", "src/*Adapter.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignore": ["**/dist/**", "**/node_modules/**", "**/*.test.ts"],
+  "ignoreDependencies": ["@opencode/plugin", "@opencode-ai/plugin"]
+}

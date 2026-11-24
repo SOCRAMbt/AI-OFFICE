@@ -1,0 +1,43 @@
+{
+    "name":  "@ai-office/host-cursor",
+    "version":  "4.0.0",
+    "description":  "Cursor Host Adapter for AI-OFFICE",
+    "type":  "module",
+    "main":  "./dist/CursorAdapter.js",
+    "types":  "./dist/CursorAdapter.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/CursorAdapter.d.ts",
+                              "import":  "./dist/CursorAdapter.js"
+                          }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.build.json",
+                    "dev":  "tsc -p tsconfig.build.json --watch",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest"
+                },
+    "dependencies":  {
+                         "@ai-office/core": "^4.0.0",
+                         "zod":  "^4.6.7"
+                     },
+    "peerDependencies":  {
+                             "vscode":  "^1.80.0"
+                         },
+    "peerDependenciesMeta":  {
+                                 "vscode":  {
+                                                "optional":  true
+                                            }
+                             },
+    "devDependencies":  {
+                            "@types/node":  "^26.6.6",
+                            "@types/vscode":  "^1.80.0",
+                            "typescript":  "^7.0.2",
+                            "vitest":  "^5.0.5"
+                        },
+    "publishConfig":  {
+                          "access":  "public"
+                      }
+}
+

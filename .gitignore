@@ -18,7 +18,19 @@ coverage/
 # screenshots locales/de trabajo (no van al repo público ni al paquete npm)
 dashboard/shots/
 
-# archivos de marketing y auditor�a (no van al repo p�blico)
+# archivos de marketing y auditoría (no van al repo público)
 docs/archive/
 .agents/skills/
 docs/SHOW-HN-DRAFT.md
+
+# Archivos adjuntos privados de Hermes
+.hermes/desktop-attachments/
+
+# Submódulos de benchmarks (no van al repo)
+benchmarks/proof-of-value/tasks/*/ky-repo/
+benchmarks/proof-of-value/tasks/*/parse-json-repo/
+benchmarks/proof-of-value/tasks/*/type-fest-repo/
+nul
+
+node_modules/
+.turbo/

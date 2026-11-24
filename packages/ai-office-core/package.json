@@ -1,0 +1,89 @@
+{
+    "name":  "@ai-office/core",
+    "version":  "4.0.0",
+    "description":  "AI-OFFICE Core Engine - Platform-agnostic agent orchestration",
+    "type":  "module",
+    "main":  "./dist/index.js",
+    "types":  "./dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.js"
+                          },
+                    "./host":  {
+                                   "types":  "./dist/host/index.d.ts",
+                                   "import":  "./dist/host/index.js"
+                               },
+                    "./tripwire":  {
+                                       "types":  "./dist/tripwire.d.ts",
+                                       "import":  "./dist/tripwire.js"
+                                   },
+                    "./sandbox":  {
+                                      "types":  "./dist/sandbox.d.ts",
+                                      "import":  "./dist/sandbox.js"
+                                  },
+                    "./hooks/scopeGuard":  {
+                                               "types":  "./dist/hooks/scopeGuard.d.ts",
+                                               "import":  "./dist/hooks/scopeGuard.js"
+                                           },
+                    "./log":  {
+                                  "types":  "./dist/log.d.ts",
+                                  "import":  "./dist/log.js"
+                              },
+                    "./childModel":  {
+                                         "types":  "./dist/childModel.d.ts",
+                                         "import":  "./dist/childModel.js"
+                                     },
+                    "./tools":  {
+                                    "types":  "./dist/tools/index.d.ts",
+                                    "import":  "./dist/tools/index.js"
+                                },
+                    "./dashboard":  {
+                                        "types":  "./dist/dashboard.d.ts",
+                                        "import":  "./dist/dashboard.js"
+                                    },
+                    "./mesa":  {
+                                   "types":  "./dist/mesa.d.ts",
+                                   "import":  "./dist/mesa.js"
+                               },
+                    "./systemPrompt":  {
+                                           "types":  "./dist/systemPrompt.d.ts",
+                                           "import":  "./dist/systemPrompt.js"
+                                       }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.build.json",
+                    "dev":  "tsc -p tsconfig.build.json --watch",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest",
+                    "coverage":  "vitest run --coverage"
+                },
+    "dependencies":  {
+                         "zod":  "^4.6.7"
+                     },
+    "peerDependencies":  {
+
+                         },
+    "devDependencies":  {
+                            "@types/node":  "^26.6.6",
+                            "typescript":  "^7.0.2",
+                            "vitest":  "^5.0.5",
+                            "@vitest/coverage-v8":  "^5.0.5"
+                        },
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "overrides":  {
+                      "zod":  "^4.6.7",
+                      "glob":  "^10.0.0",
+                      "minimatch":  "^9.0.0",
+                      "rimraf":  "^5.0.0",
+                      "cacache":  "^18.0.0",
+                      "make-fetch-happen":  "^11.0.0",
+                      "pacote":  "^17.0.0",
+                      "sigstore":  "^2.0.0",
+                      "tuf-js":  "^2.0.0"
+                  }
+}
+

@@ -1,81 +1,72 @@
-# Política de Seguridad
+# Security Policy
 
-## Alcance
+## Supported Versions
 
-Esta política cubre el paquete `oficina-opencode` (publicado en npm como `oficina-opencode`) y el repositorio `https://github.com/SOCRAMbt/AI-OFFICE`.
+| Version | Supported          |
+| ------- | ------------------ |
+| 3.4.x   | :white_check_mark: |
+| < 3.3   | :x:                |
 
-Versiones soportadas: solo la versión más reciente publicada en npm recibe parches de seguridad. Las versiones anteriores no reciben actualizaciones.
+## Reporting a Vulnerability
 
-## Reportar una vulnerabilidad
+Please report security vulnerabilities to the maintainers via GitHub Security Advisories.
 
-Si descubres una vulnerabilidad de seguridad, **no abras un issue público**.
+## Known Vulnerabilities and Mitigations
 
-En su lugar, reporta la vulnerabilidad de forma responsable a través de:
+### CRIT-01: Zod CVE (GHSA-mrhx-c7xc-m3w5)
 
-1. **GitHub Security Advisories** (preferido): Usa la pestaña "Security" → "Report a vulnerability" en el repositorio. Esto permite una divulgación coordinada privada entre tú y los mantenedores.
+**Fixed in v3.4.2+** by upgrading zod to >= 4.6.6.
 
-### Qué incluir en el reporte
+### CRIT-02: Transitive Dependencies
 
-- Descripción clara de la vulnerabilidad y su impacto
-- Pasos para reproducir (PoC) si es posible
-- Versiones afectadas
-- Cualquier mitigación conocida
-- Tu información de contacto para coordinar la divulgación
+**Fixed in v3.4.2+** via npm overrides for:
+- glob >= 10.0.0
+- minimatch >= 9.0.0
+- rimraf >= 5.0.0
+- cacache >= 18.0.0
+- make-fetch-happen >= 11.0.0
+- pacote >= 17.0.0
+- sigstore >= 2.0.0
+- tuf-js >= 2.0.0
 
-## Respuesta del mantenedor
+### CRIT-03: canonicalizePhysical ENOENT Ambiguity
 
-Este es un proyecto de código abierto mantenido en tiempo libre. No hay SLA formales ni compromisos contractuales de tiempo de respuesta. Los mantenedores responderán según su disponibilidad.
+**Fixed in v3.4.2+** with pre-check for broken symlinks.
 
-Se recomienda usar **GitHub Security Advisories** para garantizar que el reporte llegue a los mantenedores de forma privada y segura.
+## DevDependencies Exceptions (Riesgo Residual Conocido)
 
-## Divulgación coordinada
+Las siguientes vulnerabilidades en `devDependencies` son **riesgo residual conocido** y están documentadas aquí:
 
-1. El mantenedor confirma la vulnerabilidad y acuerda una fecha de divulgación.
-2. Se prepara el parche en una rama privada.
-3. Se publica el advisory en GitHub Security Advisories con CVE si corresponde.
-4. Se lanza la versión corregida en npm.
-5. Se divulga públicamente tras la disponibilidad del parche.
+- **playwright**: Solo se ejecuta en CI para tests E2E, no en producción
+- **@types/node**: Solo tipos, no código ejecutable
+- **typescript**: Solo compilación, no runtime
+- **vitest**: Solo testing, no producción
+- **tsx**: Solo desarrollo/scripts
+- **eslint**: Solo linting, no runtime
 
-## Riesgos residuales conocidos (devDependencies)
+Estas dependencias no se incluyen en el paquete publicado (`files` en package.json excluye `node_modules` y `devDependencies`).
 
-Las siguientes vulnerabilidades en dependencias transitivas del ecosistema OpenCode (`@opencode/util`, `@opencode/plugin`, `@npmcli/*`, `tar`, `glob`, `minimatch`, `cacache`, `@sigstore/*`, `@tufjs/models`) se documentan como **riesgo residual conocido** y no afectan al runtime de producción de `oficina-opencode`:
+## Dependencias de desarrollo (riesgo residual conocido)
 
-- `@sigstore/core` ≤3.2.0 — DSSE payloadType type-binding failure (MODERATE)
-- `tar` — vulnerabilidad en extracción (HIGH, transitive via @npmcli/arborist)
-- `glob` / `minimatch` — amplificación DoS (MODERATE, mitigado vía overrides)
-- `@npmcli/arborist` — depende de versiones vulnerables de cacache, glob, minimatch, pacote (HIGH)
+Las siguientes vulnerabilidades en `devDependencies` son **riesgo residual conocido** y están documentadas aquí:
 
-Estas vulnerabilidades están en dependencias de desarrollo y tooling, no en el paquete publicado.
+- **playwright**: Solo se ejecuta en CI para tests E2E, no en producción
+- **@types/node**: Solo tipos, no código ejecutable
+- **typescript**: Solo compilación, no runtime
+- **vitest**: Solo testing, no producción
+- **tsx**: Solo desarrollo/scripts
+- **eslint**: Solo linting, no runtime
 
-### Excepciones de secrets permitidas (scanForSecrets)
+Estas dependencias no se incluyen en el paquete publicado (`files` en package.json excluye `node_modules` y `devDependencies`).
 
-Los siguientes patrones se excluyen del escaneo de secrets por ser falsos positivos conocidos:
-- `.env.example` (plantilla de variables de entorno)
-- `*.test.ts` (tests con valores de ejemplo)
-- `node_modules/` (dependencias de terceros)
+## Scope Enforcement
 
-### Dependencias RC (Release Candidate)
+El hook de scope (`scopeGuard.ts`) previene escrituras fuera del directorio del proyecto y en archivos sensibles (.env, .git/, claves privadas).
 
-- `effect@^4.0.0-rc.118` se mantiene temporalmente en overrides hasta la release estable de `effect@4.0.0`. Se monitorea para upgrade cuando esté disponible.
+## Tripwire Detection
 
-## Qué NO hacer
+El tripwire (`tripwire.ts`) detecta escrituras no autorizadas después de comandos de shell que no pueden ser prevenidos estáticamente.
 
-- No publiques exploits, PoCs o detalles técnicos en issues públicos antes de la divulgación coordinada.
-- No uses canales no seguros (Discord, Twitter, etc.) para reportar vulnerabilidades.
-- No exijas plazos de respuesta que no estén acordados.
+---
 
-## Alcance de la auditoría de dependencias
-
-- `npm audit --omit=dev` (dependencias de producción): debe reportar 0 vulnerabilidades en cada release.
-- `npm audit` (incluye dependencias de desarrollo): se monitorea y corrige cuando hay versiones compatibles disponibles. Las vulnerabilidades en dependencias de desarrollo que no afectan el paquete publicado (ej. herramientas de test) se documentan como riesgo residual conocido.
-
-## Configuración de seguridad del repositorio
-
-- **Dependabot**: Habilitado para alertas y actualizaciones automáticas de dependencias.
-- **CodeQL**: Análisis estático en cada push/PR.
-- **Secret scanning**: Habilitado (GitHub secret scanning).
-- **Branch protection**: `main` requiere CI verde y revisión antes de merge.
-
-## Contacto
-
-Para consultas sobre esta política: abre una discusión en la pestaña "Security" del repositorio o usa "Report a vulnerability" en la misma pestaña.
+*Última actualización: 2026-11-22*

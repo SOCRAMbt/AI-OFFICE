@@ -1,0 +1,149 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>@ai-office/core</title><meta name="description" content="Documentation for @ai-office/core"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="index.html" class="title">@ai-office/core</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<h1>@ai-office/core</h1></div>
+<div class="tsd-panel tsd-typography"><h1 id="ai-officecore" class="tsd-anchor-link">@ai-office/core<a href="#ai-officecore" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p>AI-OFFICE Core Engine - Platform-agnostic agent orchestration.</p>
+<h2 id="overview" class="tsd-anchor-link">Overview<a href="#overview" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>The core engine contains all business logic for:</p>
+<ul>
+<li>Agent orchestration and lifecycle</li>
+<li>Card/task management with DAG dependencies</li>
+<li>Quality gates (technical, security, requirements)</li>
+<li>Scope enforcement and tripwire detection</li>
+<li>State persistence and recovery</li>
+<li>Inter-agent communication (bus)</li>
+<li>Roster and lease management</li>
+</ul>
+<p>The core has <strong>ZERO dependencies on platform SDKs</strong>. Platform integration is done via the HostAdapter interface.</p>
+<h2 id="installation" class="tsd-anchor-link">Installation<a href="#installation" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="bash"><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">install</span><span class="hl-1"> </span><span class="hl-2">@ai-office/core</span>
+</code><button type="button">Copy</button></pre>
+
+<h2 id="quick-start" class="tsd-anchor-link">Quick Start<a href="#quick-start" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="typescript"><span class="hl-3">import</span><span class="hl-1"> { </span><span class="hl-4">OfficeFactory</span><span class="hl-1">, </span><span class="hl-4">createAutoAdapter</span><span class="hl-1"> } </span><span class="hl-3">from</span><span class="hl-1"> </span><span class="hl-2">&#39;@ai-office/core&#39;</span><span class="hl-1">;</span><br/><br/><span class="hl-5">// Auto-detect platform and create adapter</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">adapter</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-0">createAutoAdapter</span><span class="hl-1">({ </span><span class="hl-4">projectRoot:</span><span class="hl-1"> </span><span class="hl-4">process</span><span class="hl-1">.</span><span class="hl-0">cwd</span><span class="hl-1">() });</span><br/><br/><span class="hl-5">// Create office factory with adapter</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">factory</span><span class="hl-1"> = </span><span class="hl-6">new</span><span class="hl-1"> </span><span class="hl-0">OfficeFactory</span><span class="hl-1">({ </span><span class="hl-4">host:</span><span class="hl-1"> </span><span class="hl-4">adapter</span><span class="hl-1"> });</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">office</span><span class="hl-1"> = </span><span class="hl-4">factory</span><span class="hl-1">.</span><span class="hl-0">getPrimary</span><span class="hl-1">(</span><span class="hl-4">process</span><span class="hl-1">.</span><span class="hl-0">cwd</span><span class="hl-1">());</span><br/><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">init</span><span class="hl-1">();</span><br/><br/><span class="hl-5">// Save a plan</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">state</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">loadState</span><span class="hl-1">();</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">savePlan</span><span class="hl-1">(</span><span class="hl-4">state</span><span class="hl-1">, [</span><br/><span class="hl-1">  {</span><br/><span class="hl-1">    </span><span class="hl-4">title:</span><span class="hl-1"> </span><span class="hl-2">&quot;Implement feature X&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-4">type:</span><span class="hl-1"> </span><span class="hl-2">&quot;implementation&quot;</span><span class="hl-1">,</span><br/><span class="hl-1">    </span><span class="hl-4">acceptance:</span><span class="hl-1"> [</span><span class="hl-2">&quot;Tests pass&quot;</span><span class="hl-1">, </span><span class="hl-2">&quot;Code compiles&quot;</span><span class="hl-1">],</span><br/><span class="hl-1">    </span><span class="hl-4">gate:</span><span class="hl-1"> </span><span class="hl-2">&quot;npm test &amp;&amp; npm run build&quot;</span><br/><span class="hl-1">  }</span><br/><span class="hl-1">]);</span><br/><br/><span class="hl-5">// Dispatch agents</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">dispatch</span><span class="hl-1">(</span><span class="hl-4">state</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<h2 id="architecture" class="tsd-anchor-link">Architecture<a href="#architecture" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<h3 id="host-adapter-pattern" class="tsd-anchor-link">Host Adapter Pattern<a href="#host-adapter-pattern" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>The core engine depends ONLY on the <code>HostAdapter</code> interface:</p>
+<pre><code class="typescript"><span class="hl-6">interface</span><span class="hl-1"> </span><span class="hl-8">HostAdapter</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-5">// Session Management</span><br/><span class="hl-1">  </span><span class="hl-0">createSession</span><span class="hl-1">(</span><span class="hl-4">config</span><span class="hl-1">: </span><span class="hl-8">SessionConfig</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">Session</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">  </span><span class="hl-0">promptSession</span><span class="hl-1">(</span><span class="hl-4">sessionId</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">, </span><span class="hl-4">prompt</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">, </span><span class="hl-4">options</span><span class="hl-1">?: </span><span class="hl-8">PromptOptions</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">SessionResult</span><span class="hl-1">&gt;;</span><br/><br/><span class="hl-1">  </span><span class="hl-5">// Tools &amp; Scope</span><br/><span class="hl-1">  </span><span class="hl-0">getAvailableTools</span><span class="hl-1">(): </span><span class="hl-8">Tool</span><span class="hl-1">[];</span><br/><span class="hl-1">  </span><span class="hl-0">checkScope</span><span class="hl-1">(</span><span class="hl-4">path</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">, </span><span class="hl-4">operation</span><span class="hl-1">: </span><span class="hl-2">&#39;read&#39;</span><span class="hl-1"> | </span><span class="hl-2">&#39;write&#39;</span><span class="hl-1"> | </span><span class="hl-2">&#39;exec&#39;</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">ScopeResult</span><span class="hl-1">&gt;;</span><br/><br/><span class="hl-1">  </span><span class="hl-5">// Subagent Management</span><br/><span class="hl-1">  </span><span class="hl-0">spawnSubagent</span><span class="hl-1">(</span><span class="hl-4">config</span><span class="hl-1">: </span><span class="hl-8">SubagentConfig</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">Subagent</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">  </span><span class="hl-0">getSubagentResult</span><span class="hl-1">(</span><span class="hl-4">subagentId</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">SubagentResult</span><span class="hl-1">&gt;;</span><br/><br/><span class="hl-1">  </span><span class="hl-5">// Model Management</span><br/><span class="hl-1">  </span><span class="hl-0">getModel</span><span class="hl-1">(): </span><span class="hl-8">ModelConfig</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-0">setModel</span><span class="hl-1">(</span><span class="hl-4">model</span><span class="hl-1">: </span><span class="hl-8">ModelConfig</span><span class="hl-1">): </span><span class="hl-8">void</span><span class="hl-1">;</span><br/><br/><span class="hl-1">  </span><span class="hl-5">// Lifecycle</span><br/><span class="hl-1">  </span><span class="hl-0">initialize</span><span class="hl-1">(</span><span class="hl-4">config</span><span class="hl-1">: </span><span class="hl-8">InitConfig</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">void</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">  </span><span class="hl-0">shutdown</span><span class="hl-1">(): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">void</span><span class="hl-1">&gt;;</span><br/><br/><span class="hl-1">  </span><span class="hl-5">// Utilities</span><br/><span class="hl-1">  </span><span class="hl-0">readFile</span><span class="hl-1">(</span><span class="hl-4">path</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">string</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">  </span><span class="hl-0">writeFile</span><span class="hl-1">(</span><span class="hl-4">path</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">, </span><span class="hl-4">content</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">void</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">  </span><span class="hl-0">execCommand</span><span class="hl-1">(</span><span class="hl-4">cmd</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">, </span><span class="hl-4">args</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">[]): </span><span class="hl-8">Promise</span><span class="hl-1">&lt;</span><span class="hl-8">ExecResult</span><span class="hl-1">&gt;;</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="adapterfactory" class="tsd-anchor-link">AdapterFactory<a href="#adapterfactory" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Central registry for platform adapters:</p>
+<pre><code class="typescript"><span class="hl-3">import</span><span class="hl-1"> { </span><span class="hl-4">AdapterFactory</span><span class="hl-1"> } </span><span class="hl-3">from</span><span class="hl-1"> </span><span class="hl-2">&#39;@ai-office/core/host&#39;</span><span class="hl-1">;</span><br/><br/><span class="hl-5">// Auto-detect and create adapter</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">adapter</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">AdapterFactory</span><span class="hl-1">.</span><span class="hl-0">detectAndCreate</span><span class="hl-1">({ </span><span class="hl-4">projectRoot:</span><span class="hl-1"> </span><span class="hl-4">process</span><span class="hl-1">.</span><span class="hl-0">cwd</span><span class="hl-1">() });</span><br/><br/><span class="hl-5">// Or explicitly create</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">adapter</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">AdapterFactory</span><span class="hl-1">.</span><span class="hl-0">create</span><span class="hl-1">(</span><span class="hl-2">&#39;opencode&#39;</span><span class="hl-1">, { </span><span class="hl-4">projectRoot:</span><span class="hl-1"> </span><span class="hl-4">process</span><span class="hl-1">.</span><span class="hl-0">cwd</span><span class="hl-1">() });</span><br/><br/><span class="hl-5">// Register custom adapter</span><br/><span class="hl-4">AdapterFactory</span><span class="hl-1">.</span><span class="hl-0">registerAdapter</span><span class="hl-1">(</span><span class="hl-2">&#39;my-platform&#39;</span><span class="hl-1">, </span><span class="hl-4">createMyAdapter</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="platform-auto-detection" class="tsd-anchor-link">Platform Auto-Detection<a href="#platform-auto-detection" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>The factory auto-detects the platform from environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Env Var Detected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenCode</td>
+<td>OPENCODE_CONFIG_DIR, OPENCODE_SESSION_ID</td>
+</tr>
+<tr>
+<td>Cursor</td>
+<td>CURSOR_TRACE_ID, VSCODE_PID</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>CODEX_SESSION_ID</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>CLAUDE_CODE_ENTRYPOINT</td>
+</tr>
+<tr>
+<td>Grok</td>
+<td>GROK_API_KEY, XAI_API_KEY</td>
+</tr>
+<tr>
+<td>Gemini</td>
+<td>GOOGLE_API_KEY, GEMINI_API_KEY</td>
+</tr>
+</tbody>
+</table>
+<h2 id="core-classes" class="tsd-anchor-link">Core Classes<a href="#core-classes" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<h3 id="office" class="tsd-anchor-link">Office<a href="#office" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Main facade that ties all modules together:</p>
+<pre><code class="typescript"><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">office</span><span class="hl-1"> = </span><span class="hl-4">factory</span><span class="hl-1">.</span><span class="hl-0">getPrimary</span><span class="hl-1">(</span><span class="hl-4">cwd</span><span class="hl-1">);</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">init</span><span class="hl-1">();</span><br/><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">state</span><span class="hl-1"> = </span><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">loadState</span><span class="hl-1">();</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">savePlan</span><span class="hl-1">(</span><span class="hl-4">state</span><span class="hl-1">, </span><span class="hl-4">cards</span><span class="hl-1">);</span><br/><span class="hl-3">await</span><span class="hl-1"> </span><span class="hl-4">office</span><span class="hl-1">.</span><span class="hl-0">dispatch</span><span class="hl-1">(</span><span class="hl-4">state</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="officefactory" class="tsd-anchor-link">OfficeFactory<a href="#officefactory" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Creates one Office per working directory:</p>
+<pre><code class="typescript"><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">factory</span><span class="hl-1"> = </span><span class="hl-6">new</span><span class="hl-1"> </span><span class="hl-0">OfficeFactory</span><span class="hl-1">({ </span><span class="hl-4">host:</span><span class="hl-1"> </span><span class="hl-4">adapter</span><span class="hl-1"> });</span><br/><span class="hl-6">const</span><span class="hl-1"> </span><span class="hl-7">office</span><span class="hl-1"> = </span><span class="hl-4">factory</span><span class="hl-1">.</span><span class="hl-0">getPrimary</span><span class="hl-1">(</span><span class="hl-4">cwd</span><span class="hl-1">);</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="state-management" class="tsd-anchor-link">State Management<a href="#state-management" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Cards with DAG dependencies:</p>
+<pre><code class="typescript"><span class="hl-6">interface</span><span class="hl-1"> </span><span class="hl-8">Card</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-4">id</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">title</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">type</span><span class="hl-1">: </span><span class="hl-8">CardType</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">state</span><span class="hl-1">: </span><span class="hl-8">CardState</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">owner</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1"> | </span><span class="hl-8">null</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">reviewer</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1"> | </span><span class="hl-8">null</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">acceptance</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">[];</span><br/><span class="hl-1">  </span><span class="hl-4">gate</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">;</span><br/><span class="hl-1">  </span><span class="hl-4">dependsOn</span><span class="hl-1">: </span><span class="hl-8">string</span><span class="hl-1">[];</span><br/><span class="hl-1">}</span>
+</code><button type="button">Copy</button></pre>
+
+<h3 id="quality-gates" class="tsd-anchor-link">Quality Gates<a href="#quality-gates" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Three dimensions:</p>
+<ol>
+<li><strong>Technical</strong> - build, typecheck, lint, test, diff</li>
+<li><strong>Security</strong> - secrets, dependencies</li>
+<li><strong>Requirements</strong> - acceptance criteria with evidence</li>
+</ol>
+<h2 id="testing" class="tsd-anchor-link">Testing<a href="#testing" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="bash"><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">test</span><span class="hl-1">        </span><span class="hl-5"># Run tests</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">coverage</span><span class="hl-1">    </span><span class="hl-5"># Run with coverage</span><br/><span class="hl-0">npm</span><span class="hl-1"> </span><span class="hl-2">run</span><span class="hl-1"> </span><span class="hl-2">typecheck</span><span class="hl-1">   </span><span class="hl-5"># TypeScript check</span>
+</code><button type="button">Copy</button></pre>
+
+<h2 id="license" class="tsd-anchor-link">License<a href="#license" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>MIT</p>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#ai-officecore"><span>@ai-<wbr/>office/core</span></a>
+<ul>
+<li><a href="#overview"><span>Overview</span></a></li>
+<li><a href="#installation"><span>Installation</span></a></li>
+<li><a href="#quick-start"><span>Quick <wbr/>Start</span></a></li>
+<li><a href="#architecture"><span>Architecture</span></a></li>
+<li>
+<ul>
+<li><a href="#host-adapter-pattern"><span>Host <wbr/>Adapter <wbr/>Pattern</span></a></li>
+<li><a href="#adapterfactory"><span>Adapter<wbr/>Factory</span></a></li>
+<li><a href="#platform-auto-detection"><span>Platform <wbr/>Auto-<wbr/>Detection</span></a></li></ul></li>
+<li><a href="#core-classes"><span>Core <wbr/>Classes</span></a></li>
+<li>
+<ul>
+<li><a href="#office"><span>Office</span></a></li>
+<li><a href="#officefactory"><span>Office<wbr/>Factory</span></a></li>
+<li><a href="#state-management"><span>State <wbr/>Management</span></a></li>
+<li><a href="#quality-gates"><span>Quality <wbr/>Gates</span></a></li></ul></li>
+<li><a href="#testing"><span>Testing</span></a></li>
+<li><a href="#license"><span>License</span></a></li></ul></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="modules.html">@ai-office/core</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

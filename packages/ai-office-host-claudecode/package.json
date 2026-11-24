@@ -1,0 +1,40 @@
+{
+    "name":  "@ai-office/host-claudecode",
+    "version":  "4.0.0",
+    "description":  "Claude Code Host Adapter for AI-OFFICE",
+    "type":  "module",
+    "main":  "./dist/ClaudeCodeAdapter.js",
+    "types":  "./dist/ClaudeCodeAdapter.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/ClaudeCodeAdapter.d.ts",
+                              "import":  "./dist/ClaudeCodeAdapter.js"
+                          }
+                },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.build.json",
+                    "dev":  "tsc -p tsconfig.build.json --watch",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "test:watch":  "vitest"
+                },
+    "dependencies":  {
+                         "@ai-office/core": "^4.0.0",
+                         "@anthropic-ai/sdk":  "^0.24.3",
+                         "zod":  "^4.6.7"
+                     },
+    "peerDependenciesMeta":  {
+                                 "@anthropic-ai/sdk":  {
+                                                           "optional":  true
+                                                       }
+                             },
+    "devDependencies":  {
+                            "@types/node":  "^26.6.6",
+                            "typescript":  "^7.0.2",
+                            "vitest":  "^5.0.5"
+                        },
+    "publishConfig":  {
+                          "access":  "public"
+                      }
+}
+

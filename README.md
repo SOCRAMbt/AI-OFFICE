@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" width="1000" alt="oficina-opencode — a team of AI agents that can't say 'done' until the tests pass" />
+<img src="docs/assets/banner.svg" width="1000" alt="AI-OFFICE — a team of AI agents that can't say 'done' until the tests pass" />
 
 <br>
 
-# oficina-opencode
+# AI-OFFICE
 
-**Your AI agent says "done". oficina-opencode makes it prove it.**
+**Your AI agent says "done". AI-OFFICE makes it prove it.**
 
-[![npm](https://img.shields.io/npm/v/@marcos2710/oficina-opencode)](https://www.npmjs.com/package/@marcos2710/oficina-opencode)
+[![npm](https://img.shields.io/npm/v/oficina-opencode)](https://www.npmjs.com/package/oficina-opencode)
 [![CI](https://github.com/SOCRAMbt/oficina-opencode/actions/workflows/ci.yml/badge.svg)](https://github.com/SOCRAMbt/oficina-opencode/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -25,7 +25,7 @@ Every "done" claim is backed by evidence: build output, test results, secret sca
 ## Quickstart
 
 ```bash
-npm install -g @marcos2710/oficina-opencode
+npm install -g oficina-opencode
 ```
 
 Then in OpenCode:
@@ -54,7 +54,7 @@ Works with Claude Code, Codex, Cursor, and OpenCode.
 
 ## Why not just use one agent?
 
-One agent says "done" and moves on. oficina-opencode requires:
+One agent says "done" and moves on. AI-OFFICE requires:
 - A **reviewer** that checks the work against acceptance criteria
 - A **verifier** that runs real gates (build, tests, security)
 - **Evidence** saved per criterion
@@ -64,10 +64,10 @@ The agent can't close a task until all three pass.
 <!-- BEGIN GENERATED: facts -->
 | | |
 |---|---|
-| **Paquete** | `@marcos2710/ai-office` v3.4.3 |
+| **Paquete** | `oficina-opencode` v4.0.0 |
 | **Tools** | 18 |
 | **Hooks** | 7 |
-| **API de plugin** | `@opencode/plugin@2.1.2` |
+| **API de plugin** | `@opencode/plugin@2.3.2` |
 | **Node** | >=22 |
 | **Catálogo** | 258 agentes resolubles en 18 divisiones |
 | **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
@@ -87,4 +87,4 @@ The agent can't close a task until all three pass.
 
 ---
 
-*oficina-opencode: your AI agent says "done". oficina-opencode makes it prove it.*
+*AI-OFFICE: your AI agent says "done". AI-OFFICE makes it prove it.*
