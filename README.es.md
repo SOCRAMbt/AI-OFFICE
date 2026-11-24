@@ -1,139 +1,207 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" width="1000" alt="AI-OFFICE — una oficina de agentes para OpenCode" />
+<img src="docs/assets/banner.svg" width="880" alt="AI-OFFICE — un equipo de agentes de IA que no puede decir 'listo' hasta que los tests pasen" />
 
 <br>
 
-# Un equipo de agentes que termina el trabajo —
-no cuando el modelo dice "listo",
-sino cuando las pruebas pasan.
+# AI-OFFICE
 
-*AI-OFFICE runs teams of AI agents inside OpenCode. They split the work, review each other, and run real quality checks — nothing is "done" until it passes.*
+### Tu agente de IA dice "listo". AI-OFFICE lo obliga a demostrarlo.
+
+Un equipo de agentes de IA que **no puede** cerrar una tarea hasta que build, tests y gates de seguridad pasen de verdad — con evidencia guardada en disco.
+
+Funciona con Claude Code, Codex, Cursor, Gemini CLI y OpenCode.
+
+[![npm](https://img.shields.io/npm/v/ai-office-cli?color=cb3837&label=npm&style=flat-square)](https://www.npmjs.com/package/ai-office-cli)
+[![CI](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/SOCRAMbt/AI-OFFICE/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/SOCRAMbt/AI-OFFICE?style=flat-square&color=ffd33d)](https://github.com/SOCRAMbt/AI-OFFICE/stargazers)
+[![Node](https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+
+[English](README.md) · **Español** · [Demo en vivo](https://socrambt.github.io/AI-OFFICE/)
 
 <br>
 
-<a href="https://www.npmjs.com/package/oficina-opencode"><img src="https://img.shields.io/npm/v/oficina-opencode?style=for-the-badge&labelColor=0d1117&color=cb3837" alt="npm" /></a>
-<a href="https://github.com/SOCRAMbt/oficina-opencode/blob/main/LICENSE"><img src="https://img.shields.io/badge/licencia-MIT-2ea44f?style=for-the-badge&labelColor=0d1117" alt="licencia MIT" /></a>
-<a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=for-the-badge&labelColor=0d1117" alt="node >= 22" /></a>
-<a href="https://github.com/SOCRAMbt/oficina-opencode/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-passing-2ea44f?style=for-the-badge&labelColor=0d1117" alt="CI" /></a>
-<a href="https://www.npmjs.com/package/oficina-opencode"><img src="https://img.shields.io/npm/dw/oficina-opencode?style=for-the-badge&labelColor=0d1117&color=cb3837" alt="descargas semanales" /></a>
-<a href="https://github.com/SOCRAMbt/oficina-opencode/stargazers"><img src="https://img.shields.io/github/stars/SOCRAMbt/oficina-opencode?style=for-the-badge&labelColor=0d1117&color=ffd33d" alt="stars" /></a>
-
-<br>
-
-<img src="docs/assets/demo.gif" width="1000" alt="Demo: instalación, la mesa en vivo con tus agentes, y un gate de seguridad con 0 hallazgos" />
-
-### Tu primer minuto
-
-```bash
-npm install -g oficina-opencode
-oficina install --target ~/.config/opencode
-```
-
-Después abre OpenCode en tu proyecto y escribí: **`/oficina <lo que necesitás>`**.
-
-<a href="https://socrambt.github.io/oficina-opencode/"><img src="https://img.shields.io/badge/Demo_en_vivo-2ea44f?style=for-the-badge&labelColor=0d1117" alt="Demo en vivo" /></a>
-&nbsp;
-<a href="https://github.com/SOCRAMbt/oficina-opencode/releases"><img src="https://img.shields.io/badge/Releases-v3.4.3-58a6ff?style=for-the-badge&labelColor=0d1117" alt="releases" /></a>
+<img src="docs/assets/demo.gif" width="880" alt="El agente dice listo → el gate de tests falla → el equipo lo arregla → el gate pasa" />
 
 </div>
 
-<!-- BEGIN GENERATED: facts -->
-| | |
-|---|---|
-| **Paquete** | `oficina-opencode` v3.4.3 |
-| **Tools** | 18 |
-| **Hooks** | 7 |
-| **API de plugin** | `@opencode/plugin@2.1.2` |
-| **Node** | >=22 |
-| **Catálogo** | 258 agentes resolubles en 18 divisiones |
-| **Divisiones** | academic, design, engineering, finance, game-development, gis, healthcare, marketing, paid-media, product, project-management, research, sales, spatial-computing, specialized, strategy, support, testing |
-<!-- Catalog source: agency-agents @ 4e3ac3c -->
-<!-- END GENERATED: facts -->
+---
 
-## ┬┐Qu├® problema resuelve?
-
-Cuando le ped├¡s a un asistente de IA que haga un trabajo, muchas veces el asistente dice ┬½listo┬╗ÔÇª y nadie chequea nada. Puede pasar que el c├│digo no compile, que los tests no corran o que simplemente se haya inventado partes. Y cuando es un trabajo grande (varios archivos, varios pasos), el modelo trata de hacerlo todo ┬½de un tir├│n┬╗ y se pierde.
-
-**AI-OFFICE hace que tu pedido lo resuelva un equipo, no un solo agente.** El equipo se divide el trabajo en partes chicas, las hace de a una, y nada entra en ┬½done┬╗ hasta que pasan las pruebas de verdad.
-
-## ┬┐C├│mo funciona?
-
-1. **Escrib├¡s tu pedido** con `/oficina <lo que quer├®s>`.
-2. **El equipo se arma solo**: la oficina elige especialistas del cat├ílogo (hay 258), los pone a trabajar en paralelo y la mesa te muestra qui├®n est├í haciendo qu├®.
-3. **Nada se da por terminado a menos que pase las pruebas**: cada parte corre build, tests y chequeo de secretos reales; todo queda registrado en `.oficina/`.
-
-## Preguntas r├ípidas
-
-**┬┐Hace cosas por vos sin que veas?**  No: te informa en cada paso y pod├®s revisarlo en cualquier momento con la mesa y los reportes.
-
-**┬┐Se rompen los agentes?**  Si una parte falla, la oficina lo escribe en el registro y sigue con lo que puede (o escala a vos con opciones concretas).
-
-**┬┐Sirve solo para c├│digo?**  Sirve para cualquier trabajo de varias etapas que pueda verificarse: investigaci├│n, planes, escritura, an├ílisis ÔÇö siempre que el resultado pueda chequearse con "c├│mo sabemos que termin├│".
-
-**┬┐Y si solo quiero una tarea chica?**  Us├í `/oficina lite <pedido>` ÔÇö una c├®lula: 1 ejecutor + 1 revisor, sin arquitectura grande.
-
-**┬┐Y si quer├®s limitar cu├íntos agentes usa?**  `/oficina --maxagents 3 <pedido>` ÔÇö nunca usa m├ís de 3. Sin el flag, el tope es 3 igualmente: el sistema se comporta siempre lo m├ís conservador posible con tus recursos.
-
-## Uso cotidiano
+## Inicio rápido
 
 ```bash
-/oficina Agregar autenticaci├│n JWT con refresh rotation
-/oficina lite Renombrar las rutas de la API de v1 a v2
-/oficina --maxagents 2 Escribir la gu├¡a de migraci├│n del repo
+npx ai-office install        # detecta tu agente e instala AI-OFFICE
 ```
 
-Frases t├¡picas y lo que ver├ís: un plan de cards, el equipo ejecutando, la mesa en vivo, artefactos en `.oficina/artifacts/`, y cada card cerrada con evidencia (qu├® se hizo, qu├® evidencia de que funciona).
+Después, dentro de tu agente:
 
-### La mesa y el tablero
+```
+/office agregar validación de entrada al formulario de registro
+```
 
-Al empezar, se abre un tablero en vivo en tu navegador (mesa oval con el equipo, bus de mensajes, gates, progreso). 0 agentes es 0, 3 agentes es 3 ÔÇö muestra exactamente lo que despachaste, nada de relleno.
+Se abre un dashboard en vivo en `localhost:7333`. Ninguna tarea se pone verde hasta que sus gates pasen.
 
-![La mesa en vivo de AI-OFFICE](docs/assets/demo-dashboard.png)
+---
 
-**Tambi├®n pod├®s abrirla con** `npm run dashboard:demo` ÔÇö un tablero de ejemplo con datos sint├®ticos.
+## Agentes compatibles
 
-┬┐Primera vez? [`examples/hello-office`](examples/hello-office) es un proyecto de juguete (una lista de tareas de consola) con el objetivo y el paso a paso para probar la oficina en 5 minutos.
+| Agente | Estado | Cómo se integra |
+|---|---|---|
+| **OpenCode** | ✅ Estable | Plugin nativo |
+| **Claude Code** | 🧪 Beta | Plugin + servidor MCP |
+| **Codex** | 🧪 Beta | Servidor MCP (`config.toml`) |
+| **Cursor** | 🧪 Beta | Servidor MCP (`.cursor/mcp.json`) |
+| **Gemini CLI** | 🧪 Beta | Extensión |
+| **Cualquier agente** | ✅ | Skill `proof-of-done` (solo instrucciones) |
 
-<a id="cli-operacion"></a>
-## Comandos ├║tiles
+<details>
+<summary><b>OpenCode</b></summary>
 
 ```bash
-npm install -g oficina-opencode    # instalar la oficina
-oficina --version                  # ver la versi├│n instalada
-oficina install --target ~/.config/opencode   # desplegar skill, agents y commands
-oficina init [objetivo]            # crea .oficina/ en el proyecto
-oficina status                     # Cards, agentes, presupuesto, escalaciones
-oficina board                      # Tablero Kanban
-oficina bus                        # Estad├¡sticas del bus
-oficina stats                      # Resumen: estado, cards por columna, iteraci├│n, agentes vivos
-oficina audit T-03                 # Artefactos, gates y review de una card
-oficina verify                     # Corre los gates de las cards en review
-oficina catalog --agency-root <path> # Lista el cat├ílogo de roles disponible
-oficina smoke                      # verificaci├│n E2E de punta a punta
-npm run dashboard:demo             # tablero de ejemplo con datos sint├®ticos
+npx ai-office install --platform opencode
+```
+Reiniciá OpenCode y ejecutá `/office <tarea>`.
+</details>
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+```bash
+claude plugin marketplace add SOCRAMbt/AI-OFFICE
+claude plugin install ai-office
+```
+Ejecutá `/office <tarea>` en cualquier sesión.
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
+
+```bash
+codex mcp add ai-office -- npx -y ai-office-mcp
+```
+Después pedí: "usá ai-office para agregar validación de entrada…"
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+Agregá a `.cursor/mcp.json`:
+```json
+{ "mcpServers": { "ai-office": { "command": "npx", "args": ["-y", "ai-office-mcp"] } } }
+```
+</details>
+
+<details>
+<summary><b>Gemini CLI</b></summary>
+
+```bash
+gemini extensions install https://github.com/SOCRAMbt/AI-OFFICE
+```
+</details>
+
+<details>
+<summary><b>Solo la skill (cualquier agente)</b></summary>
+
+```bash
+npx skills add SOCRAMbt/AI-OFFICE --skill proof-of-done
+```
+Liviano: solo reglas, sin dashboard ni motor de gates.
+</details>
+
+---
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+    A["/office tarea"] --> B["Commander planea cards"]
+    B --> C["Especialistas implementan"]
+    C --> D["Reviewer verifica criterios"]
+    D --> E{"Gates: build · tests · secretos"}
+    E -- "falla" --> C
+    E -- "pasa" --> F["Listo + evidencia en .oficina/"]
 ```
 
-## Seguridad
+- **Commander** divide el objetivo en cards pequeñas y elige especialistas de un catálogo de 258 roles.
+- **Reviewer ≠ implementador**: un agente distinto verifica cada card contra sus criterios de aceptación.
+- **Los gates son comandos, no opiniones**: código de salida 0 o la card vuelve.
+- **Evidencia por criterio** se guarda en `.oficina/artifacts/`, para auditar cada "listo".
 
-| Frente | Protecci├│n |
+---
+
+## ¿Por qué no un solo agente?
+
+| | Un solo agente | AI-OFFICE |
+|---|---|---|
+| Dice "listo" cuando los tests fallan | Frecuente | Bloqueado por los gates |
+| Revisión independiente | No | Obligatoria |
+| Rastro de auditoría | Historial del chat | Archivos de evidencia por criterio |
+| Costo en tokens | 1× | ~2–3× (seamos honestos) |
+
+---
+
+## Comandos
+
+| Comando | Qué hace |
 |---|---|
-| En la corrida | Restricci├│n de alcance con escritura bloqueada fuera de lo autorizado; archivos sensibles (`.env`, claves, `.npmrc`) inaccesibles por dise├▒o |
-| En el repo | Dependabot, `CODEOWNERS` (revisi├│n obligatoria del due├▒o), CI verde con tests de empaquetado y secret scan corriendo en cada push |
-| En npm | Publication con provenance SLSA 3 (nada de tokens de larga vida) |
+| `/office <tarea>` | Corrida completa con equipo |
+| `/office lite <tarea>` | Un implementador + un reviewer |
+| `/office --maxagents 2 <tarea>` | Limita el tamaño del equipo |
+| `ai-office demo` | Dashboard con una corrida grabada, sin agente |
+| `ai-office report` | Reporte compartible de la última corrida |
 
-┬┐Encontraste una vulnerabilidad? No abras un issue p├║blico: segu├¡ [SECURITY.md](SECURITY.md).
+---
 
-## Licencia
+## Preguntas frecuentes
 
-MIT ÔÇö [LICENSE](LICENSE). Se puede usar, modificar y redistribuir, incluso comercialmente.
+<details>
+<summary><b>¿Funciona offline / con modelos locales?</b></summary>
+
+Sí. AI-OFFICE es agnóstico al modelo: orquesta el agente que le apuntes. Los modelos locales funcionan siempre que el agente soporte tool calls.
+</details>
+
+<details>
+<summary><b>¿Cuánto más cuesta en tokens?</b></summary>
+
+Aproximadamente 2–3× una corrida de un solo agente, por el pase del reviewer y los reintentos de gates. El modo `/office lite` se acerca a 1.5×.
+</details>
+
+<details>
+<summary><b>¿Se envía mi código a algún lado?</b></summary>
+
+No. Todo corre localmente. Las únicas llamadas de red son las que tu agente ya hace a su proveedor de LLM.
+</details>
+
+<details>
+<summary><b>¿Qué lenguajes y frameworks soporta?</b></summary>
+
+Cualquiera. AI-OFFICE no se mete con tu stack: ejecuta tus comandos de build y test y verifica los códigos de salida.
+</details>
+
+---
+
+## Hoja de ruta
+
+- [x] Motor core: máquina de estados, cards, gates, bus, leases, recuperación
+- [x] Plugin nativo de OpenCode (estable)
+- [x] 6 adaptadores host (Claude Code, Codex, Cursor, Gemini, Grok, OpenCode)
+- [x] CLI unificada con auto-detección
+- [ ] Servidor MCP (`@ai-office/mcp`) — una sola implementación para todos los agentes
+- [ ] Plugins nativos para Claude Code, Gemini CLI, Codex, Cursor
+- [ ] Mejoras del dashboard y streaming de gates en tiempo real
+- [ ] Suite de benchmarks con resultados reales (no simulados)
+
+---
 
 ## Contribuir
 
-- **Encontraste un error** ÔåÆ [abr├¡ un bug](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=bug_report.yml)
-- **Ten├®s una idea o sugerencia** ÔåÆ [dej├í una recomendaci├│n](https://github.com/SOCRAMbt/AI-OFFICE/issues/new?template=recomendacion.yml)
-- **Quer├®s contribuir** ÔåÆ le├® [CONTRIBUTING.md](CONTRIBUTING.md) y [DEVELOPING.md](DEVELOPING.md)
+Bugs e ideas → [issues](https://github.com/SOCRAMbt/AI-OFFICE/issues) · Setup de desarrollo → [DEVELOPING.md](DEVELOPING.md)
 
-## Documentaci├│n m├ís profunda
+Good first issues → [label](https://github.com/SOCRAMbt/AI-OFFICE/labels/good%20first%20issue)
 
-Si quer├®s revisar c├│mo funciona por dentro ÔÇö la arquitectura, los invariantes, cada tool, los gates, el modelo de memoria: te recomendamos empezar por [docs/QUE-ES.md](docs/QUE-ES.md) y seguir por [docs/GARANTIAS.md](docs/GARANTIAS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) y [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+---
+
+<div align="center">
+<sub>MIT · Hecho en Buenos Aires · <a href="docs/ARCHITECTURE.md">Arquitectura</a> · <a href="SECURITY.md">Seguridad</a> · <a href="docs/GARANTIAS.md">Garantías</a></sub>
+</div>
