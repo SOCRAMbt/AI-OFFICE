@@ -1,10 +1,10 @@
-# @ai-office/host-gemini
+# ai-office-host-gemini
 
 Gemini adapter for AI-OFFICE (Google Generative AI).
 
 ## Install
 ```bash
-npx @ai-office/cli install --platform=gemini
+npx ai-office-cli install --platform=gemini
 ```
 
 ## Configuration

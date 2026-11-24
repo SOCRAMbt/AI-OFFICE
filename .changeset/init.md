@@ -1,12 +1,12 @@
 ---
-"@ai-office/core": minor
-"@ai-office/host-opencode": minor
-"@ai-office/host-cursor": minor
-"@ai-office/host-codex": minor
-"@ai-office/host-claudecode": minor
-"@ai-office/host-grok": minor
-"@ai-office/host-gemini": minor
-"@ai-office/cli": minor
+"ai-office-core": minor
+"ai-office-host-opencode": minor
+"ai-office-host-cursor": minor
+"ai-office-host-codex": minor
+"ai-office-host-claudecode": minor
+"ai-office-host-grok": minor
+"ai-office-host-gemini": minor
+"ai-office-cli": minor
 ---
 
 Initial release of AI-OFFICE multi-platform architecture with Host Adapter Pattern.

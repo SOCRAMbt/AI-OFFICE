@@ -1,10 +1,10 @@
-# @ai-office/cli
+# ai-office-cli
 
 Unified CLI for AI-OFFICE.
 
 ## Install
 ```bash
-npm i -g @ai-office/cli
+npm i -g ai-office-cli
 ```
 
 ## Commands

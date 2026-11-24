@@ -1,10 +1,10 @@
-# @ai-office/host-grok
+# ai-office-host-grok
 
 Grok adapter for AI-OFFICE (OpenAI-compatible, x.ai).
 
 ## Install
 ```bash
-npx @ai-office/cli install --platform=grok
+npx ai-office-cli install --platform=grok
 ```
 
 ## Configuration

@@ -1,10 +1,10 @@
-# @ai-office/host-cursor
+# ai-office-host-cursor
 
 Cursor adapter for AI-OFFICE (VS Code Extension API).
 
 ## Install
 ```bash
-npx @ai-office/cli install --platform=cursor
+npx ai-office-cli install --platform=cursor
 ```
 
 ## Configuration
@@ -20,7 +20,7 @@ ai-office run "prompt"
 Implements all 14 `HostAdapter` methods.
 
 ## Troubleshooting
-- `CursorAdapter not initialized with VS Code API` → call setVSCodeAPI before use.
+- `CursorAdapter not initialized with VS Code API` â†’ call setVSCodeAPI before use.
 
 ## Links
 - [Migration guide](../../docs/migration-guide.md)

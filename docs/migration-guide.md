@@ -54,8 +54,8 @@ packages/
 ```json
 {
   "dependencies": {
-    "@ai-office/core": "^4.x",
-    "@ai-office/host-opencode": "^4.x"
+    "ai-office-core": "^4.x",
+    "ai-office-host-opencode": "^4.x"
   }
 }
 ```
@@ -72,8 +72,8 @@ import { OfficeFactory } from "./core/officeFactory";
 **After (thin wrapper):**
 ```typescript
 import { Plugin } from "@opencode/plugin";
-import { OfficeFactory } from "@ai-office/core";
-import { OpenCodeAdapter } from "@ai-office/host-opencode";
+import { OfficeFactory } from "ai-office-core";
+import { OpenCodeAdapter } from "ai-office-host-opencode";
 
 export default Plugin.define({
   id: "oficina",
@@ -102,7 +102,7 @@ export default Plugin.define({
 
 ```bash
 # Install globally
-npm install -g @ai-office/cli
+npm install -g ai-office-cli
 
 # Install for current platform
 ai-office install
@@ -132,7 +132,7 @@ ai-office run --platform gemini "Implement feature X"
 ### Platform Detection
 
 ```typescript
-import { AdapterFactory } from '@ai-office/core/host';
+import { AdapterFactory } from 'ai-office-core/host';
 
 // Auto-detect
 const adapter = await AdapterFactory.detectAndCreate({ projectRoot: cwd });
@@ -144,7 +144,7 @@ const adapter = await AdapterFactory.create('cursor', { projectRoot: cwd });
 ### Custom Adapters
 
 ```typescript
-import { AdapterFactory, HostAdapter } from '@ai-office/core/host';
+import { AdapterFactory, HostAdapter } from 'ai-office-core/host';
 
 class MyAdapter implements HostAdapter {
   // ... implement 12 methods
@@ -218,7 +218,7 @@ await office.spawnAgent(sessionID, agentName, prompt, description, { agentId, ca
 ### Mock Adapters
 
 ```typescript
-import { HostAdapter } from '@ai-office/core/host';
+import { HostAdapter } from 'ai-office-core/host';
 
 class MockAdapter implements HostAdapter {
   async createSession(config) { return { id: 'test', ... }; }
@@ -247,8 +247,8 @@ echo $GOOGLE_API_KEY
 ### Adapter Not Registered
 
 ```typescript
-import '@ai-office/host-opencode'; // Ensures registration
-import { AdapterFactory } from '@ai-office/core/host';
+import 'ai-office-host-opencode'; // Ensures registration
+import { AdapterFactory } from 'ai-office-core/host';
 
 const adapter = await AdapterFactory.create('opencode', config);
 ```

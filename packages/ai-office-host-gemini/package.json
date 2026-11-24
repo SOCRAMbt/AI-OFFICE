@@ -4,6 +4,7 @@
     "description":  "Gemini Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/GeminiAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/GeminiAdapter.d.ts",
     "exports":  {
                     ".":  {

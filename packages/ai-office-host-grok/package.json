@@ -4,6 +4,7 @@
     "description":  "Grok Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/GrokAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/GrokAdapter.d.ts",
     "exports":  {
                     ".":  {

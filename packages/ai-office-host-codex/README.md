@@ -1,10 +1,10 @@
-# @ai-office/host-codex
+# ai-office-host-codex
 
 Codex adapter for AI-OFFICE (JSON-RPC over stdio).
 
 ## Install
 ```bash
-npx @ai-office/cli install --platform=codex
+npx ai-office-cli install --platform=codex
 ```
 
 ## Configuration
@@ -20,7 +20,7 @@ ai-office run "prompt"
 Implements all 14 `HostAdapter` methods.
 
 ## Troubleshooting
-- `Failed to start Codex` → ensure codex CLI installed.
+- `Failed to start Codex` â†’ ensure codex CLI installed.
 
 ## Links
 - [Migration guide](../../docs/migration-guide.md)

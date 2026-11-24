@@ -1,4 +1,4 @@
-# @ai-office/core
+# ai-office-core
 
 AI-OFFICE Core Engine - Platform-agnostic agent orchestration.
 
@@ -18,13 +18,13 @@ The core has **ZERO dependencies on platform SDKs**. Platform integration is don
 ## Installation
 
 ```bash
-npm install @ai-office/core
+npm install ai-office-core
 ```
 
 ## Quick Start
 
 ```typescript
-import { OfficeFactory, createAutoAdapter } from '@ai-office/core';
+import { OfficeFactory, createAutoAdapter } from 'ai-office-core';
 
 // Auto-detect platform and create adapter
 const adapter = await createAutoAdapter({ projectRoot: process.cwd() });
@@ -90,7 +90,7 @@ interface HostAdapter {
 Central registry for platform adapters:
 
 ```typescript
-import { AdapterFactory } from '@ai-office/core/host';
+import { AdapterFactory } from 'ai-office-core/host';
 
 // Auto-detect and create adapter
 const adapter = await AdapterFactory.detectAndCreate({ projectRoot: process.cwd() });

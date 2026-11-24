@@ -4,6 +4,7 @@
     "description":  "Cursor Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/CursorAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/CursorAdapter.d.ts",
     "exports":  {
                     ".":  {

@@ -4,6 +4,7 @@
     "description":  "Claude Code Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/ClaudeCodeAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/ClaudeCodeAdapter.d.ts",
     "exports":  {
                     ".":  {

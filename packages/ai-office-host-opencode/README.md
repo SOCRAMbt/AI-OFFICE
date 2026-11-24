@@ -1,10 +1,10 @@
-# @ai-office/host-opencode
+# ai-office-host-opencode
 
 OpenCode adapter for AI-OFFICE (Host Adapter Pattern).
 
 ## Install
 ```bash
-npx @ai-office/cli install --platform=opencode
+npx ai-office-cli install --platform=opencode
 ```
 
 ## Configuration
@@ -20,7 +20,7 @@ ai-office run "prompt"
 Implements all 14 `HostAdapter` methods: createSession, promptSession, getAvailableTools, checkScope, spawnSubagent, getSubagentResult, getModel, setModel, initialize, shutdown, readFile, writeFile, execCommand.
 
 ## Troubleshooting
-- OpenCode ctx not available in tests → use mock factory (see tests/OpenCodeAdapter.test.ts).
+- OpenCode ctx not available in tests â†’ use mock factory (see tests/OpenCodeAdapter.test.ts).
 
 ## Links
 - [Migration guide](../../docs/migration-guide.md)

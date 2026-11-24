@@ -4,6 +4,7 @@
     "description":  "Codex Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/CodexAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/CodexAdapter.d.ts",
     "exports":  {
                     ".":  {

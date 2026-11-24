@@ -4,6 +4,7 @@
     "description":  "OpenCode Host Adapter for AI-OFFICE",
     "type":  "module",
     "main":  "./dist/OpenCodeAdapter.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/OpenCodeAdapter.d.ts",
     "exports":  {
                     ".":  {

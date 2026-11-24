@@ -5,24 +5,24 @@
 AI-OFFICE: Multi-platform agent orchestration with Host Adapter Pattern.
 
 **Monorepo**: 8 packages managed with Turborepo
-- `@ai-office/core` - Platform-agnostic core engine
-- `@ai-office/host-opencode` - OpenCode adapter
-- `@ai-office/host-cursor` - Cursor adapter
-- `@ai-office/host-codex` - Codex adapter
-- `@ai-office/host-claudecode` - Claude Code adapter
-- `@ai-office/host-grok` - Grok adapter
-- `@ai-office/host-gemini` - Gemini adapter
-- `@ai-office/cli` - Unified CLI
+- `ai-office-core` - Platform-agnostic core engine
+- `ai-office-host-opencode` - OpenCode adapter
+- `ai-office-host-cursor` - Cursor adapter
+- `ai-office-host-codex` - Codex adapter
+- `ai-office-host-claudecode` - Claude Code adapter
+- `ai-office-host-grok` - Grok adapter
+- `ai-office-host-gemini` - Gemini adapter
+- `ai-office-cli` - Unified CLI
 
 ## Architecture
 
 ### Host Adapter Pattern
 
-The core engine (`@ai-office/core`) has **ZERO platform dependencies**. All platform integration goes through the `HostAdapter` interface (12 methods).
+The core engine (`ai-office-core`) has **ZERO platform dependencies**. All platform integration goes through the `HostAdapter` interface (12 methods).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    @ai-office/core                          │
+│                    ai-office-core                          │
 │  Office, OfficeFactory, State, Cards, Gates, Bus, Roster   │
 │  ZERO platform SDKs                                         │
 └──────────────────────────┬──────────────────────────────────┘
@@ -69,43 +69,43 @@ npm run smoke
 
 ## Package Structure
 
-### @ai-office/core
+### ai-office-core
 - **Entry**: `src/index.ts`
 - **Host Layer**: `src/host/` (HostAdapter, AdapterFactory, PlatformType)
 - **Core Modules**: Office, OfficeFactory, State, Cards, Gates, Bus, Roster, Leases, Tools
 - **No platform SDKs** - only peerDependencies in adapters
 
-### @ai-office/host-opencode
+### ai-office-host-opencode
 - **Entry**: `src/OpenCodeAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `zod`
+- **Dependencies**: `ai-office-core`, `zod`
 - **Peer**: `@opencode-ai/plugin`
 - **Contains**: All v2.ts logic (spawner, dashboard, hooks, tripwire, auto-continuation)
 
-### @ai-office/host-cursor
+### ai-office-host-cursor
 - **Entry**: `src/CursorAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `zod`
+- **Dependencies**: `ai-office-core`, `zod`
 - **Peer**: `vscode`
 
-### @ai-office/host-codex
+### ai-office-host-codex
 - **Entry**: `src/CodexAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `zod`
+- **Dependencies**: `ai-office-core`, `zod`
 - **Protocol**: JSON-RPC over stdio
 
-### @ai-office/host-claudecode
+### ai-office-host-claudecode
 - **Entry**: `src/ClaudeCodeAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `@anthropic-ai/sdk`, `zod`
+- **Dependencies**: `ai-office-core`, `@anthropic-ai/sdk`, `zod`
 
-### @ai-office/host-grok
+### ai-office-host-grok
 - **Entry**: `src/GrokAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `openai`, `zod`
+- **Dependencies**: `ai-office-core`, `openai`, `zod`
 
-### @ai-office/host-gemini
+### ai-office-host-gemini
 - **Entry**: `src/GeminiAdapter.ts`
-- **Dependencies**: `@ai-office/core`, `@google/generative-ai`, `zod`
+- **Dependencies**: `ai-office-core`, `@google/generative-ai`, `zod`
 
-### @ai-office/cli
+### ai-office-cli
 - **Entry**: `src/index.ts`
-- **Dependencies**: `@ai-office/core`, `commander`, `chalk`, `ora`, `inquirer`
+- **Dependencies**: `ai-office-core`, `commander`, `chalk`, `ora`, `inquirer`
 - **Bin**: `ai-office`
 
 ## Development Workflow

@@ -4,6 +4,7 @@
     "description":  "AI-OFFICE Core Engine - Platform-agnostic agent orchestration",
     "type":  "module",
     "main":  "./dist/index.js",
+    "files":  ["dist", "README.md", "LICENSE"],
     "types":  "./dist/index.d.ts",
     "exports":  {
                     ".":  {
