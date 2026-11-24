@@ -1,5 +1,5 @@
 {
-    "name":  "@ai-office/host-gemini",
+    "name": "ai-office-host-gemini",
     "version":  "4.0.0",
     "description":  "Gemini Host Adapter for AI-OFFICE",
     "type":  "module",
@@ -19,7 +19,7 @@
                     "test:watch":  "vitest"
                 },
     "dependencies":  {
-                         "@ai-office/core": "^4.0.0",
+                         "ai-office-core": "^4.0.0",
                          "@google/generative-ai":  "^0.15.0",
                          "zod":  "^4.6.7"
                      },
@@ -37,4 +37,10 @@
                           "access":  "public"
                       }
 }
+
+
+
+
+
+
 

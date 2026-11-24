@@ -1,5 +1,5 @@
 {
-    "name":  "@ai-office/host-cursor",
+    "name": "ai-office-host-cursor",
     "version":  "4.0.0",
     "description":  "Cursor Host Adapter for AI-OFFICE",
     "type":  "module",
@@ -19,7 +19,7 @@
                     "test:watch":  "vitest"
                 },
     "dependencies":  {
-                         "@ai-office/core": "^4.0.0",
+                         "ai-office-core": "^4.0.0",
                          "zod":  "^4.6.7"
                      },
     "peerDependencies":  {
@@ -40,4 +40,10 @@
                           "access":  "public"
                       }
 }
+
+
+
+
+
+
 

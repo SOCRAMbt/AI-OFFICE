@@ -1,5 +1,5 @@
 {
-    "name":  "@ai-office/host-grok",
+    "name": "ai-office-host-grok",
     "version":  "4.0.0",
     "description":  "Grok Host Adapter for AI-OFFICE",
     "type":  "module",
@@ -19,7 +19,7 @@
                     "test:watch":  "vitest"
                 },
     "dependencies":  {
-                         "@ai-office/core": "^4.0.0",
+                         "ai-office-core": "^4.0.0",
                          "openai":  "^4.104.0",
                          "zod":  "^4.6.7"
                      },
@@ -32,4 +32,10 @@
                           "access":  "public"
                       }
 }
+
+
+
+
+
+
 
