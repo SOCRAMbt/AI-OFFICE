@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Tripwire, snapshotTree, diffSnapshots } from "../src/core/tripwire.js"
+import { Tripwire, snapshotTree, diffSnapshots } from "../src/tripwire.js"
 
 let tmp: string
 let root: string

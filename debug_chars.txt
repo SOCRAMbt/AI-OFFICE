@@ -1,0 +1,711 @@
+Pos 3433: U+00D3 context: azul}DIAGNÓSTICO DE 
+Pos 3627: U+00E1 context: ("  Ejecutá `/oficin
+Pos 3662: U+00F3 context: n una sesión abierta
+Pos 4015: U+2500 context:   }
+
+  /* ── 1. Esta
+Pos 4016: U+2500 context:  }
+
+  /* ── 1. Estad
+Pos 4036: U+2500 context: o general ──────────
+Pos 4037: U+2500 context:  general ───────────
+Pos 4038: U+2500 context: general ────────────
+Pos 4039: U+2500 context: eneral ─────────────
+Pos 4040: U+2500 context: neral ──────────────
+Pos 4041: U+2500 context: eral ───────────────
+Pos 4042: U+2500 context: ral ────────────────
+Pos 4043: U+2500 context: al ─────────────────
+Pos 4044: U+2500 context: l ──────────────────
+Pos 4045: U+2500 context:  ───────────────────
+Pos 4046: U+2500 context: ────────────────────
+Pos 4047: U+2500 context: ────────────────────
+Pos 4048: U+2500 context: ────────────────────
+Pos 4049: U+2500 context: ────────────────────
+Pos 4050: U+2500 context: ────────────────────
+Pos 4051: U+2500 context: ────────────────────
+Pos 4052: U+2500 context: ────────────────────
+Pos 4053: U+2500 context: ────────────────────
+Pos 4054: U+2500 context: ────────────────────
+Pos 4055: U+2500 context: ────────────────────
+Pos 4056: U+2500 context: ────────────────────
+Pos 4057: U+2500 context: ────────────────────
+Pos 4058: U+2500 context: ────────────────────
+Pos 4059: U+2500 context: ────────────────────
+Pos 4060: U+2500 context: ────────────────────
+Pos 4061: U+2500 context: ────────────────────
+Pos 4062: U+2500 context: ────────────────────
+Pos 4063: U+2500 context: ────────────────────
+Pos 4064: U+2500 context: ────────────────────
+Pos 4065: U+2500 context: ────────────────────
+Pos 4066: U+2500 context: ────────────────────
+Pos 4067: U+2500 context: ────────────────────
+Pos 4068: U+2500 context: ────────────────────
+Pos 4069: U+2500 context: ────────────────────
+Pos 4070: U+2500 context: ────────────────────
+Pos 4071: U+2500 context: ────────────────────
+Pos 4072: U+2500 context: ────────────────────
+Pos 4073: U+2500 context: ────────────────────
+Pos 4074: U+2500 context: ────────────────────
+Pos 4075: U+2500 context: ─────────────────── 
+Pos 4076: U+2500 context: ────────────────── *
+Pos 4077: U+2500 context: ───────────────── */
+Pos 4078: U+2500 context: ──────────────── */
+
+Pos 4079: U+2500 context: ─────────────── */
+ 
+Pos 4080: U+2500 context: ────────────── */
+  
+Pos 4081: U+2500 context: ───────────── */
+  c
+Pos 4082: U+2500 context: ──────────── */
+  co
+Pos 4083: U+2500 context: ─────────── */
+  con
+Pos 4217: U+00B7 context: te.runId} · status: 
+Pos 4243: U+00B7 context: e.status} · iteració
+Pos 4252: U+00F3 context:  · iteración: ${stat
+Pos 4385: U+00B7 context: ds} cards · ` +
+    
+Pos 4470: U+00B7 context:  llamadas · ` +
+    
+Pos 4923: U+00F3 context: o se guardó, o la co
+Pos 4947: U+00F3 context: a se limpió")
+  }
+
+ 
+Pos 4961: U+2500 context:   }
+
+  /* ── 2. Card
+Pos 4962: U+2500 context:  }
+
+  /* ── 2. Cards
+Pos 4973: U+2500 context:  2. Cards ──────────
+Pos 4974: U+2500 context: 2. Cards ───────────
+Pos 4975: U+2500 context: . Cards ────────────
+Pos 4976: U+2500 context:  Cards ─────────────
+Pos 4977: U+2500 context: Cards ──────────────
+Pos 4978: U+2500 context: ards ───────────────
+Pos 4979: U+2500 context: rds ────────────────
+Pos 4980: U+2500 context: ds ─────────────────
+Pos 4981: U+2500 context: s ──────────────────
+Pos 4982: U+2500 context:  ───────────────────
+Pos 4983: U+2500 context: ────────────────────
+Pos 4984: U+2500 context: ────────────────────
+Pos 4985: U+2500 context: ────────────────────
+Pos 4986: U+2500 context: ────────────────────
+Pos 4987: U+2500 context: ────────────────────
+Pos 4988: U+2500 context: ────────────────────
+Pos 4989: U+2500 context: ────────────────────
+Pos 4990: U+2500 context: ────────────────────
+Pos 4991: U+2500 context: ────────────────────
+Pos 4992: U+2500 context: ────────────────────
+Pos 4993: U+2500 context: ────────────────────
+Pos 4994: U+2500 context: ────────────────────
+Pos 4995: U+2500 context: ────────────────────
+Pos 4996: U+2500 context: ────────────────────
+Pos 4997: U+2500 context: ────────────────────
+Pos 4998: U+2500 context: ────────────────────
+Pos 4999: U+2500 context: ────────────────────
+Pos 5000: U+2500 context: ────────────────────
+Pos 5001: U+2500 context: ────────────────────
+Pos 5002: U+2500 context: ────────────────────
+Pos 5003: U+2500 context: ────────────────────
+Pos 5004: U+2500 context: ────────────────────
+Pos 5005: U+2500 context: ────────────────────
+Pos 5006: U+2500 context: ────────────────────
+Pos 5007: U+2500 context: ────────────────────
+Pos 5008: U+2500 context: ────────────────────
+Pos 5009: U+2500 context: ────────────────────
+Pos 5010: U+2500 context: ────────────────────
+Pos 5011: U+2500 context: ────────────────────
+Pos 5012: U+2500 context: ────────────────────
+Pos 5013: U+2500 context: ────────────────────
+Pos 5014: U+2500 context: ────────────────────
+Pos 5015: U+2500 context: ────────────────────
+Pos 5016: U+2500 context: ────────────────────
+Pos 5017: U+2500 context: ────────────────────
+Pos 5018: U+2500 context: ────────────────────
+Pos 5019: U+2500 context: ────────────────────
+Pos 5020: U+2500 context: ────────────────────
+Pos 5021: U+2500 context: ─────────────────── 
+Pos 5022: U+2500 context: ────────────────── *
+Pos 5023: U+2500 context: ───────────────── */
+Pos 5024: U+2500 context: ──────────────── */
+
+Pos 5025: U+2500 context: ─────────────── */
+ 
+Pos 5026: U+2500 context: ────────────── */
+  
+Pos 5027: U+2500 context: ───────────── */
+  c
+Pos 5028: U+2500 context: ──────────── */
+  co
+Pos 5029: U+2500 context: ─────────── */
+  con
+Pos 5199: U+00E1 context: d}: no está en el es
+Pos 5556: U+2014 context: ", ") || "—"}`)
+    
+Pos 5657: U+00B7 context: ce.join(" · ")}`)
+  
+Pos 5694: U+2014 context: owner ?? "—"} review
+Pos 5724: U+2014 context: iewer ?? "—"} intent
+Pos 5905: U+00F3 context: o-aprobación)")
+    
+Pos 5982: U+00F3 context: viso(`cerró con ${c.
+Pos 6029: U+2500 context:   }
+
+  /* ── 3. El e
+Pos 6030: U+2500 context:  }
+
+  /* ── 3. El eq
+Pos 6064: U+2500 context: se eligio ──────────
+Pos 6065: U+2500 context: e eligio ───────────
+Pos 6066: U+2500 context:  eligio ────────────
+Pos 6067: U+2500 context: eligio ─────────────
+Pos 6068: U+2500 context: ligio ──────────────
+Pos 6069: U+2500 context: igio ───────────────
+Pos 6070: U+2500 context: gio ────────────────
+Pos 6071: U+2500 context: io ─────────────────
+Pos 6072: U+2500 context: o ──────────────────
+Pos 6073: U+2500 context:  ───────────────────
+Pos 6074: U+2500 context: ────────────────────
+Pos 6075: U+2500 context: ────────────────────
+Pos 6076: U+2500 context: ────────────────────
+Pos 6077: U+2500 context: ────────────────────
+Pos 6078: U+2500 context: ────────────────────
+Pos 6079: U+2500 context: ────────────────────
+Pos 6080: U+2500 context: ────────────────────
+Pos 6081: U+2500 context: ────────────────────
+Pos 6082: U+2500 context: ────────────────────
+Pos 6083: U+2500 context: ────────────────────
+Pos 6084: U+2500 context: ────────────────────
+Pos 6085: U+2500 context: ────────────────────
+Pos 6086: U+2500 context: ────────────────────
+Pos 6087: U+2500 context: ────────────────────
+Pos 6088: U+2500 context: ─────────────────── 
+Pos 6089: U+2500 context: ────────────────── *
+Pos 6090: U+2500 context: ───────────────── */
+Pos 6091: U+2500 context: ──────────────── */
+
+Pos 6092: U+2500 context: ─────────────── */
+ 
+Pos 6093: U+2500 context: ────────────── */
+  
+Pos 6094: U+2500 context: ───────────── */
+  c
+Pos 6095: U+2500 context: ──────────── */
+  co
+Pos 6096: U+2500 context: ─────────── */
+  con
+Pos 6173: U+00E1 context: s lo que más falla)$
+Pos 6412: U+00F3 context:  se ejecutó, o no cr
+Pos 6423: U+00F3 context: , o no creó agentes"
+Pos 6845: U+00B7 context:  ${C.azul}·${C.reset
+Pos 6999: U+2014 context: yName ?? "—"}`)
+    
+Pos 7037: U+2014 context: state ?? "—"} · card
+Pos 7041: U+00B7 context: e ?? "—"} · card: ${
+Pos 7069: U+2014 context: tCard ?? "—"}`)
+    
+Pos 7146: U+00E1 context: ol del catálogo que 
+Pos 7728: U+00BF context: (", ")}). ¿Match por
+Pos 7859: U+00E1 context: DO: el catálogo no c
+Pos 7872: U+00ED context: go no cubría la card
+Pos 7909: U+2500 context:   }
+
+  /* ── 4. Arte
+Pos 7910: U+2500 context:  }
+
+  /* ── 4. Artef
+Pos 7945: U+2500 context: evidencia ──────────
+Pos 7946: U+2500 context: videncia ───────────
+Pos 7947: U+2500 context: idencia ────────────
+Pos 7948: U+2500 context: dencia ─────────────
+Pos 7949: U+2500 context: encia ──────────────
+Pos 7950: U+2500 context: ncia ───────────────
+Pos 7951: U+2500 context: cia ────────────────
+Pos 7952: U+2500 context: ia ─────────────────
+Pos 7953: U+2500 context: a ──────────────────
+Pos 7954: U+2500 context:  ───────────────────
+Pos 7955: U+2500 context: ────────────────────
+Pos 7956: U+2500 context: ────────────────────
+Pos 7957: U+2500 context: ────────────────────
+Pos 7958: U+2500 context: ────────────────────
+Pos 7959: U+2500 context: ────────────────────
+Pos 7960: U+2500 context: ────────────────────
+Pos 7961: U+2500 context: ────────────────────
+Pos 7962: U+2500 context: ────────────────────
+Pos 7963: U+2500 context: ────────────────────
+Pos 7964: U+2500 context: ────────────────────
+Pos 7965: U+2500 context: ────────────────────
+Pos 7966: U+2500 context: ────────────────────
+Pos 7967: U+2500 context: ────────────────────
+Pos 7968: U+2500 context: ─────────────────── 
+Pos 7969: U+2500 context: ────────────────── *
+Pos 7970: U+2500 context: ───────────────── */
+Pos 7971: U+2500 context: ──────────────── */
+
+Pos 7972: U+2500 context: ─────────────── */
+ 
+Pos 7973: U+2500 context: ────────────── */
+  
+Pos 7974: U+2500 context: ───────────── */
+  c
+Pos 7975: U+2500 context: ──────────── */
+  co
+Pos 7976: U+2500 context: ─────────── */
+  con
+Pos 8597: U+00F3 context: e no corrió)`)
+
+    
+Pos 8881: U+00F3 context: ate no pasó (${fallo
+Pos 9164: U+2014 context: egistrada — sin evid
+Pos 9196: U+00ED context: d no debería cerrars
+Pos 9291: U+2500 context:   }
+
+  /* ── 5. El b
+Pos 9292: U+2500 context:  }
+
+  /* ── 5. El bu
+Pos 9304: U+2500 context: 5. El bus ──────────
+Pos 9305: U+2500 context: . El bus ───────────
+Pos 9306: U+2500 context:  El bus ────────────
+Pos 9307: U+2500 context: El bus ─────────────
+Pos 9308: U+2500 context: l bus ──────────────
+Pos 9309: U+2500 context:  bus ───────────────
+Pos 9310: U+2500 context: bus ────────────────
+Pos 9311: U+2500 context: us ─────────────────
+Pos 9312: U+2500 context: s ──────────────────
+Pos 9313: U+2500 context:  ───────────────────
+Pos 9314: U+2500 context: ────────────────────
+Pos 9315: U+2500 context: ────────────────────
+Pos 9316: U+2500 context: ────────────────────
+Pos 9317: U+2500 context: ────────────────────
+Pos 9318: U+2500 context: ────────────────────
+Pos 9319: U+2500 context: ────────────────────
+Pos 9320: U+2500 context: ────────────────────
+Pos 9321: U+2500 context: ────────────────────
+Pos 9322: U+2500 context: ────────────────────
+Pos 9323: U+2500 context: ────────────────────
+Pos 9324: U+2500 context: ────────────────────
+Pos 9325: U+2500 context: ────────────────────
+Pos 9326: U+2500 context: ────────────────────
+Pos 9327: U+2500 context: ────────────────────
+Pos 9328: U+2500 context: ────────────────────
+Pos 9329: U+2500 context: ────────────────────
+Pos 9330: U+2500 context: ────────────────────
+Pos 9331: U+2500 context: ────────────────────
+Pos 9332: U+2500 context: ────────────────────
+Pos 9333: U+2500 context: ────────────────────
+Pos 9334: U+2500 context: ────────────────────
+Pos 9335: U+2500 context: ────────────────────
+Pos 9336: U+2500 context: ────────────────────
+Pos 9337: U+2500 context: ────────────────────
+Pos 9338: U+2500 context: ────────────────────
+Pos 9339: U+2500 context: ────────────────────
+Pos 9340: U+2500 context: ────────────────────
+Pos 9341: U+2500 context: ────────────────────
+Pos 9342: U+2500 context: ────────────────────
+Pos 9343: U+2500 context: ────────────────────
+Pos 9344: U+2500 context: ────────────────────
+Pos 9345: U+2500 context: ────────────────────
+Pos 9346: U+2500 context: ────────────────────
+Pos 9347: U+2500 context: ────────────────────
+Pos 9348: U+2500 context: ────────────────────
+Pos 9349: U+2500 context: ────────────────────
+Pos 9350: U+2500 context: ────────────────────
+Pos 9351: U+2500 context: ─────────────────── 
+Pos 9352: U+2500 context: ────────────────── *
+Pos 9353: U+2500 context: ───────────────── */
+Pos 9354: U+2500 context: ──────────────── */
+
+Pos 9355: U+2500 context: ─────────────── */
+ 
+Pos 9356: U+2500 context: ────────────── */
+  
+Pos 9357: U+2500 context: ───────────── */
+  c
+Pos 9358: U+2500 context: ──────────── */
+  co
+Pos 9359: U+2500 context: ─────────── */
+  con
+Pos 9941: U+00B7 context: ${m.kind} · de ${m.f
+Pos 9956: U+00B7 context: ${m.from} · ${m.subj
+Pos 10086: U+2500 context: n")
+
+  /* ── 6. Cost
+Pos 10087: U+2500 context: ")
+
+  /* ── 6. Costo
+Pos 10098: U+2500 context:  6. Costo ──────────
+Pos 10099: U+2500 context: 6. Costo ───────────
+Pos 10100: U+2500 context: . Costo ────────────
+Pos 10101: U+2500 context:  Costo ─────────────
+Pos 10102: U+2500 context: Costo ──────────────
+Pos 10103: U+2500 context: osto ───────────────
+Pos 10104: U+2500 context: sto ────────────────
+Pos 10105: U+2500 context: to ─────────────────
+Pos 10106: U+2500 context: o ──────────────────
+Pos 10107: U+2500 context:  ───────────────────
+Pos 10108: U+2500 context: ────────────────────
+Pos 10109: U+2500 context: ────────────────────
+Pos 10110: U+2500 context: ────────────────────
+Pos 10111: U+2500 context: ────────────────────
+Pos 10112: U+2500 context: ────────────────────
+Pos 10113: U+2500 context: ────────────────────
+Pos 10114: U+2500 context: ────────────────────
+Pos 10115: U+2500 context: ────────────────────
+Pos 10116: U+2500 context: ────────────────────
+Pos 10117: U+2500 context: ────────────────────
+Pos 10118: U+2500 context: ────────────────────
+Pos 10119: U+2500 context: ────────────────────
+Pos 10120: U+2500 context: ────────────────────
+Pos 10121: U+2500 context: ────────────────────
+Pos 10122: U+2500 context: ────────────────────
+Pos 10123: U+2500 context: ────────────────────
+Pos 10124: U+2500 context: ────────────────────
+Pos 10125: U+2500 context: ────────────────────
+Pos 10126: U+2500 context: ────────────────────
+Pos 10127: U+2500 context: ────────────────────
+Pos 10128: U+2500 context: ────────────────────
+Pos 10129: U+2500 context: ────────────────────
+Pos 10130: U+2500 context: ────────────────────
+Pos 10131: U+2500 context: ────────────────────
+Pos 10132: U+2500 context: ────────────────────
+Pos 10133: U+2500 context: ────────────────────
+Pos 10134: U+2500 context: ────────────────────
+Pos 10135: U+2500 context: ────────────────────
+Pos 10136: U+2500 context: ────────────────────
+Pos 10137: U+2500 context: ────────────────────
+Pos 10138: U+2500 context: ────────────────────
+Pos 10139: U+2500 context: ────────────────────
+Pos 10140: U+2500 context: ────────────────────
+Pos 10141: U+2500 context: ────────────────────
+Pos 10142: U+2500 context: ────────────────────
+Pos 10143: U+2500 context: ────────────────────
+Pos 10144: U+2500 context: ────────────────────
+Pos 10145: U+2500 context: ────────────────────
+Pos 10146: U+2500 context: ─────────────────── 
+Pos 10147: U+2500 context: ────────────────── *
+Pos 10148: U+2500 context: ───────────────── */
+Pos 10149: U+2500 context: ──────────────── */
+
+Pos 10150: U+2500 context: ─────────────── */
+ 
+Pos 10151: U+2500 context: ────────────── */
+  
+Pos 10152: U+2500 context: ───────────── */
+  c
+Pos 10153: U+2500 context: ──────────── */
+  co
+Pos 10154: U+2500 context: ─────────── */
+  con
+Pos 10428: U+00ED context: osto todavía (o el m
+Pos 10454: U+00F3 context: no consumió nada)")
+
+Pos 10542: U+00B7 context: Fixed(4)} · llamadas
+Pos 10635: U+2500 context:   }
+
+  /* ── 7. Reco
+Pos 10636: U+2500 context:  }
+
+  /* ── 7. Recon
+Pos 10653: U+00F3 context: conciliación ───────
+Pos 10656: U+2500 context: ciliación ──────────
+Pos 10657: U+2500 context: iliación ───────────
+Pos 10658: U+2500 context: liación ────────────
+Pos 10659: U+2500 context: iación ─────────────
+Pos 10660: U+2500 context: ación ──────────────
+Pos 10661: U+2500 context: ción ───────────────
+Pos 10662: U+2500 context: ión ────────────────
+Pos 10663: U+2500 context: ón ─────────────────
+Pos 10664: U+2500 context: n ──────────────────
+Pos 10665: U+2500 context:  ───────────────────
+Pos 10666: U+2500 context: ────────────────────
+Pos 10667: U+2500 context: ────────────────────
+Pos 10668: U+2500 context: ────────────────────
+Pos 10669: U+2500 context: ────────────────────
+Pos 10670: U+2500 context: ────────────────────
+Pos 10671: U+2500 context: ────────────────────
+Pos 10672: U+2500 context: ────────────────────
+Pos 10673: U+2500 context: ────────────────────
+Pos 10674: U+2500 context: ────────────────────
+Pos 10675: U+2500 context: ────────────────────
+Pos 10676: U+2500 context: ────────────────────
+Pos 10677: U+2500 context: ────────────────────
+Pos 10678: U+2500 context: ────────────────────
+Pos 10679: U+2500 context: ────────────────────
+Pos 10680: U+2500 context: ────────────────────
+Pos 10681: U+2500 context: ────────────────────
+Pos 10682: U+2500 context: ────────────────────
+Pos 10683: U+2500 context: ────────────────────
+Pos 10684: U+2500 context: ────────────────────
+Pos 10685: U+2500 context: ────────────────────
+Pos 10686: U+2500 context: ────────────────────
+Pos 10687: U+2500 context: ────────────────────
+Pos 10688: U+2500 context: ────────────────────
+Pos 10689: U+2500 context: ────────────────────
+Pos 10690: U+2500 context: ────────────────────
+Pos 10691: U+2500 context: ────────────────────
+Pos 10692: U+2500 context: ────────────────────
+Pos 10693: U+2500 context: ────────────────────
+Pos 10694: U+2500 context: ────────────────────
+Pos 10695: U+2500 context: ─────────────────── 
+Pos 10696: U+2500 context: ────────────────── *
+Pos 10697: U+2500 context: ───────────────── */
+Pos 10698: U+2500 context: ──────────────── */
+
+Pos 10699: U+2500 context: ─────────────── */
+ 
+Pos 10700: U+2500 context: ────────────── */
+  
+Pos 10701: U+2500 context: ───────────── */
+  c
+Pos 10702: U+2500 context: ──────────── */
+  co
+Pos 10703: U+2500 context: ─────────── */
+  con
+Pos 10765: U+00D3 context: CONCILIACIÓN${C.rese
+Pos 11570: U+2500 context:   }
+
+  /* ── 8. Inva
+Pos 11571: U+2500 context:  }
+
+  /* ── 8. Invar
+Pos 11588: U+2500 context: variantes ──────────
+Pos 11589: U+2500 context: ariantes ───────────
+Pos 11590: U+2500 context: riantes ────────────
+Pos 11591: U+2500 context: iantes ─────────────
+Pos 11592: U+2500 context: antes ──────────────
+Pos 11593: U+2500 context: ntes ───────────────
+Pos 11594: U+2500 context: tes ────────────────
+Pos 11595: U+2500 context: es ─────────────────
+Pos 11596: U+2500 context: s ──────────────────
+Pos 11597: U+2500 context:  ───────────────────
+Pos 11598: U+2500 context: ────────────────────
+Pos 11599: U+2500 context: ────────────────────
+Pos 11600: U+2500 context: ────────────────────
+Pos 11601: U+2500 context: ────────────────────
+Pos 11602: U+2500 context: ────────────────────
+Pos 11603: U+2500 context: ────────────────────
+Pos 11604: U+2500 context: ────────────────────
+Pos 11605: U+2500 context: ────────────────────
+Pos 11606: U+2500 context: ────────────────────
+Pos 11607: U+2500 context: ────────────────────
+Pos 11608: U+2500 context: ────────────────────
+Pos 11609: U+2500 context: ────────────────────
+Pos 11610: U+2500 context: ────────────────────
+Pos 11611: U+2500 context: ────────────────────
+Pos 11612: U+2500 context: ────────────────────
+Pos 11613: U+2500 context: ────────────────────
+Pos 11614: U+2500 context: ────────────────────
+Pos 11615: U+2500 context: ────────────────────
+Pos 11616: U+2500 context: ────────────────────
+Pos 11617: U+2500 context: ────────────────────
+Pos 11618: U+2500 context: ────────────────────
+Pos 11619: U+2500 context: ────────────────────
+Pos 11620: U+2500 context: ────────────────────
+Pos 11621: U+2500 context: ────────────────────
+Pos 11622: U+2500 context: ────────────────────
+Pos 11623: U+2500 context: ────────────────────
+Pos 11624: U+2500 context: ────────────────────
+Pos 11625: U+2500 context: ────────────────────
+Pos 11626: U+2500 context: ────────────────────
+Pos 11627: U+2500 context: ────────────────────
+Pos 11628: U+2500 context: ────────────────────
+Pos 11629: U+2500 context: ────────────────────
+Pos 11630: U+2500 context: ─────────────────── 
+Pos 11631: U+2500 context: ────────────────── *
+Pos 11632: U+2500 context: ───────────────── */
+Pos 11633: U+2500 context: ──────────────── */
+
+Pos 11634: U+2500 context: ─────────────── */
+ 
+Pos 11635: U+2500 context: ────────────── */
+  
+Pos 11636: U+2500 context: ───────────── */
+  /
+Pos 11637: U+2500 context: ──────────── */
+  //
+Pos 11638: U+2500 context: ─────────── */
+  //
+
+Pos 12225: U+00F3 context: eck = (pasó: boolean
+Pos 12287: U+00F3 context:    if (pasó) {
+     
+Pos 12421: U+00F3 context: oft = (pasó: boolean
+Pos 12483: U+00F3 context:    if (pasó) {
+     
+Pos 13731: U+00B7 context: ss.join(" · "))
+    
+Pos 13828: U+00B7 context: vo.join(" · "))
+  }
+
+Pos 15309: U+00B7 context: ia.join(" · "),
+    
+Pos 15575: U+00B7 context: to.join(" · "))
+  }
+
+Pos 15901: U+00B7 context: as.join(" · "))
+  }
+
+Pos 16334: U+00B7 context: ma.join(" · "))
+  }
+
+Pos 17064: U+00B7 context: do.join(" · "))
+  }
+
+Pos 17189: U+00B7 context: +
+      ` · ${avisos
+Pos 17306: U+2500 context:   )
+
+  /* ── 9. Vere
+Pos 17307: U+2500 context:  )
+
+  /* ── 9. Vered
+Pos 17322: U+2500 context: Veredicto ──────────
+Pos 17323: U+2500 context: eredicto ───────────
+Pos 17324: U+2500 context: redicto ────────────
+Pos 17325: U+2500 context: edicto ─────────────
+Pos 17326: U+2500 context: dicto ──────────────
+Pos 17327: U+2500 context: icto ───────────────
+Pos 17328: U+2500 context: cto ────────────────
+Pos 17329: U+2500 context: to ─────────────────
+Pos 17330: U+2500 context: o ──────────────────
+Pos 17331: U+2500 context:  ───────────────────
+Pos 17332: U+2500 context: ────────────────────
+Pos 17333: U+2500 context: ────────────────────
+Pos 17334: U+2500 context: ────────────────────
+Pos 17335: U+2500 context: ────────────────────
+Pos 17336: U+2500 context: ────────────────────
+Pos 17337: U+2500 context: ────────────────────
+Pos 17338: U+2500 context: ────────────────────
+Pos 17339: U+2500 context: ────────────────────
+Pos 17340: U+2500 context: ────────────────────
+Pos 17341: U+2500 context: ────────────────────
+Pos 17342: U+2500 context: ────────────────────
+Pos 17343: U+2500 context: ────────────────────
+Pos 17344: U+2500 context: ────────────────────
+Pos 17345: U+2500 context: ────────────────────
+Pos 17346: U+2500 context: ────────────────────
+Pos 17347: U+2500 context: ────────────────────
+Pos 17348: U+2500 context: ────────────────────
+Pos 17349: U+2500 context: ────────────────────
+Pos 17350: U+2500 context: ────────────────────
+Pos 17351: U+2500 context: ────────────────────
+Pos 17352: U+2500 context: ────────────────────
+Pos 17353: U+2500 context: ────────────────────
+Pos 17354: U+2500 context: ────────────────────
+Pos 17355: U+2500 context: ────────────────────
+Pos 17356: U+2500 context: ────────────────────
+Pos 17357: U+2500 context: ────────────────────
+Pos 17358: U+2500 context: ────────────────────
+Pos 17359: U+2500 context: ────────────────────
+Pos 17360: U+2500 context: ────────────────────
+Pos 17361: U+2500 context: ────────────────────
+Pos 17362: U+2500 context: ────────────────────
+Pos 17363: U+2500 context: ────────────────────
+Pos 17364: U+2500 context: ────────────────────
+Pos 17365: U+2500 context: ────────────────────
+Pos 17366: U+2500 context: ─────────────────── 
+Pos 17367: U+2500 context: ────────────────── *
+Pos 17368: U+2500 context: ───────────────── */
+Pos 17369: U+2500 context: ──────────────── */
+
+Pos 17370: U+2500 context: ─────────────── */
+ 
+Pos 17371: U+2500 context: ────────────── */
+  
+Pos 17372: U+2500 context: ───────────── */
+  c
+Pos 17373: U+2500 context: ──────────── */
+  co
+Pos 17374: U+2500 context: ─────────── */
+  con
+Pos 18254: U+2500 context: h }
+}
+
+// ── CLI ───
+Pos 18255: U+2500 context:  }
+}
+
+// ── CLI ────
+Pos 18261: U+2500 context: // ── CLI ──────────
+Pos 18262: U+2500 context: / ── CLI ───────────
+Pos 18263: U+2500 context:  ── CLI ────────────
+Pos 18264: U+2500 context: ── CLI ─────────────
+Pos 18265: U+2500 context: ─ CLI ──────────────
+Pos 18266: U+2500 context:  CLI ───────────────
+Pos 18267: U+2500 context: CLI ────────────────
+Pos 18268: U+2500 context: LI ─────────────────
+Pos 18269: U+2500 context: I ──────────────────
+Pos 18270: U+2500 context:  ───────────────────
+Pos 18271: U+2500 context: ────────────────────
+Pos 18272: U+2500 context: ────────────────────
+Pos 18273: U+2500 context: ────────────────────
+Pos 18274: U+2500 context: ────────────────────
+Pos 18275: U+2500 context: ────────────────────
+Pos 18276: U+2500 context: ────────────────────
+Pos 18277: U+2500 context: ────────────────────
+Pos 18278: U+2500 context: ────────────────────
+Pos 18279: U+2500 context: ────────────────────
+Pos 18280: U+2500 context: ────────────────────
+Pos 18281: U+2500 context: ────────────────────
+Pos 18282: U+2500 context: ────────────────────
+Pos 18283: U+2500 context: ────────────────────
+Pos 18284: U+2500 context: ────────────────────
+Pos 18285: U+2500 context: ────────────────────
+Pos 18286: U+2500 context: ────────────────────
+Pos 18287: U+2500 context: ────────────────────
+Pos 18288: U+2500 context: ────────────────────
+Pos 18289: U+2500 context: ────────────────────
+Pos 18290: U+2500 context: ────────────────────
+Pos 18291: U+2500 context: ────────────────────
+Pos 18292: U+2500 context: ────────────────────
+Pos 18293: U+2500 context: ────────────────────
+Pos 18294: U+2500 context: ────────────────────
+Pos 18295: U+2500 context: ────────────────────
+Pos 18296: U+2500 context: ────────────────────
+Pos 18297: U+2500 context: ────────────────────
+Pos 18298: U+2500 context: ────────────────────
+Pos 18299: U+2500 context: ────────────────────
+Pos 18300: U+2500 context: ────────────────────
+Pos 18301: U+2500 context: ────────────────────
+Pos 18302: U+2500 context: ────────────────────
+Pos 18303: U+2500 context: ────────────────────
+Pos 18304: U+2500 context: ────────────────────
+Pos 18305: U+2500 context: ────────────────────
+Pos 18306: U+2500 context: ────────────────────
+Pos 18307: U+2500 context: ────────────────────
+Pos 18308: U+2500 context: ────────────────────
+Pos 18309: U+2500 context: ────────────────────
+Pos 18310: U+2500 context: ────────────────────
+Pos 18311: U+2500 context: ────────────────────
+Pos 18312: U+2500 context: ────────────────────
+Pos 18313: U+2500 context: ────────────────────
+Pos 18314: U+2500 context: ────────────────────
+Pos 18315: U+2500 context: ────────────────────
+Pos 18316: U+2500 context: ───────────────────
+
+Pos 18317: U+2500 context: ──────────────────
+/
+Pos 18318: U+2500 context: ─────────────────
+//
+Pos 18319: U+2500 context: ────────────────
+//
+
+Pos 18320: U+2500 context: ───────────────
+//
+/
+Pos 18321: U+2500 context: ──────────────
+//
+//
+Pos 18322: U+2500 context: ─────────────
+//
+// 
+Pos 18323: U+2500 context: ────────────
+//
+// S
+Pos 18324: U+2500 context: ───────────
+//
+// So

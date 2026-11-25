@@ -10,10 +10,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { fingerprint, recordFailure, MAX_CONSECUTIVE_IDENTICAL, MAX_TOTAL_FAILURES } from "../src/core/circuitBreaker.js"
-import { selectNextCard } from "../src/core/state.js"
-import { DEFAULT_LIMITS, type Card } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { fingerprint, recordFailure, MAX_CONSECUTIVE_IDENTICAL, MAX_TOTAL_FAILURES } from "../src/circuitBreaker.js"
+import { selectNextCard } from "../src/state.js"
+import { DEFAULT_LIMITS, type Card } from "../src/types.js"
 
 let tmp: string
 

@@ -9,8 +9,8 @@ import {
   isRunComplete,
   InvalidTransitionError,
   InvariantViolationError,
-} from "../src/core/state.js"
-import { DEFAULT_LIMITS, type Card, type OfficeState } from "../src/core/types.js"
+} from "../src/state.js"
+import { DEFAULT_LIMITS, type Card, type OfficeState } from "../src/types.js"
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

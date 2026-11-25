@@ -29,10 +29,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { buildPanel } from "../src/core/catalog.js"
-import { dispatchOffice } from "../src/core/dispatch.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { buildPanel } from "../src/catalog.js"
+import { dispatchOffice } from "../src/dispatch.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 let office: Office

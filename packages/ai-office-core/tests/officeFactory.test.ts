@@ -9,11 +9,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
-import { Office } from "../src/core/office.js";
-import { OfficeFactory } from "../src/core/officeFactory.js";
-import { scanCatalog } from "../src/core/catalog.js";
+import { Office } from "../src/office.js";
+import { OfficeFactory } from "../src/officeFactory.js";
+import { scanCatalog } from "../src/catalog.js";
 import { buildTools, type OficinaTool } from "../src/tools/index.js";
-import { DEFAULT_LIMITS } from "../src/core/types.js";
+import { DEFAULT_LIMITS } from "../src/types.js";
 
 let tmpBase: string;
 let tmpA: string;

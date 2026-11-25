@@ -3,8 +3,8 @@ import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
 import { globToRegex, matchesScope, extractPath } from "../src/hooks/scopeGuard.js"
-import { Office } from "../src/core/office.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 

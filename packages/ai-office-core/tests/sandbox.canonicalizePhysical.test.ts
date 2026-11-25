@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import fsSync from "node:fs"
 import path from "node:path"
 import os from "node:os"
-import { canonicalizePhysical, canonicalizeLexical } from "../src/core/sandbox.js"
+import { canonicalizePhysical, canonicalizeLexical } from "../src/sandbox.js"
 
 describe("canonicalizePhysical — ENOENT vs EPERM distinction", () => {
   let tmpDir: string

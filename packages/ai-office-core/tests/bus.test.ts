@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Bus, CHANNELS } from "../src/core/bus.js"
+import { Bus, CHANNELS } from "../src/bus.js"
 
 let tmp: string
 

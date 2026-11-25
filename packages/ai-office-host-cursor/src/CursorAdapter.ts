@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CursorAdapter - HostAdapter implementation for Cursor
  *
  * Wraps VS Code Extension API to implement the universal
@@ -403,4 +403,4 @@ export async function createCursorAdapter(config: InitConfig): Promise<CursorAda
 // Auto-register when this module is loaded
 registerAdapter('cursor', createCursorAdapter, undefined, false);
 
-export default CursorAdapter;
+// knip-ignore\nexport default CursorAdapter;

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { LeaseStore } from "../src/core/leases.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { LeaseStore } from "../src/leases.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 

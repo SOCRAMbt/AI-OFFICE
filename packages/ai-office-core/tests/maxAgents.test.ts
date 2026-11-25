@@ -8,9 +8,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
+import { Office } from "../src/office.js"
 import { buildTools, type OficinaTool } from "../src/tools/index.js"
-import { CONSERVATIVE_MAX_AGENTS, DEFAULT_LIMITS } from "../src/core/types.js"
+import { CONSERVATIVE_MAX_AGENTS, DEFAULT_LIMITS } from "../src/types.js"
 
 describe("/oficina --maxagents: tope persistido en el estado y respetado por dispatch", () => {
   let tmp: string
@@ -59,7 +59,7 @@ describe("/oficina --maxagents: tope persistido en el estado y respetado por dis
         "",
       ].join("\n"),
     )
-    const sc = await import("../src/core/catalog.js")
+    const sc = await import("../src/catalog.js")
     office = new Office({
       cwd: tmp,
       limits: DEFAULT_LIMITS,

@@ -8,9 +8,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
+import { Office } from "../src/office.js"
 import { buildTools, type OficinaTool } from "../src/tools/index.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 let office: Office
@@ -461,7 +461,7 @@ describe("F-QA-003: Fallback paths aislados por SHA256 (SEC-001)", () => {
   afterEach(async () => { await fs.rm(tmp, { recursive: true, force: true }) })
 
   it("proyectos homónimos tienen rutas alternativas distintas", async () => {
-    const { resolveAlternateOficinaDir } = await import("../src/core/paths.js")
+    const { resolveAlternateOficinaDir } = await import("../src/paths.js")
 
     const projA = path.join(tmp, "a", "app")
     const projB = path.join(tmp, "b", "app")

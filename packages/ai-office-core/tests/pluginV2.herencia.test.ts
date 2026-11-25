@@ -128,7 +128,7 @@ async function arrancar(sesiones: Record<string, Sesion>) {
 
 /** Crea una card con scope y la vincula a la sesion padre. */
 async function crearCardConScope(sessionID: string) {
-  const { Office } = await import("../src/core/office.js")
+  const { Office } = await import("../src/office.js")
   const office = new Office({ cwd: tmp })
   await office.init()
 
@@ -247,7 +247,7 @@ describe("El dispatch crea subagentes en v2", () => {
     const { tools, creados, prompts } = await arrancar(sesiones)
 
     // El plan tiene que existir antes del dispatch.
-    const { Office } = await import("../src/core/office.js")
+    const { Office } = await import("../src/office.js")
     const office = new Office({ cwd: tmp })
     await office.init()
     const state = await office.loadState("Objetivo")

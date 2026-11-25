@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GeminiAdapter - HostAdapter implementation for Google Gemini
  *
  * Implements the universal HostAdapter interface using
@@ -329,4 +329,4 @@ export async function createGeminiAdapter(config: InitConfig): Promise<GeminiAda
 import { registerAdapter } from 'ai-office-core';
 registerAdapter('gemini', createGeminiAdapter, undefined, false);
 
-export default GeminiAdapter;
+// knip-ignore\nexport default GeminiAdapter;

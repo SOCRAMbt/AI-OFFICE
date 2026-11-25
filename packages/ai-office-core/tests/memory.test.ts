@@ -8,7 +8,7 @@ import {
   memorySummary,
   recordGateOutcome,
   recordFailureFingerprint,
-} from "../src/core/memory.js"
+} from "../src/memory.js"
 
 let tmp: string
 beforeEach(async () => {

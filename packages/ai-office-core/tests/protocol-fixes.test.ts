@@ -13,8 +13,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { buildAgentPrompt } from "../src/core/dispatch.js"
+import { Office } from "../src/office.js"
+import { buildAgentPrompt } from "../src/dispatch.js"
 
 let tmp: string
 let office: Office

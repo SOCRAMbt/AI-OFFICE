@@ -16,9 +16,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { reconcile, inferCardStateFromDisk } from "../src/core/recovery.js"
-import { DEFAULT_LIMITS, type OfficeState, StateCorruptionError } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { reconcile, inferCardStateFromDisk } from "../src/recovery.js"
+import { DEFAULT_LIMITS, type OfficeState, StateCorruptionError } from "../src/types.js"
 
 let tmp: string
 let office: Office

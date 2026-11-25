@@ -9,8 +9,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { buildSystemPrompt } from "../src/core/systemPrompt.js"
+import { Office } from "../src/office.js"
+import { buildSystemPrompt } from "../src/systemPrompt.js"
 
 let tmp: string
 let office: Office

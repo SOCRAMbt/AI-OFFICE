@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
+import { Office } from "../src/office.js"
 import { buildTools, type OficinaTool } from "../src/tools/index.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 import v2Plugin from "../src/v2.js"
 
 let tmp: string

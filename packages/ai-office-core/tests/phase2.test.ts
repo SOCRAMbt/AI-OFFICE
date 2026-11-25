@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { DEFAULT_LIMITS, type OfficeState } from "../src/core/types.js"
-import { reconcile } from "../src/core/recovery.js"
-import type { CommandRunner } from "../src/core/gates.js"
+import { Office } from "../src/office.js"
+import { DEFAULT_LIMITS, type OfficeState } from "../src/types.js"
+import { reconcile } from "../src/recovery.js"
+import type { CommandRunner } from "../src/gates.js"
 
 let tmp: string
 let clock: number

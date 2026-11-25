@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
 
@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ['20', '22']
+        node: ['22', '24']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -35,11 +35,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ['20', '22']
+        node: ['22', '24']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -53,7 +53,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node: ['20', '22']
+        node: ['22', '24']
         os: [ubuntu-latest, windows-latest, macos-latest]
         platform: [opencode, cursor, codex, claude-code, grok, gemini]
         exclude:
@@ -63,9 +63,9 @@ jobs:
           - os: windows-latest
             platform: opencode
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -83,11 +83,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ['20', '22']
+        node: ['22', '24']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node ${{ matrix.node }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -111,34 +111,32 @@ jobs:
           - ai-office-host-gemini
           - ai-office-host-grok
           - ai-office-host-opencode
+          - ai-office-mcp
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Build ${{ matrix.package }}
-        working-directory: packages/${{ matrix.package }}
-        run: npm run build
+      - name: Build ${{ matrix.package }} with dependencies
+        run: npx turbo run build --filter=${{ matrix.package }}...
       - name: Typecheck ${{ matrix.package }}
-        working-directory: packages/${{ matrix.package }}
-        run: npm run typecheck
+        run: npx turbo run typecheck --filter=${{ matrix.package }}...
       - name: Test ${{ matrix.package }}
-        working-directory: packages/${{ matrix.package }}
-        run: npm run test
+        run: npx turbo run test --filter=${{ matrix.package }}...
 
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
@@ -155,11 +153,11 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
@@ -176,26 +174,26 @@ jobs:
     name: Knip Dead Code Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Run Knip
-        run: npx knip
+      - name: Run Knip (excluding unused exports)
+        run: npx knip --exclude exports
 
   docs:
     name: Docs Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
@@ -208,11 +206,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
@@ -224,7 +222,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

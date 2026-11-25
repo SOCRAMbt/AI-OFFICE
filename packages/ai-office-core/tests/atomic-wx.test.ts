@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { withWxLock, allocateSeq } from "../src/core/atomic.js"
-import { LeaseStore } from "../src/core/leases.js"
+import { withWxLock, allocateSeq } from "../src/atomic.js"
+import { LeaseStore } from "../src/leases.js"
 
 let tmp: string
 beforeEach(async () => {

@@ -10,14 +10,14 @@ import {
   analyzeShellCommand,
   SENSITIVE_PATTERNS,
   OFFICE_WRITABLE,
-} from "../src/core/sandbox.js"
+} from "../src/sandbox.js"
 import {
   pathsFromPatch,
   FILE_WRITE_TOOLS,
   SHELL_TOOLS,
 } from "../src/hooks/scopeGuard.js"
-import { safeId, safeJoin } from "../src/core/ids.js"
-import { snapshotTree, diffSnapshots } from "../src/core/tripwire.js"
+import { safeId, safeJoin } from "../src/ids.js"
+import { snapshotTree, diffSnapshots } from "../src/tripwire.js"
 
 let tmp: string
 

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { scanCatalog, matchCapabilities, rankCandidates } from "../src/core/catalog.js"
-import type { CatalogAgent } from "../src/core/types.js"
+import { scanCatalog, matchCapabilities, rankCandidates } from "../src/catalog.js"
+import type { CatalogAgent } from "../src/types.js"
 
 /**
  * Tests contra el repo real de agency-agents.

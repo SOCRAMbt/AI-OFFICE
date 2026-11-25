@@ -2,14 +2,46 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["src/v2.ts", "src/cli.ts"],
+      "entry": ["src/v2.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/*": {
-      "entry": ["src/index.ts", "src/*Adapter.ts"],
+    "packages/ai-office-core": {
+      "entry": ["src/index.ts", "src/cli.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-cli": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-opencode": {
+      "entry": ["src/OpenCodeAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-cursor": {
+      "entry": ["src/CursorAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-codex": {
+      "entry": ["src/CodexAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-claudecode": {
+      "entry": ["src/ClaudeCodeAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-grok": {
+      "entry": ["src/GrokAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-host-gemini": {
+      "entry": ["src/GeminiAdapter.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ai-office-mcp": {
+      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     }
   },
-  "ignore": ["**/dist/**", "**/node_modules/**", "**/*.test.ts"],
+  "ignore": ["**/dist/**", "**/node_modules/**", "**/*.test.ts", "**/*.spec.ts", "**/vitest.config.ts"],
   "ignoreDependencies": ["@opencode/plugin", "@opencode-ai/plugin"]
 }

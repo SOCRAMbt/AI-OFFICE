@@ -20,7 +20,7 @@ import {
   readCatalogSnapshot,
   FACTS_BEGIN,
   FACTS_END,
-} from "../src/core/docsync.js"
+} from "../src/docsync.js"
 
 const projectRoot = path.resolve(import.meta.dirname, "..", "..", "..")
 

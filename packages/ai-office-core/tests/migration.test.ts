@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { migrateState } from "../src/core/state.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { migrateState } from "../src/state.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 describe("Migración v1 → v2", () => {
   const v1 = {

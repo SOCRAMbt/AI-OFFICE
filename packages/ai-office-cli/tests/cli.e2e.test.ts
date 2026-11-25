@@ -23,18 +23,21 @@ beforeAll(async () => {
   try {
     await fs.access(cliEntry)
   } catch {
-    await run(process.execPath, [path.join(packageRoot, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', 'tsconfig.build.json'], {
+    // Use npx tsc which will find typescript from the root workspace
+    await run('npx', ['tsc', '-p', 'tsconfig.build.json'], {
       cwd: packageRoot,
       timeout: 300_000,
+      shell: true,
     })
   }
 }, 300_000)
 
 describe('CLI E2E (smoke)', () => {
   it('build compiles the CLI', async () => {
-    await run(process.execPath, [path.join(packageRoot, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', 'tsconfig.build.json'], {
+    await run('npx', ['tsc', '-p', 'tsconfig.build.json'], {
       cwd: packageRoot,
       timeout: 300_000,
+      shell: true,
     })
     await expect(fs.access(cliEntry)).resolves.toBeUndefined()
   })

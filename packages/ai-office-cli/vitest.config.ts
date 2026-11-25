@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     testTimeout: 180000,
     hookTimeout: 180000,
+    exclude: ['**/node_modules/**', '**/assets/**'],
   },
 })

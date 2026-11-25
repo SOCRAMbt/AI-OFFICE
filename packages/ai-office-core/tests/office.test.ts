@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { DEFAULT_LIMITS, type OfficeState } from "../src/core/types.js"
-import type { CommandRunner } from "../src/core/gates.js"
+import { Office } from "../src/office.js"
+import { DEFAULT_LIMITS, type OfficeState } from "../src/types.js"
+import type { CommandRunner } from "../src/gates.js"
 
 let tmp: string
 let clock: number
@@ -140,7 +140,7 @@ describe("Ciclo completo de la oficina", () => {
     // Los gates dicen que el código está sano. La evidencia dice que el
     // objetivo está cumplido. Son dos veredictos distintos y hacen falta
     // los dos para cerrar.
-    const { evidenceFromArtifact } = await import("../src/core/evidence.js")
+    const { evidenceFromArtifact } = await import("../src/evidence.js")
     const cardConCriterios = state2.cards["T-00"]!
     await office.evidence.add(
       "T-00",

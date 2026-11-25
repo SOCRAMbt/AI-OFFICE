@@ -19,8 +19,8 @@ import {
   buildPanel,
   canonicalConcepts,
   titleize,
-} from "../src/core/catalog.js"
-import { createFicha } from "../src/core/factory.js"
+} from "../src/catalog.js"
+import { createFicha } from "../src/factory.js"
 
 let tmp: string
 

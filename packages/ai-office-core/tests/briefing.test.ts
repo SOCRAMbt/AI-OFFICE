@@ -5,8 +5,8 @@ import {
   renderBriefingPrompt,
   BRIEFING_SECTIONS,
   type BriefingContext,
-} from "../src/core/briefing.js"
-import type { Card, Ficha } from "../src/core/types.js"
+} from "../src/briefing.js"
+import type { Card, Ficha } from "../src/types.js"
 
 function makeFicha(overrides: Partial<Ficha> = {}): Ficha {
   return {

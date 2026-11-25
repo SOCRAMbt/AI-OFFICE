@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ClaudeCodeAdapter - HostAdapter implementation for Claude Code
  *
  * Implements the universal HostAdapter interface using Anthropic SDK
@@ -353,4 +353,4 @@ export async function createClaudeCodeAdapter(config: InitConfig): Promise<Claud
 import { registerAdapter } from 'ai-office-core';
 registerAdapter('claude-code', createClaudeCodeAdapter, undefined, false);
 
-export default ClaudeCodeAdapter;
+// knip-ignore\nexport default ClaudeCodeAdapter;

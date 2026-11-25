@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OpenCodeAdapter - HostAdapter implementation for OpenCode
  *
  * Wraps OpenCode's plugin context (ctx) to implement the universal
@@ -476,7 +476,7 @@ export class OpenCodeAdapter implements HostAdapter {
   // Internal v2.ts logic moved here
   // ---------------------------------------------------------------------------
 
-  /** Caché de directorio por sesión: cada ventana/proyecto usa SU oficina. */
+  /** CachÃ© de directorio por sesiÃ³n: cada ventana/proyecto usa SU oficina. */
   async resolveSessionDir(sessionID: string): Promise<string> {
     const cached = this.sessionDirCache.get(sessionID);
     if (cached) return cached;
@@ -490,7 +490,7 @@ export class OpenCodeAdapter implements HostAdapter {
         return dir.trim();
       }
     } catch (err) {
-      log.debug('no se pudo resolver el directorio de la sesión', {
+      log.debug('no se pudo resolver el directorio de la sesiÃ³n', {
         sessionID,
         error: String(err),
       });
@@ -634,7 +634,7 @@ export class OpenCodeAdapter implements HostAdapter {
                 '',
                 ...(mesaBrief ? ['---', '', '**La mesa:**', '', mesaBrief] : []),
                 '',
-                'Usá `oficina_board` para el panorama y `oficina_mesa` para ver la mesa.',
+                'UsÃ¡ `oficina_board` para el panorama y `oficina_mesa` para ver la mesa.',
                 'No declares la corrida terminada mientras queden cards sin DONE.',
               ].join('\n');
 
@@ -743,12 +743,12 @@ export class OpenCodeAdapter implements HostAdapter {
       }
     });
 
-    /* ────────────────────────────────────────────────────────────────────────
+    /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      * 3. TRIPWIRE
      *
      * Fotografia el arbol antes de una tool y compara despues. Lo que cambio
      * fuera del scope se reporta por el bus: detecta, no revierte.
-     * ──────────────────────────────────────────────────────────────────────── */
+     * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
     await this.ctx.tool.hook('execute.after', async (event: any) => {
       const scope = await this.scopeOf(event.sessionID);
@@ -779,10 +779,10 @@ export class OpenCodeAdapter implements HostAdapter {
             message:
               `Se detectaron ${cambios.length} cambio(s) fuera del scope de la card ${scope.card.id} ` +
               `durante \`${event.tool}\`:\n${detalle}\n\n` +
-              `${incomplete ? '⚠️ Inspección incompleta (límite de archivos alcanzado). ' : ''}` +
-              `${errors.length > 0 ? `⚠️ ${errors.length} error(es) durante la inspección. ` : ''}` +
-              `${armFailed ? '⚠️ No se pudo tomar la instantánea inicial (arm falló). ' : ''}` +
-              `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
+              `${incomplete ? 'âš ï¸ InspecciÃ³n incompleta (lÃ­mite de archivos alcanzado). ' : ''}` +
+              `${errors.length > 0 ? `âš ï¸ ${errors.length} error(es) durante la inspecciÃ³n. ` : ''}` +
+              `${armFailed ? 'âš ï¸ No se pudo tomar la instantÃ¡nea inicial (arm fallÃ³). ' : ''}` +
+              `Si fue deliberado, avisalo por el bus. Si no, revisÃ© lo que tocaste.`,
           },
         })
         .catch(() => undefined);
@@ -840,4 +840,4 @@ export async function createOpenCodeAdapter(config: InitConfig): Promise<OpenCod
 import { registerAdapter } from 'ai-office-core';
 registerAdapter('opencode', createOpenCodeAdapter, undefined, true);
 
-export default OpenCodeAdapter;
+// knip-ignore\nexport default OpenCodeAdapter;

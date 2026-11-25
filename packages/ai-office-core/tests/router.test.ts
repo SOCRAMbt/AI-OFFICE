@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
-import { routeCard, routeHelp, ownerStreak, ROLE_BY_CARD_TYPE } from "../src/core/router.js"
-import { decideRetry, recordRejection, hasBudget } from "../src/core/retry.js"
-import { DEFAULT_LIMITS, type Card, type OfficeState, type Roster, type RosterEntry } from "../src/core/types.js"
+import { routeCard, routeHelp, ownerStreak, ROLE_BY_CARD_TYPE } from "../src/router.js"
+import { decideRetry, recordRejection, hasBudget } from "../src/retry.js"
+import { DEFAULT_LIMITS, type Card, type OfficeState, type Roster, type RosterEntry } from "../src/types.js"
 
 function entry(overrides: Partial<RosterEntry> = {}): RosterEntry {
   return {

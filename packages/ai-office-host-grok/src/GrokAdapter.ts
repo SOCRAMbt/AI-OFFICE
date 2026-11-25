@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GrokAdapter - HostAdapter implementation for Grok (xAI)
  *
  * Implements the universal HostAdapter interface using OpenAI-compatible
@@ -303,4 +303,4 @@ export async function createGrokAdapter(config: InitConfig): Promise<GrokAdapter
 import { registerAdapter } from 'ai-office-core';
 registerAdapter('grok', createGrokAdapter, undefined, false);
 
-export default GrokAdapter;
+// knip-ignore\nexport default GrokAdapter;

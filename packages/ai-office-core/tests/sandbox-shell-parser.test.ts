@@ -3,7 +3,7 @@
  * `uncertain` (permitido + tripwire), nunca como certeza de escritura.
  */
 import { describe, it, expect } from "vitest"
-import { analyzeShellCommand } from "../src/core/sandbox.js"
+import { analyzeShellCommand } from "../src/sandbox.js"
 
 describe("analyzeShellCommand: targets de install son inciertos, no archivos", () => {
   it("pip install de un paquete con redirect 2>&1 no devuelve targets certeros", () => {

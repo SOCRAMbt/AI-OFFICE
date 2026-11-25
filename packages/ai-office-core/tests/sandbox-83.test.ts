@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { checkScope, resolveTarget, isInsideRoot } from "../src/core/sandbox.js"
+import { checkScope, resolveTarget, isInsideRoot } from "../src/sandbox.js"
 
 let tmp: string
 let root: string
@@ -199,7 +199,7 @@ describe("Absolute path normalization (critical for GitHub Actions Windows)", ()
   })
 
   it("canonicalizePhysical normalizes absolute path with non-existent tail", async () => {
-    const { canonicalizePhysical } = await import("../src/core/sandbox.js")
+    const { canonicalizePhysical } = await import("../src/sandbox.js")
     const deepAbsolute = path.join(root, ".oficina", "artifacts", "T-00", "handoff.md")
     // None of .oficina/artifacts/T-00 exist
 
@@ -254,7 +254,7 @@ describe("8.3 alias integration test (requires Windows with 8.3 aliases enabled)
 
   describe.skipIf(process.platform !== "win32")("en vivo sobre Windows", () => {
     it("detects if the temp directory uses 8.3 aliases", async () => {
-      const { canonicalizePhysical } = await import("../src/core/sandbox.js")
+      const { canonicalizePhysical } = await import("../src/sandbox.js")
       const tempPath = await fs.realpath(os.tmpdir())
       const normalized = await canonicalizePhysical(tempPath)
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { auditRepo, loadTraits, selectTraitsForCard } from "../src/core/traits.js"
+import { auditRepo, loadTraits, selectTraitsForCard } from "../src/traits.js"
 
 let tmp: string
 beforeEach(async () => {

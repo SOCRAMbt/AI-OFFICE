@@ -14,12 +14,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { Bus, CHANNELS } from "../src/core/bus.js"
-import { LeaseStore } from "../src/core/leases.js"
-import { withLock, writeExclusive } from "../src/core/atomic.js"
-import { safeId } from "../src/core/ids.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { Bus, CHANNELS } from "../src/bus.js"
+import { LeaseStore } from "../src/leases.js"
+import { withLock, writeExclusive } from "../src/atomic.js"
+import { safeId } from "../src/ids.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 

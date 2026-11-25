@@ -4,7 +4,7 @@
  * del padre; si el host no lo reporta, dejamos el default del host.
  */
 import { describe, it, expect } from "vitest";
-import { childModelFrom } from "../src/core/childModel.js";
+import { childModelFrom } from "../src/childModel.js";
 
 describe("childModelFrom: herencia de modelo del tap padre", () => {
   it("hereda id + providerID + variant del modelo del padre", () => {

@@ -1,36 +1,79 @@
+# .gitignore - Files to exclude from git
+
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-coverage/
+build/
 *.tsbuildinfo
-# Estado de corrida del propio plugin (runtime, por-proyecto, nunca en el repo)
-.oficina/
+
+# Turbo
+.turbo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Environment files
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
 
-# agentes materializados por corridas de oficina en este repo
-.opencode/
-# PERO los agentes fabricados se guardan para el catálogo vivo:
-!.opencode/agents/
-.oficina-demo/
+# Turbo cache
+.turbo/
 
-# screenshots locales/de trabajo (no van al repo público ni al paquete npm)
-dashboard/shots/
+# Generated docs
+docs/api/
 
-# archivos de marketing y auditoría (no van al repo público)
-docs/archive/
-.agents/skills/
-docs/SHOW-HN-DRAFT.md
+# Misc
+*.tgz
+.nyc_output/
 
-# Archivos adjuntos privados de Hermes
-.hermes/desktop-attachments/
+# Vite
+dist-ssr/
+*.local
 
-# Submódulos de benchmarks (no van al repo)
+# TypeScript cache
+*.tsbuildinfo
+
+# vitest
+vitest.config.ts.timestamp-*.map
+
+# .oficina (runtime state)
+.oficina/
+
+# Traits (runtime)
+traits/
+
+# Benchmarks submodules
 benchmarks/proof-of-value/tasks/*/ky-repo/
 benchmarks/proof-of-value/tasks/*/parse-json-repo/
 benchmarks/proof-of-value/tasks/*/type-fest-repo/
-nul
 
-node_modules/
-.turbo/
+# Private keys and secrets
+*.pem
+*.key
+*.crt
+
+# IDE/Editor
+*.swp
+*.swo
+*~
+
+# Local development
+.local/
+*.local

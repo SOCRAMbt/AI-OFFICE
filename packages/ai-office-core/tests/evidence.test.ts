@@ -24,7 +24,7 @@ import {
   type EvidenceCard,
   type EvidenceGraph,
   type EvidenceNode,
-} from "../src/core/evidence.js"
+} from "../src/evidence.js"
 
 /** Reloj fijo: 2023-11-14T22:13:20.000Z. */
 const FIXED_CLOCK = () => 1_700_000_000_000

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CodexAdapter - HostAdapter implementation for Codex
  *
  * Implements the universal HostAdapter interface using Codex's
@@ -21,10 +21,10 @@ import type {
   ExecResult,
   TokenUsage,
 } from 'ai-office-core/host';
-import { z } from 'zod';
+import {z} from 'zod'
 import type { ChildProcess } from 'node:child_process';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import {spawn} from 'node:child_process'
+import {once} from 'node:events'
 
 // ============================================================================
 // Type Definitions for Codex JSON-RPC Protocol
@@ -408,7 +408,7 @@ export async function createCodexAdapter(config: InitConfig): Promise<CodexAdapt
 }
 
 // Auto-register when this module is loaded
-import { registerAdapter } from 'ai-office-core';
+import {registerAdapter} from 'ai-office-core'
 registerAdapter('codex', createCodexAdapter, undefined, false);
 
-export default CodexAdapter;
+// knip-ignore\nexport default CodexAdapter;

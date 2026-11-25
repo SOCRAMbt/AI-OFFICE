@@ -14,9 +14,9 @@ import {
   EMPTY_TEST_GATE_REASON,
   type CommandRunner,
   type Tooling,
-} from "../src/core/gates.js"
-import { Office } from "../src/core/office.js"
-import { DEFAULT_LIMITS } from "../src/core/types.js"
+} from "../src/gates.js"
+import { Office } from "../src/office.js"
+import { DEFAULT_LIMITS } from "../src/types.js"
 
 let tmp: string
 

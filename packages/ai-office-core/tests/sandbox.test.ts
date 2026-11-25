@@ -28,7 +28,7 @@ import {
   isInsideRoot,
   matchesScope,
   resolveTarget,
-} from "../src/core/sandbox.js"
+} from "../src/sandbox.js"
 
 let tmp: string
 let root: string

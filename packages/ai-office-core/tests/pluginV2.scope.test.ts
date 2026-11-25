@@ -111,7 +111,7 @@ async function arrancarConCard() {
 
 /** Crea una card con scope y le asigna la sesion. */
 async function crearCardConScope(): Promise<string> {
-  const { Office } = await import("../src/core/office.js")
+  const { Office } = await import("../src/office.js")
   const office = new Office({ cwd: tmp })
   await office.init()
 

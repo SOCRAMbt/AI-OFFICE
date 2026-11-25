@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import path from "node:path"
 import os from "node:os"
 import fs from "node:fs/promises"
-import { Office } from "../src/core/office.js"
-import { dispatchOffice, buildAgentPrompt, agentNameFor, materializeAgent } from "../src/core/dispatch.js"
-import { scanCatalog } from "../src/core/catalog.js"
-import { buildBriefing } from "../src/core/briefing.js"
-import { DEFAULT_LIMITS, type Card } from "../src/core/types.js"
+import { Office } from "../src/office.js"
+import { dispatchOffice, buildAgentPrompt, agentNameFor, materializeAgent } from "../src/dispatch.js"
+import { scanCatalog } from "../src/catalog.js"
+import { buildBriefing } from "../src/briefing.js"
+import { DEFAULT_LIMITS, type Card } from "../src/types.js"
 
 let tmp: string
 let office: Office
