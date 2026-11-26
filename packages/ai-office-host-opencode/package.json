@@ -35,7 +35,7 @@
                             "@opencode-ai/plugin":  "^1.19.5",
                             "@opencode/plugin":  "^2.3.2",
                             "@types/node":  "^26.6.6",
-                            "typescript":  "^7.0.2",
+                            "typescript":  "^6.0.3",
                             "vitest":  "^5.0.5"
                         },
     "publishConfig":  {

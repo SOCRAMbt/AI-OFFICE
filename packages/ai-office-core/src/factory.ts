@@ -22,9 +22,9 @@
  */
 
 import type { Ficha, FichaSource, CoordinatorId } from "./types.js"
-import { capabilityTokens } from "./catalog.js"
-import { shortId } from "./fsx.js"
-import { ensureDir, writeAtomic } from "./fsx.js"
+import {capabilityTokens} from './catalog.js'
+import {shortId} from './fsx.js'
+import {ensureDir, writeAtomic} from './fsx.js'
 import path from "node:path"
 
 export interface FactoryInput {

@@ -9,8 +9,8 @@
  * oficina — leído del disco, no del contexto que se está por perder.
  */
 
-import type { Office } from "../core/office.js"
-import { logger } from "../core/log.js"
+import type { Office } from "../office.js"
+import { logger } from "../log.js"
 
 const log = logger("oficina:compacting")
 

@@ -6,15 +6,15 @@
  * and runs AI-OFFICE on any supported platform.
  */
 
-import { Command } from 'commander';
+import {Command} from 'commander'
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
-import { AdapterFactory, detectPlatform } from 'ai-office-core/host';
-import { OfficeFactory } from 'ai-office-core';
+import {AdapterFactory, detectPlatform} from 'ai-office-core/host'
+import {OfficeFactory} from 'ai-office-core'
 import * as path from 'node:path';
-import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import {resolve} from 'node:path'
+import {existsSync} from 'node:fs'
 
 const program = new Command();
 
@@ -261,10 +261,10 @@ async function writeOpenCodeConfig(path: string): Promise<void> {
   const fs = await import('node:fs/promises');
   const config = `
 // AI-OFFICE OpenCode Plugin Entry
-import { Plugin } from "@opencode/plugin";
-import { OfficeFactory } from "ai-office-core";
-import { OpenCodeAdapter } from "ai-office-host-opencode";
-import { logger } from "ai-office-core";
+import {Plugin} from '@opencode/plugin'
+import {OfficeFactory} from 'ai-office-core'
+import {OpenCodeAdapter} from 'ai-office-host-opencode'
+import {logger} from 'ai-office-core'
 
 const log = logger("oficina:v2");
 

@@ -25,7 +25,7 @@
 import path from "node:path"
 import fs from "node:fs/promises"
 import type { CatalogAgent, CatalogMatch } from "./types.js"
-import { listDirs, listFiles, readText } from "./fsx.js"
+import {listDirs, listFiles, readText} from './fsx.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parser de frontmatter y de secciones
@@ -748,8 +748,6 @@ export function divisionAffinity(division: string, target: string[]): number {
 
   // El objetivo se canónica y se lematiza.
   const targetConcepts = canonicalConcepts(target.join(" "))
-  const targetStems = new Set([...targetConcepts].map(stem))
-
   // La división se expresa en conceptos, no en palabras sueltas.
   // El nombre de la división cuenta: una card de testing tiene que ir a la
   // división `testing`, y esa es la señal más obvia de todas.
@@ -791,7 +789,7 @@ export function matchCapabilities(
     ? catalog.filter((a) => a.division === options.division)
     : catalog
 
-  const targetRaw = capabilityTokens(target.join(" "))
+
   const targetTokens = canonicalConcepts(target.join(" "))
 
   // El IDF se calcula sobre el catalogo COMPLETO, no sobre el pool: la

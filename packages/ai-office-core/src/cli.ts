@@ -12,20 +12,20 @@
 import path from "node:path"
 import process from "node:process"
 import fs from "node:fs/promises"
-import { existsSync } from "node:fs"
-import { homedir } from "node:os"
-import { fileURLToPath } from "node:url"
-import { Office } from "./core/office.js"
-import { RosterStore } from "./core/roster.js"
-import { migrateState } from "./core/state.js"
-import { resolveProjectRoot } from "./core/paths.js"
-import { logger, configureLogging } from "./core/log.js"
-import { listFiles, readJson, readText, ensureDir, writeJsonAtomic } from "./core/fsx.js"
-import { cardDir } from "./core/paths.js"
-import { scanCatalog } from "./core/catalog.js"
-import type { OfficeState, Roster } from "./core/types.js"
-import { generateReportCard, formatReportCard } from "./core/reportCard.js"
-import { DEFAULT_LIMITS, StateCorruptionError } from "./core/types.js"
+import {existsSync} from 'node:fs'
+import {homedir} from 'node:os'
+import {fileURLToPath} from 'node:url'
+import {Office} from './office.js'
+import {RosterStore} from './roster.js'
+import {migrateState} from './state.js'
+import {resolveProjectRoot} from './paths.js'
+import {logger, configureLogging} from './log.js'
+import {listFiles, readJson, readText, ensureDir, writeJsonAtomic} from './fsx.js'
+import {cardDir} from './paths.js'
+import {scanCatalog} from './catalog.js'
+import type { OfficeState, Roster } from "./types.js"
+import {generateReportCard, formatReportCard} from './reportCard.js'
+import {DEFAULT_LIMITS, StateCorruptionError} from './types.js'
 
 const log = logger("oficina:cli")
 
@@ -140,9 +140,9 @@ async function main(): Promise<number> {
       } catch (err) {
         if (err instanceof StateCorruptionError && forceNewRun) {
           // El usuario solicita explícitamente crear una nueva corrida
-          const { createRun } = await import("./core/state.js")
-          const { DEFAULT_LIMITS } = await import("./core/types.js")
-          const { shortId } = await import("./core/fsx.js")
+          const { createRun } = await import("./state.js")
+          const { DEFAULT_LIMITS } = await import("./types.js")
+          const { shortId } = await import("./fsx.js")
           state = createRun(objective ?? "", shortId("run"), DEFAULT_LIMITS)
           await office.saveState(state)
         } else {
@@ -313,7 +313,7 @@ async function main(): Promise<number> {
     }
 
     case "dashboard": {
-      const { startDashboard, openBrowser } = await import("./core/dashboard.js")
+      const { startDashboard, openBrowser } = await import("./dashboard.js")
       const portArg = arg("port")
       const info = await startDashboard(office.paths.projectRoot, office.paths.officeDir, {
         port: portArg ? Number(portArg) : undefined,
@@ -532,9 +532,9 @@ async function main(): Promise<number> {
       } catch (err) {
         if (err instanceof StateCorruptionError) {
           // Si el estado está corrupto, creamos uno nuevo abandonado directamente
-          const { createRun } = await import("./core/state.js")
-          const { DEFAULT_LIMITS } = await import("./core/types.js")
-          const { shortId } = await import("./core/fsx.js")
+          const { createRun } = await import("./state.js")
+          const { DEFAULT_LIMITS } = await import("./types.js")
+          const { shortId } = await import("./fsx.js")
           state = createRun("(corrupto - reiniciado)", shortId("run"), DEFAULT_LIMITS)
         } else {
           throw err
@@ -602,7 +602,7 @@ async function statsCommand(cwd: string, json: boolean): Promise<number> {
     return fail("STATE_CORRUPT", `El estado de la corrida está corrupto (${statePath}): ${stateFile.message}`)
   }
   const state = migrateState(stateFile.value)
-  if (!state) return fail("STATE_CORRUPT", `El estado de la corrida no tiene un formato válido (${statePath}).`)
+  if (!state) return fail("STATE_CORRUPT", "invalid")
 
   const counts = { todo: 0, in_progress: 0, review: 0, done: 0, other: 0 }
   const cards = Object.values(state.cards ?? {})

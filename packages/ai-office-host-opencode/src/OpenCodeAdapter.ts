@@ -441,7 +441,7 @@ export class OpenCodeAdapter implements HostAdapter {
     return new Promise((resolve) => {
       const child = spawn(cmd, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+        shell: false,
       });
 
       let stdout = '';

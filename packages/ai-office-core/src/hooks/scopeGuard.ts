@@ -48,16 +48,16 @@
  * dice asi, en vez de prometer un aislamiento que no existe.
  */
 
-import type { Card, OfficeState } from "../core/types.js"
-import type { Office } from "../core/office.js"
+import type { Card, OfficeState } from "../types.js"
+import type { Office } from "../office.js"
 import {
   analyzeShellCommand,
   checkScope,
   globToRegex,
   matchesScope,
   type ScopeVerdict,
-} from "../core/sandbox.js"
-import { logger } from "../core/log.js"
+} from "../sandbox.js"
+import {logger} from '../log.js'
 
 const log = logger("oficina:scope-guard")
 

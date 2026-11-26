@@ -13,9 +13,9 @@
  * `core/systemPrompt.ts`, que es el unico lugar donde vive.
  */
 
-import type { Office } from "../core/office.js"
-import { buildSystemPrompt } from "../core/systemPrompt.js"
-import { logger } from "../core/log.js"
+import type { Office } from "../office.js"
+import { buildSystemPrompt } from "../systemPrompt.js"
+import { logger } from "../log.js"
 
 const log = logger("oficina:system")
 

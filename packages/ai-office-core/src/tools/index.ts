@@ -10,14 +10,14 @@
  * determinista donde tiene que serlo y creativo donde tiene que serlo.
  */
 
-import { z } from "zod"
-import type { Card, CardType, MessageKind, MessagePriority } from "../core/types.js"
-import { CHANNELS } from "../core/bus.js"
-import { Office, renderFicha } from "../core/office.js"
-import { renderBriefing } from "../core/briefing.js"
-import { dispatchOffice, reviveOwner } from "../core/dispatch.js"
-import { bootstrapIntegratorIfNeeded } from "../core/bootstrap.js"
-import { snapshotMesa, renderMesa } from "../core/mesa.js"
+import {z} from 'zod'
+import type { Card, CardType, MessageKind, MessagePriority } from "../types.js"
+import {CHANNELS} from '../bus.js'
+import {Office, renderFicha} from '../office.js'
+import {renderBriefing} from '../briefing.js'
+import {dispatchOffice, reviveOwner} from '../dispatch.js'
+import {bootstrapIntegratorIfNeeded} from '../bootstrap.js'
+import {snapshotMesa, renderMesa} from '../mesa.js'
 
 /**
  * La forma neutra de una tool.
@@ -1265,7 +1265,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
 
         if (args.action === "view") {
           const graph = await off.evidence.graph(card)
-          const { renderEvidenceGraph } = await import("../core/evidence.js")
+          const { renderEvidenceGraph } = await import("../evidence.js")
           return {
             title: `Evidencia: ${graph.requirements.length} requisitos, ${graph.missingMandatory.length} sin cubrir`,
             output: renderEvidenceGraph(graph),
@@ -1282,7 +1282,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
         }
 
         const { evidenceFromArtifact, evidenceFromInspection, evidenceFromExternal, evidenceFromTest } =
-          await import("../core/evidence.js")
+          await import("../evidence.js")
 
         const requirementText =
           args.requirement ?? card.acceptance[args.requirementIndex ?? 0] ?? ""
@@ -1305,7 +1305,7 @@ export function buildTools(office: Office, hooks: ToolHooks = {}): Record<string
 
         await off.evidence.add(card.id, node)
         const graph = await off.evidence.graph(card)
-        const { renderEvidenceGraph } = await import("../core/evidence.js")
+        const { renderEvidenceGraph } = await import("../evidence.js")
         return {
           title: `Evidencia registrada (${graph.complete ? "card completa" : "faltan requisitos"})`,
           output: renderEvidenceGraph(graph),

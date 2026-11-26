@@ -1,113 +1,90 @@
 {
-    "name": "oficina-opencode",
-    "version": "4.0.0",
-    "description": "Universal multi-agent framework for AI coding platforms (OpenCode, Cursor, Codex, Claude Code, Grok, Gemini)",
-    "license": "MIT",
-    "type": "module",
-    "engines": {
-        "node": ">=22"
-    },
-    "main": "./packages/ai-office-cli/dist/index.js",
-    "types": "./packages/ai-office-cli/dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./packages/ai-office-cli/dist/index.d.ts",
-            "import": "./packages/ai-office-cli/dist/index.js"
-        },
-        "./cli": {
-            "types": "./packages/ai-office-cli/dist/index.d.ts",
-            "import": "./packages/ai-office-cli/dist/index.js"
-        }
-    },
-    "bin": {
-        "oficina": "./packages/ai-office-cli/dist/index.js",
-        "ai-office": "./packages/ai-office-cli/dist/index.js"
-    },
-    "dependencies": {
-        "@opencode-ai/plugin": "^1.19.6",
-        "@opencode/plugin": "^2.3.2"
-    },
-    "files": [
-            "dist"
-        ],
-    "keywords": [
-        "opencode",
-        "opencode-plugin",
-        "opencode-agent",
-        "agents",
-        "orchestration",
-        "multi-agent",
-        "agent-mesh",
-        "peer-to-peer",
-        "durable-execution",
-        "workflow",
-        "state-machine",
-        "cli",
-        "ai",
-        "developer-tools",
-        "cli-tool",
-        "slash-command",
-        "agent-orchestration",
-        "opencode-command",
-        "plugin"
-    ],
-    "author": "SOCRAMbt <noreply@github.com>",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/SOCRAMbt/oficina-opencode.git"
-    },
-    "homepage": "https://github.com/SOCRAMbt/oficina-opencode#readme",
-    "bugs": {
-        "url": "https://github.com/SOCRAMbt/oficina-opencode/issues"
-    },
-    "publishConfig": {
-        "access": "public"
-    },
-    "scripts": {
-        "build": "turbo run build",
-        "dev": "turbo run dev",
-        "typecheck": "turbo run typecheck",
-        "test": "turbo run test",
-        "test:watch": "turbo run test:watch",
-        "coverage": "turbo run coverage",
-        "lint": "eslint . --ext .ts,.tsx",
-        "lint:fix": "eslint . --ext .ts,.tsx --fix",
-        "knip": "knip",
-        "semgrep": "semgrep scan --config=.semgrep.yml",
-        "docs:api": "typedoc --out docs/api packages/ai-office-core/src/index.ts",
-        "docs:sync": "tsx scripts/sync-docs.ts",
-        "docs:check": "turbo run docs:check",
-        "smoke": "tsx scripts/smoke-e2e.mts",
-        "prepublishOnly": "npm run typecheck && npm run test && npm run build"
-    },
-    "devDependencies": {
-        "@changesets/cli": "^3.0.3",
-        "@types/node": "^26.6.6",
-        
-        "@vitest/coverage-v8": "^5.1.1",
-        "eslint": "^9.39.5",
-
-        "tsx": "^4.20.3",
-        "turbo": "^2.0.0",
-        "typescript": "^7.0.2",
-        "typescript-eslint": "^8.73.0",
-        "vite": "^8.3.8",
-        "vitest": "^5.1.1",
-        "zod": "^4.6.7"
-    },
-    "packageManager": "npm@10.8.2",
-    "overrides": {
-        "zod": "^4.6.7",
-        "glob": "^10.0.0",
-        "minimatch": "^9.0.0",
-        "rimraf": "^5.0.0",
-        "cacache": "^18.0.0",
-        "make-fetch-happen": "^11.0.0",
-        "pacote": "^17.0.0",
-        "sigstore": "^2.0.0",
-        "tuf-js": "^2.0.0"
-    },
-    "workspaces": [
-        "packages/*"
-    ]
+  "name": "oficina-opencode",
+  "private": true,
+  "version": "4.0.0",
+  "description": "Universal multi-agent framework for AI coding platforms (OpenCode, Cursor, Codex, Claude Code, Grok, Gemini)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {},
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-agent",
+    "agents",
+    "orchestration",
+    "multi-agent",
+    "agent-mesh",
+    "peer-to-peer",
+    "durable-execution",
+    "workflow",
+    "state-machine",
+    "cli",
+    "ai",
+    "developer-tools",
+    "cli-tool",
+    "slash-command",
+    "agent-orchestration",
+    "opencode-command",
+    "plugin"
+  ],
+  "author": "SOCRAMbt <noreply@github.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SOCRAMbt/oficina-opencode.git"
+  },
+  "homepage": "https://github.com/SOCRAMbt/oficina-opencode#readme",
+  "bugs": {
+    "url": "https://github.com/SOCRAMbt/oficina-opencode/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "coverage": "turbo run coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "knip": "knip",
+    "semgrep": "semgrep scan --config=.semgrep.yml",
+    "docs:api": "typedoc --out docs/api packages/ai-office-core/src/index.ts",
+    "docs:sync": "tsx scripts/sync-docs.ts",
+    "docs:check": "turbo run docs:check",
+    "smoke": "tsx scripts/smoke-e2e.mts",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.1",
+    "eslint": "^9.39.5",
+    "tsx": "^4.20.3",
+    "turbo": "^2.0.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1",
+    "zod": "^4.6.7"
+  },
+  "packageManager": "npm@10.8.2",
+  "overrides": {
+    "zod": "^4.6.7",
+    "glob": "^10.0.0",
+    "minimatch": "^9.0.0",
+    "rimraf": "^5.0.0",
+    "cacache": "^18.0.0",
+    "make-fetch-happen": "^11.0.0",
+    "pacote": "^17.0.0",
+    "sigstore": "^2.0.0",
+    "tuf-js": "^2.0.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

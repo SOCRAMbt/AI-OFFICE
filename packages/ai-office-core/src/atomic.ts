@@ -36,7 +36,7 @@
 
 import fs from "node:fs/promises"
 import path from "node:path"
-import { logger } from "./log.js"
+import {logger} from './log.js'
 const log = logger("oficina:atomic")
 
 export interface ExclusiveWriteResult {
@@ -115,7 +115,6 @@ export async function withLock<T>(
 ): Promise<T> {
   const timeoutMs = options.timeoutMs ?? 30_000
   const staleMs = options.staleMs ?? 30_000
-  const caller = options.caller ?? "unknown"
   const deadline = Date.now() + timeoutMs
 
   // El lock vive como directorio. Su padre puede no existir todavia (el

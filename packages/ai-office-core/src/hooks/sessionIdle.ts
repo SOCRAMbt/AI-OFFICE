@@ -18,9 +18,9 @@
  * Sin esto, el peer mesh es un bus al que nadie mira.
  */
 
-import type { Office } from "../core/office.js"
-import { snapshotMesa, renderMesaBrief } from "../core/mesa.js"
-import { logger } from "../core/log.js"
+import type { Office } from "../office.js"
+import { snapshotMesa, renderMesaBrief } from "../mesa.js"
+import { logger } from "../log.js"
 
 const log = logger("oficina:session-idle")
 

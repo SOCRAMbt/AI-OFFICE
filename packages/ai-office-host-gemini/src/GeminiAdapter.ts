@@ -282,7 +282,7 @@ export class GeminiAdapter implements HostAdapter {
       const child = spawn(cmd, args, {
         cwd: this.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+        shell: false,
       });
 
       let stdout = '';

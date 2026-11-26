@@ -28,8 +28,8 @@
 
 import fs from "node:fs/promises"
 import path from "node:path"
-import { scanCatalog } from "./catalog.js"
-import { buildTools } from "./tools/index.js"
+import {scanCatalog} from './catalog.js'
+import {buildTools} from './tools/index.js'
 
 export const FACTS_BEGIN = "<!-- BEGIN GENERATED: facts -->"
 export const FACTS_END = "<!-- END GENERATED: facts -->"
