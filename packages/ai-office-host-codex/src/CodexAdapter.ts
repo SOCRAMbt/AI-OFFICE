@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CodexAdapter - HostAdapter implementation for Codex
  *
  * Implements the universal HostAdapter interface using Codex's

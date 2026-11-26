@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GeminiAdapter - HostAdapter implementation for Google Gemini
  *
  * Implements the universal HostAdapter interface using

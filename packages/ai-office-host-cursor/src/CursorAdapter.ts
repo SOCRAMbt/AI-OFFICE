@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CursorAdapter - HostAdapter implementation for Cursor
  *
  * Wraps VS Code Extension API to implement the universal

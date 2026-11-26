@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GrokAdapter - HostAdapter implementation for Grok (xAI)
  *
  * Implements the universal HostAdapter interface using OpenAI-compatible

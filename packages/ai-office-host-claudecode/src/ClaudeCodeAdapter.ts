@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ClaudeCodeAdapter - HostAdapter implementation for Claude Code
  *
  * Implements the universal HostAdapter interface using Anthropic SDK

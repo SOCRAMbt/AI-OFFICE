@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenCodeAdapter - HostAdapter implementation for OpenCode
  *
  * Wraps OpenCode's plugin context (ctx) to implement the universal
@@ -476,7 +476,7 @@ export class OpenCodeAdapter implements HostAdapter {
   // Internal v2.ts logic moved here
   // ---------------------------------------------------------------------------
 
-  /** CachÃ© de directorio por sesiÃ³n: cada ventana/proyecto usa SU oficina. */
+  /** Caché de directorio por sesión: cada ventana/proyecto usa SU oficina. */
   async resolveSessionDir(sessionID: string): Promise<string> {
     const cached = this.sessionDirCache.get(sessionID);
     if (cached) return cached;
@@ -490,7 +490,7 @@ export class OpenCodeAdapter implements HostAdapter {
         return dir.trim();
       }
     } catch (err) {
-      log.debug('no se pudo resolver el directorio de la sesiÃ³n', {
+      log.debug('no se pudo resolver el directorio de la sesión', {
         sessionID,
         error: String(err),
       });
@@ -634,7 +634,7 @@ export class OpenCodeAdapter implements HostAdapter {
                 '',
                 ...(mesaBrief ? ['---', '', '**La mesa:**', '', mesaBrief] : []),
                 '',
-                'UsÃ¡ `oficina_board` para el panorama y `oficina_mesa` para ver la mesa.',
+                'Usá `oficina_board` para el panorama y `oficina_mesa` para ver la mesa.',
                 'No declares la corrida terminada mientras queden cards sin DONE.',
               ].join('\n');
 
@@ -779,10 +779,10 @@ export class OpenCodeAdapter implements HostAdapter {
             message:
               `Se detectaron ${cambios.length} cambio(s) fuera del scope de la card ${scope.card.id} ` +
               `durante \`${event.tool}\`:\n${detalle}\n\n` +
-              `${incomplete ? 'âš ï¸ InspecciÃ³n incompleta (lÃ­mite de archivos alcanzado). ' : ''}` +
-              `${errors.length > 0 ? `âš ï¸ ${errors.length} error(es) durante la inspecciÃ³n. ` : ''}` +
-              `${armFailed ? 'âš ï¸ No se pudo tomar la instantÃ¡nea inicial (arm fallÃ³). ' : ''}` +
-              `Si fue deliberado, avisalo por el bus. Si no, revisÃ© lo que tocaste.`,
+              `${incomplete ? 'âš ï¸ Inspección incompleta (límite de archivos alcanzado). ' : ''}` +
+              `${errors.length > 0 ? `âš ï¸ ${errors.length} error(es) durante la inspección. ` : ''}` +
+              `${armFailed ? 'âš ï¸ No se pudo tomar la instantánea inicial (arm falló). ' : ''}` +
+              `Si fue deliberado, avisalo por el bus. Si no, revisé lo que tocaste.`,
           },
         })
         .catch(() => undefined);
